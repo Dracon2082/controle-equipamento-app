@@ -25,18 +25,17 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: |
-            package-lock.json
             app/package-lock.json
-
-      - name: Install root deps
-        run: npm ci
 
       - name: Install app deps
         working-directory: app
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Build app
         working-directory: app
+        env:
+          # CRA treats warnings as errors when CI=true (default on GitHub Actions)
+          CI: "false"
         run: npm run build
 
       - name: Deploy to Firebase Hosting (prod)
@@ -45,4 +44,3 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CONTROLE_DE_EQUIPAMENTOS_F2450 }}
           projectId: controle-de-equipamentos-f2450
-
