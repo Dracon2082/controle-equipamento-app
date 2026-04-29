@@ -44,3 +44,4 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CONTROLE_DE_EQUIPAMENTOS_F2450 }}
           projectId: controle-de-equipamentos-f2450
+          channelId: live
