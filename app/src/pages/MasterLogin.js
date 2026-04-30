@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { masterLogin, MASTER_LOCAL_EMAIL, MASTER_LOCAL_PASSWORD } from "../utils/masterAuth";
+import { enviarResetSenhaMaster, masterLogin } from "../utils/masterAuth";
 
 function MasterLogin({ setTela }) {
-  const [email, setEmail] = useState(MASTER_LOCAL_EMAIL);
-  const [senha, setSenha] = useState(MASTER_LOCAL_PASSWORD);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
 
   const entrar = async () => {
     if (!email || !senha) {
@@ -21,15 +21,25 @@ function MasterLogin({ setTela }) {
     setTela("masterClientes");
   };
 
+  const recuperar = async () => {
+    if (!email) {
+      alert("Informe seu e-mail para receber o link de recuperacao.");
+      return;
+    }
+    const r = await enviarResetSenhaMaster(email);
+    if (!r.ok) {
+      alert(r.erro || "Nao foi possivel enviar a recuperacao.");
+      return;
+    }
+    alert("Enviamos um link de recuperacao para seu e-mail. Verifique a caixa de entrada e o spam.");
+  };
+
   return (
     <div style={{ maxWidth: 520, margin: "40px auto", padding: 20, background: "#f5f7fa", minHeight: "100vh" }}>
       <div style={{ background: "#fff", borderRadius: 8, padding: 20, border: "1px solid #dbe3ef" }}>
         <h2 style={{ marginTop: 0 }}>Acesso Administrativo</h2>
         <p style={{ marginTop: 0, color: "#55657c" }}>
           Esta area e exclusiva do proprietario do sistema.
-        </p>
-        <p style={{ marginTop: 0, color: "#3b4d66", fontSize: 13 }}>
-          Acesso local: <strong>{MASTER_LOCAL_EMAIL}</strong> / <strong>{MASTER_LOCAL_PASSWORD}</strong>
         </p>
 
         <input
@@ -48,19 +58,16 @@ function MasterLogin({ setTela }) {
 
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={() => {
-              setEmail(MASTER_LOCAL_EMAIL);
-              setSenha(MASTER_LOCAL_PASSWORD);
-            }}
-            style={{ background: "#163256", color: "#fff", border: "none", borderRadius: 8, padding: "10px 14px", fontWeight: "bold", cursor: "pointer" }}
-          >
-            Usar acesso local
-          </button>
-          <button
             onClick={entrar}
             style={{ background: "#0b5ed7", color: "#fff", border: "none", borderRadius: 8, padding: "10px 14px", fontWeight: "bold", cursor: "pointer" }}
           >
             Entrar no Master
+          </button>
+          <button
+            onClick={recuperar}
+            style={{ background: "#198754", color: "#fff", border: "none", borderRadius: 8, padding: "10px 14px", fontWeight: "bold", cursor: "pointer" }}
+          >
+            Esqueci a senha
           </button>
           <button
             onClick={() => setTela("masterLogin")}

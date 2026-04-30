@@ -1,10 +1,15 @@
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut,
+  updatePassword
+} from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 
 const MASTER_SESSION_KEY = "sessaoMaster";
-export const MASTER_LOCAL_EMAIL = String(process.env.REACT_APP_MASTER_EMAIL || "master@controle.local").trim().toLowerCase();
-export const MASTER_LOCAL_PASSWORD = String(process.env.REACT_APP_MASTER_PASSWORD || "Master@123");
 
 const normalizarErroLogin = (error) => {
   const codigo = String(error?.code || "");
@@ -20,19 +25,6 @@ const normalizarErroLogin = (error) => {
 export async function masterLogin(email, senha) {
   const emailNormalizado = String(email || "").trim().toLowerCase();
   const senhaNormalizada = String(senha || "");
-
-  if (emailNormalizado === MASTER_LOCAL_EMAIL && senhaNormalizada === MASTER_LOCAL_PASSWORD) {
-    localStorage.setItem(
-      MASTER_SESSION_KEY,
-      JSON.stringify({
-        uid: "local-master",
-        email: MASTER_LOCAL_EMAIL,
-        origem: "local",
-        logadoEm: new Date().toISOString()
-      })
-    );
-    return { ok: true };
-  }
 
   try {
     const cred = await signInWithEmailAndPassword(auth, emailNormalizado, senhaNormalizada);
@@ -65,6 +57,41 @@ export function isMasterAutenticado() {
     return !!sessao?.uid;
   } catch {
     return false;
+  }
+}
+
+export async function enviarResetSenhaMaster(email) {
+  const emailNormalizado = String(email || "").trim().toLowerCase();
+  if (!emailNormalizado) return { ok: false, erro: "Informe o e-mail." };
+  try {
+    await sendPasswordResetEmail(auth, emailNormalizado);
+    return { ok: true };
+  } catch (error) {
+    const codigo = String(error?.code || "");
+    if (codigo.includes("user-not-found")) return { ok: false, erro: "E-mail nao encontrado." };
+    return { ok: false, erro: "Nao foi possivel enviar o e-mail de recuperacao. Verifique sua conexao." };
+  }
+}
+
+export async function alterarSenhaMaster({ senhaAtual, novaSenha }) {
+  const user = auth.currentUser;
+  if (!user?.email) return { ok: false, erro: "Voce precisa estar logado para alterar a senha." };
+  if (!senhaAtual || !novaSenha) return { ok: false, erro: "Informe a senha atual e a nova senha." };
+
+  try {
+    const cred = EmailAuthProvider.credential(user.email, String(senhaAtual));
+    await reauthenticateWithCredential(user, cred);
+    await updatePassword(user, String(novaSenha));
+    return { ok: true };
+  } catch (error) {
+    const codigo = String(error?.code || "");
+    if (codigo.includes("wrong-password") || codigo.includes("invalid-credential")) {
+      return { ok: false, erro: "Senha atual invalida." };
+    }
+    if (codigo.includes("weak-password")) {
+      return { ok: false, erro: "Senha fraca. Use uma senha mais forte." };
+    }
+    return { ok: false, erro: "Nao foi possivel alterar a senha agora. Tente novamente." };
   }
 }
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { getTenantId, setTenantId, withTenant } from "../utils/tenant";
-import { masterLogout } from "../utils/masterAuth";
+import { alterarSenhaMaster, masterLogout } from "../utils/masterAuth";
 import { garantirUsuarioAuth } from "../utils/authUsers";
 import { getContatoComercialConfig, salvarContatoComercialConfig } from "../utils/contactConfig";
 import { limparCacheClienteSistema } from "../utils/clienteSistema";
@@ -127,6 +127,10 @@ function MasterClientes({ setTela }) {
   const acoesMenuRef = useRef(null);
   const [acoesMenuPos, setAcoesMenuPos] = useState(null); // { top, left, width }
   const [acoesAnchorRect, setAcoesAnchorRect] = useState(null); // DOMRect
+
+  const [senhaAtualMaster, setSenhaAtualMaster] = useState("");
+  const [novaSenhaMaster, setNovaSenhaMaster] = useState("");
+  const [novaSenhaMaster2, setNovaSenhaMaster2] = useState("");
 
   const [exportAbertoId, setExportAbertoId] = useState("");
   const [exportDataIni, setExportDataIni] = useState("");
@@ -2112,6 +2116,61 @@ function MasterClientes({ setTela }) {
       <div style={{ ...card, marginBottom: 12, background: "#e9f2ff", border: "1px solid #bfd7ff" }}>
         <strong>Tenant atual em uso:</strong> {tenantAtual}
       </div>
+
+      <div style={card}>
+        <h3 style={{ marginTop: 0 }}>Seguranca do Master</h3>
+        <p style={{ marginTop: 0, color: "#5c6f88" }}>
+          Aqui voce altera a senha do login Master (e-mail/senha). Para recuperar sem estar logado, use "Esqueci a senha" na tela de login.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
+          <input
+            style={inputStyle}
+            type="password"
+            placeholder="Senha atual"
+            value={senhaAtualMaster}
+            onChange={(e) => setSenhaAtualMaster(e.target.value)}
+          />
+          <input
+            style={inputStyle}
+            type="password"
+            placeholder="Nova senha"
+            value={novaSenhaMaster}
+            onChange={(e) => setNovaSenhaMaster(e.target.value)}
+          />
+          <input
+            style={inputStyle}
+            type="password"
+            placeholder="Confirmar nova senha"
+            value={novaSenhaMaster2}
+            onChange={(e) => setNovaSenhaMaster2(e.target.value)}
+          />
+        </div>
+        <button
+          style={primaryButton}
+          onClick={async () => {
+            if (!senhaAtualMaster || !novaSenhaMaster) {
+              alert("Informe a senha atual e a nova senha.");
+              return;
+            }
+            if (novaSenhaMaster !== novaSenhaMaster2) {
+              alert("A confirmacao da nova senha nao confere.");
+              return;
+            }
+            const r = await alterarSenhaMaster({ senhaAtual: senhaAtualMaster, novaSenha: novaSenhaMaster });
+            if (!r.ok) {
+              alert(r.erro || "Nao foi possivel alterar a senha.");
+              return;
+            }
+            alert("Senha do Master alterada com sucesso.");
+            setSenhaAtualMaster("");
+            setNovaSenhaMaster("");
+            setNovaSenhaMaster2("");
+          }}
+        >
+          ALTERAR SENHA MASTER
+        </button>
+      </div>
+
       <div style={card}>
         <h3 style={{ marginTop: 0 }}>Contato comercial e suporte (Login)</h3>
         <p style={{ marginTop: 0, color: "#5c6f88" }}>
