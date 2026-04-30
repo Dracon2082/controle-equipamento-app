@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { registrarHistorico } from "../utils/historico";
@@ -12,6 +12,9 @@ function Bases({ setTela }) {
   const [bases, setBases] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
   const [filtro, setFiltro] = useState("");
+  const [acoesAbertasId, setAcoesAbertasId] = useState(null);
+  const [acoesMenuPos, setAcoesMenuPos] = useState({ left: 0, top: 0 });
+  const actionMenuRef = useRef(null);
   const [estados, setEstados] = useState([]); // ["AC", "SP", ...]
   const [cidades, setCidades] = useState([]); // ["Sena Madureira", ...]
   const [carregandoEstados, setCarregandoEstados] = useState(false);
@@ -55,23 +58,36 @@ function Bases({ setTela }) {
     background: "#6c757d"
   };
 
-  const dangerButton = {
-    background: "#cc0000",
-    color: "#fff",
-    border: "none",
-    padding: "6px 10px",
-    borderRadius: 6,
-    cursor: "pointer"
+  const actionButton = {
+    ...primaryButton,
+    padding: "8px 14px",
+    borderRadius: 999,
+    background: "#0b3d91"
   };
 
-  const warningButton = {
-    background: "#f0ad4e",
-    color: "#000",
-    border: "none",
-    padding: "6px 10px",
-    borderRadius: 6,
+  const actionMenu = {
+    position: "fixed",
+    background: "#fff",
+    border: "1px solid #d8e0ea",
+    borderRadius: 10,
+    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+    padding: 10,
+    minWidth: 190,
+    zIndex: 9999
+  };
+
+  const actionItem = {
+    width: "100%",
+    boxSizing: "border-box",
+    display: "block",
+    textAlign: "left",
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: "1px solid transparent",
+    background: "transparent",
     cursor: "pointer",
-    marginRight: 6
+    fontWeight: 800,
+    color: "#0b2239"
   };
 
   const carregar = async () => {
@@ -93,6 +109,43 @@ function Bases({ setTela }) {
   useEffect(() => {
     carregar();
   }, []);
+
+  // Reposiciona o menu real (sem depender de altura/largura "chutada") e evita ficar cortado.
+  useLayoutEffect(() => {
+    if (!acoesAbertasId) return;
+    const el = actionMenuRef.current;
+    if (!el) return;
+
+    const padding = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const rect = el.getBoundingClientRect();
+    let left = acoesMenuPos.left;
+    let top = acoesMenuPos.top;
+
+    if (rect.right > vw - padding) left = Math.max(padding, left - (rect.right - (vw - padding)));
+    if (rect.bottom > vh - padding) top = Math.max(padding, top - (rect.bottom - (vh - padding)));
+    if (rect.left < padding) left = padding;
+    if (rect.top < padding) top = padding;
+
+    if (left !== acoesMenuPos.left || top !== acoesMenuPos.top) {
+      setAcoesMenuPos({ left, top });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acoesAbertasId]);
+
+  // Fecha o menu se rolar a tela/redimensionar (evita menu "perdido" na tela).
+  useEffect(() => {
+    if (!acoesAbertasId) return;
+    const close = () => setAcoesAbertasId(null);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [acoesAbertasId]);
 
   // Carrega UFs automaticamente (IBGE).
   useEffect(() => {
@@ -210,6 +263,7 @@ function Bases({ setTela }) {
     setEditandoId(item.id);
     setEstado(item.estado || "");
     setCidade(item.cidade || "");
+    setAcoesAbertasId(null);
   };
 
   const alternarAtivo = async (item) => {
@@ -226,6 +280,7 @@ function Bases({ setTela }) {
       descricao: `${novoAtivo ? "Ativou" : "Inativou"} base ${item.cidade}/${item.estado}.`
     });
     carregar();
+    setAcoesAbertasId(null);
   };
 
   const excluir = async (item) => {
@@ -239,6 +294,7 @@ function Bases({ setTela }) {
       descricao: `Excluiu base ${item.cidade}/${item.estado}.`
     });
     carregar();
+    setAcoesAbertasId(null);
   };
 
   const listaFiltrada = useMemo(() => {
@@ -248,7 +304,10 @@ function Bases({ setTela }) {
   }, [bases, filtro]);
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 20, background: "#f5f7fa", minHeight: "100vh" }}>
+    <div
+      style={{ maxWidth: 900, margin: "0 auto", padding: 20, background: "#f5f7fa", minHeight: "100vh" }}
+      onClick={() => setAcoesAbertasId(null)}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0, color: "#222" }}>Cadastro de Bases (UF e Cidades)</h2>
         <button onClick={() => setTela("home")} style={secondaryButton}>Voltar</button>
@@ -356,11 +415,34 @@ function Bases({ setTela }) {
                     {b.ativo ? "ATIVA" : "INATIVA"}
                   </td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 10, textAlign: "center", whiteSpace: "nowrap" }}>
-                    <button style={warningButton} onClick={() => editar(b)}>Editar</button>
-                    <button style={{ ...warningButton, background: b.ativo ? "#adb5bd" : "#20c997" }} onClick={() => alternarAtivo(b)}>
-                      {b.ativo ? "Inativar" : "Ativar"}
-                    </button>
-                    <button style={dangerButton} onClick={() => excluir(b)}>Excluir</button>
+                    <div style={{ position: "relative", display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        style={actionButton}
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const menuW = 210;
+                          const menuH = 170;
+                          const gap = 8;
+
+                          // Abre preferindo abaixo do botao; se estiver perto do rodape, abre acima.
+                          const topPreferido = rect.bottom + gap;
+                          const top = (topPreferido + menuH > window.innerHeight - 12)
+                            ? Math.max(12, rect.top - gap - menuH)
+                            : topPreferido;
+
+                          // Abre alinhado ao botao; se estiver perto da borda direita, puxa para a esquerda.
+                          const leftPreferido = rect.left;
+                          const left = (leftPreferido + menuW > window.innerWidth - 12)
+                            ? Math.max(12, rect.right - menuW)
+                            : leftPreferido;
+
+                          setAcoesMenuPos({ left, top });
+                          setAcoesAbertasId((prev) => (prev === b.id ? null : b.id));
+                        }}
+                      >
+                        Abrir
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -368,6 +450,55 @@ function Bases({ setTela }) {
           </table>
         </div>
       </div>
+
+      {acoesAbertasId && (
+        <div
+          ref={actionMenuRef}
+          style={{ ...actionMenu, left: acoesMenuPos.left, top: acoesMenuPos.top }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {(() => {
+            const b = bases.find((x) => x.id === acoesAbertasId);
+            if (!b) return null;
+            return (
+              <>
+                <button
+                  style={{ ...actionItem, borderColor: "#ffe3b3", background: "#fff7e6" }}
+                  onClick={() => editar(b)}
+                >
+                  Editar
+                </button>
+
+                <button
+                  style={{
+                    ...actionItem,
+                    marginTop: 8,
+                    borderColor: b.ativo ? "#dee2e6" : "#b2f2e6",
+                    background: b.ativo ? "#f1f3f5" : "#e6fcf5",
+                    color: b.ativo ? "#495057" : "#0f5132"
+                  }}
+                  onClick={() => alternarAtivo(b)}
+                >
+                  {b.ativo ? "Inativar" : "Ativar"}
+                </button>
+
+                <button
+                  style={{
+                    ...actionItem,
+                    marginTop: 8,
+                    borderColor: "#ffd6d6",
+                    background: "#fff0f0",
+                    color: "#a10f0f"
+                  }}
+                  onClick={() => excluir(b)}
+                >
+                  Excluir
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { db } from "../firebase";
 import {
   collection,
@@ -51,10 +51,16 @@ function Funcionarios({ setTela }) {
   const [nome, setNome] = useState("");
   const [funcao, setFuncao] = useState("");
   const [cpf, setCpf] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
   const [dataCadastro, setDataCadastro] = useState(hojeBR());
   const [lista, setLista] = useState([]);
   const [listaOriginal, setListaOriginal] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
+  const [busca, setBusca] = useState("");
+  const [filtroFuncao, setFiltroFuncao] = useState("");
+  const [acoesAbertasId, setAcoesAbertasId] = useState(null);
+  const [acoesMenuPos, setAcoesMenuPos] = useState({ left: 0, top: 0 });
+  const actionMenuRef = useRef(null);
 
   const inputStyle = {
     width: "100%",
@@ -89,29 +95,43 @@ function Funcionarios({ setTela }) {
     background: "#6c757d"
   };
 
-  const warningButton = {
-    background: "#f0ad4e",
-    color: "#000",
-    border: "none",
-    padding: "6px 10px",
-    borderRadius: 6,
-    cursor: "pointer",
-    marginRight: 6
+  const actionButton = {
+    ...primaryButton,
+    padding: "8px 14px",
+    borderRadius: 999,
+    background: "#0b3d91"
   };
 
-  const dangerButton = {
-    background: "#cc0000",
-    color: "#fff",
-    border: "none",
-    padding: "6px 10px",
-    borderRadius: 6,
-    cursor: "pointer"
+  const actionMenu = {
+    position: "fixed",
+    background: "#fff",
+    border: "1px solid #d8e0ea",
+    borderRadius: 10,
+    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+    padding: 10,
+    minWidth: 190,
+    zIndex: 9999
+  };
+
+  const actionItem = {
+    width: "100%",
+    boxSizing: "border-box",
+    display: "block",
+    textAlign: "left",
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: "1px solid transparent",
+    background: "transparent",
+    cursor: "pointer",
+    fontWeight: 800,
+    color: "#0b2239"
   };
 
   const limparFormulario = () => {
     setNome("");
     setFuncao("");
     setCpf("");
+    setDataNascimento("");
     setDataCadastro(hojeBR());
     setEditandoId(null);
   };
@@ -138,8 +158,10 @@ function Funcionarios({ setTela }) {
     setNome(item.nome || "");
     setFuncao(item.funcao || "");
     setCpf(formatarCpf(item.cpf || ""));
-    setDataCadastro(item.dataCadastro || item.dataNascimento || hojeBR());
+    setDataNascimento(item.dataNascimento || "");
+    setDataCadastro(item.dataCadastro || hojeBR());
     setEditandoId(item.id);
+    setAcoesAbertasId(null);
   };
 
   const salvar = async () => {
@@ -147,6 +169,7 @@ function Funcionarios({ setTela }) {
     if (!funcao) return alert("Digite a funcao!");
     if (soDigitos(cpf).length !== 11) return alert("CPF invalido!");
     if (!dataValidaBR(dataCadastro)) return alert("Data invalida! Use dd/mm/aaaa.");
+    if (dataNascimento && !dataValidaBR(dataNascimento)) return alert("Data de nascimento invalida! Use dd/mm/aaaa.");
 
     const cpfNumero = soDigitos(cpf);
     const nomeFormatado = normalizarTexto(nome);
@@ -162,6 +185,7 @@ function Funcionarios({ setTela }) {
         nome: nomeFormatado,
         funcao: funcaoFormatada,
         cpf: cpfNumero,
+        dataNascimento: dataNascimento || "",
         dataCadastro
       });
       await registrarHistorico({
@@ -177,6 +201,7 @@ function Funcionarios({ setTela }) {
         nome: nomeFormatado,
         funcao: funcaoFormatada,
         cpf: cpfNumero,
+        dataNascimento: dataNascimento || "",
         dataCadastro
       }, tenantId));
       await registrarHistorico({
@@ -210,14 +235,74 @@ function Funcionarios({ setTela }) {
     buscar();
   };
 
+  const funcoesDisponiveis = useMemo(() => {
+    const set = new Set(
+      (listaOriginal || [])
+        .map((i) => normalizarTexto(i.funcao || ""))
+        .filter(Boolean)
+    );
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [listaOriginal]);
+
+  const listaFiltrada = useMemo(() => {
+    const t = String(busca || "").toLowerCase().trim();
+    const f = normalizarTexto(filtroFuncao || "");
+
+    return (listaOriginal || []).filter((item) => {
+      const nomeOk = !t || String(item.nome || "").toLowerCase().includes(t);
+      const funcaoOk = !f || normalizarTexto(item.funcao || "") === f;
+      return nomeOk && funcaoOk;
+    });
+  }, [listaOriginal, busca, filtroFuncao]);
+
+  // Reposiciona o menu real e evita ficar cortado (principalmente em telas menores).
+  useLayoutEffect(() => {
+    if (!acoesAbertasId) return;
+    const el = actionMenuRef.current;
+    if (!el) return;
+
+    const padding = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const rect = el.getBoundingClientRect();
+    let left = acoesMenuPos.left;
+    let top = acoesMenuPos.top;
+
+    if (rect.right > vw - padding) left = Math.max(padding, left - (rect.right - (vw - padding)));
+    if (rect.bottom > vh - padding) top = Math.max(padding, top - (rect.bottom - (vh - padding)));
+    if (rect.left < padding) left = padding;
+    if (rect.top < padding) top = padding;
+
+    if (left !== acoesMenuPos.left || top !== acoesMenuPos.top) {
+      setAcoesMenuPos({ left, top });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acoesAbertasId]);
+
+  // Fecha o menu se rolar a tela/redimensionar (evita menu "perdido").
+  useEffect(() => {
+    if (!acoesAbertasId) return;
+    const close = () => setAcoesAbertasId(null);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [acoesAbertasId]);
+
   return (
-    <div style={{
-      maxWidth: 950,
-      margin: "0 auto",
-      padding: 20,
-      background: "#f5f7fa",
-      minHeight: "100vh"
-    }}>
+    <div
+      style={{
+        maxWidth: 950,
+        margin: "0 auto",
+        padding: 20,
+        background: "#f5f7fa",
+        minHeight: "100vh"
+      }}
+      onClick={() => setAcoesAbertasId(null)}
+    >
       <h2 style={{ textAlign: "center", marginBottom: 20 }}>
         Cadastro de Funcionarios
       </h2>
@@ -252,6 +337,16 @@ function Funcionarios({ setTela }) {
           type="text"
           inputMode="numeric"
           maxLength={10}
+          placeholder="Data de nascimento (opcional) (dd/mm/aaaa)"
+          value={dataNascimento}
+          onChange={(e) => setDataNascimento(formatarDataBR(e.target.value))}
+        />
+
+        <input
+          style={inputStyle}
+          type="text"
+          inputMode="numeric"
+          maxLength={10}
           placeholder="Data de cadastro (dd/mm/aaaa)"
           value={dataCadastro}
           onChange={(e) => setDataCadastro(formatarDataBR(e.target.value))}
@@ -268,23 +363,41 @@ function Funcionarios({ setTela }) {
       </div>
 
       <div style={card}>
-        <input
-          style={{ ...inputStyle, marginBottom: 14 }}
-          placeholder="Buscar funcionario..."
-          onChange={(e) => {
-            const valor = String(e.target.value || "").toLowerCase().trim();
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 10, alignItems: "center", marginBottom: 14 }}>
+          <input
+            style={{ ...inputStyle, marginBottom: 0 }}
+            placeholder="Buscar funcionario (nome)..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
 
-            if (!valor) {
-              setLista(listaOriginal);
-              return;
-            }
+          <select
+            style={{ ...inputStyle, marginBottom: 0 }}
+            value={filtroFuncao}
+            onChange={(e) => setFiltroFuncao(e.target.value)}
+          >
+            <option value="">Todas as funcoes</option>
+            {funcoesDisponiveis.map((f) => (
+              <option key={f} value={f}>{f}</option>
+            ))}
+          </select>
+        </div>
 
-            const filtrado = listaOriginal.filter((item) =>
-              String(item.nome || "").toLowerCase().includes(valor)
-            );
-            setLista(filtrado);
-          }}
-        />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ fontWeight: 900, color: "#173454" }}>
+            Total: {listaFiltrada.length}
+            {filtroFuncao ? ` | Funcao: ${normalizarTexto(filtroFuncao)}` : ""}
+          </div>
+          <button
+            style={secondaryButton}
+            onClick={() => {
+              setBusca("");
+              setFiltroFuncao("");
+            }}
+          >
+            Limpar filtros
+          </button>
+        </div>
 
         <table style={{
           width: "100%",
@@ -298,21 +411,22 @@ function Funcionarios({ setTela }) {
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Nome</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Funcao</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>CPF</th>
+              <th style={{ border: "1px solid #ccc", padding: 8 }}>Data Nasc.</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Data Cadastro</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Acoes</th>
             </tr>
           </thead>
 
           <tbody>
-            {lista.length === 0 && (
+            {listaFiltrada.length === 0 && (
               <tr>
-                <td colSpan="5" style={{ textAlign: "center", padding: 12 }}>
+                <td colSpan="6" style={{ textAlign: "center", padding: 12 }}>
                   Nenhum funcionario cadastrado.
                 </td>
               </tr>
             )}
 
-            {lista.map((item, index) => (
+            {listaFiltrada.map((item, index) => (
               <tr
                 key={item.id}
                 style={{ background: index % 2 === 0 ? "#f2f2f2" : "#fff" }}
@@ -320,16 +434,77 @@ function Funcionarios({ setTela }) {
                 <td style={{ border: "1px solid #ccc", padding: 8 }}>{item.nome || "-"}</td>
                 <td style={{ border: "1px solid #ccc", padding: 8 }}>{item.funcao || "-"}</td>
                 <td style={{ border: "1px solid #ccc", padding: 8, whiteSpace: "nowrap" }}>{formatarCpf(item.cpf || "") || "-"}</td>
-                <td style={{ border: "1px solid #ccc", padding: 8, whiteSpace: "nowrap" }}>{item.dataCadastro || item.dataNascimento || "-"}</td>
+                <td style={{ border: "1px solid #ccc", padding: 8, whiteSpace: "nowrap" }}>{item.dataNascimento || "-"}</td>
+                <td style={{ border: "1px solid #ccc", padding: 8, whiteSpace: "nowrap" }}>{item.dataCadastro || "-"}</td>
                 <td style={{ border: "1px solid #ccc", padding: 8, textAlign: "center" }}>
-                  <button style={warningButton} onClick={() => editar(item)}>Editar</button>
-                  <button style={dangerButton} onClick={() => excluir(item.id)}>Excluir</button>
+                  <div style={{ position: "relative", display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      style={actionButton}
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const menuW = 210;
+                        const menuH = 120;
+                        const gap = 8;
+
+                        const topPreferido = rect.bottom + gap;
+                        const top = (topPreferido + menuH > window.innerHeight - 12)
+                          ? Math.max(12, rect.top - gap - menuH)
+                          : topPreferido;
+
+                        const leftPreferido = rect.left;
+                        const left = (leftPreferido + menuW > window.innerWidth - 12)
+                          ? Math.max(12, rect.right - menuW)
+                          : leftPreferido;
+
+                        setAcoesMenuPos({ left, top });
+                        setAcoesAbertasId((prev) => (prev === item.id ? null : item.id));
+                      }}
+                    >
+                      Abrir
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {acoesAbertasId && (
+        <div
+          ref={actionMenuRef}
+          style={{ ...actionMenu, left: acoesMenuPos.left, top: acoesMenuPos.top }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {(() => {
+            const item = (listaOriginal || []).find((x) => x.id === acoesAbertasId);
+            if (!item) return null;
+            return (
+              <>
+                <button
+                  style={{ ...actionItem, borderColor: "#ffe3b3", background: "#fff7e6" }}
+                  onClick={() => editar(item)}
+                >
+                  Editar
+                </button>
+
+                <button
+                  style={{
+                    ...actionItem,
+                    marginTop: 8,
+                    borderColor: "#ffd6d6",
+                    background: "#fff0f0",
+                    color: "#a10f0f"
+                  }}
+                  onClick={() => excluir(item.id)}
+                >
+                  Excluir
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

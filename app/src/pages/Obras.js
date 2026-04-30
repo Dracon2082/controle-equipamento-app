@@ -21,6 +21,13 @@ function Obras({ setTela }) {
   const [cidades, setCidades] = useState([]);
   const [catalogoBases, setCatalogoBases] = useState([]);
 
+  // Fallback para sempre listar todos os estados do Brasil mesmo se o IBGE falhar.
+  const UFS_BR = [
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+    "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+  ];
+
   const inputStyle = {
     width: "100%",
     height: 42,
@@ -84,9 +91,16 @@ function Obras({ setTela }) {
   }, []);
 
   useEffect(() => {
-    // Preferencia: usa o catalogo de bases cadastrado no sistema (vale para qualquer pais/UF).
-    // Fallback: se ainda nao tem bases cadastradas, usa IBGE (Brasil) para nao bloquear.
+    // Mostra a lista completa de UFs imediatamente, mesmo se o IBGE demorar ou falhar.
+    // Isso evita o "bug visual" de aparecer apenas AC (por exemplo, quando o sistema
+    // ainda tem poucas bases cadastradas ou o IBGE não responde).
+    setEstados(UFS_BR);
+
+    // Carrega bases do sistema (para validacoes/atalhos), mas SEM limitar o cadastro de obras
+    // apenas as UFs/cidades ja cadastradas. Assim, o usuario consegue cadastrar obras em
+    // qualquer estado/cidade (IBGE) e, se desejar, cadastrar a base depois.
     const carregarBases = async () => {
+      let ufsDoSistema = [];
       try {
         const snap = await getDocs(collection(db, "bases_operacionais"));
         const bases = snap.docs
@@ -96,25 +110,28 @@ function Obras({ setTela }) {
           .map((b) => ({ estado: String(b.estado || "").toUpperCase().trim(), cidade: String(b.cidade || "").toUpperCase().trim() }))
           .filter((b) => b.estado && b.cidade);
         setCatalogoBases(bases);
-        const ufs = Array.from(new Set(bases.map((b) => b.estado))).sort();
-        if (ufs.length) {
-          setEstados(ufs);
-          return;
-        }
+        ufsDoSistema = Array.from(new Set(bases.map((b) => b.estado))).filter(Boolean);
       } catch {
-        // ignora e tenta fallback IBGE abaixo
+        // ignora; ainda vamos tentar IBGE abaixo
       }
 
-      fetch("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
-        .then((res) => res.json())
-        .then((data) => {
-          const lista = data.map((e) => e.sigla).sort();
-          setEstados(lista);
-        })
-        .catch((error) => {
-          console.error(error);
-          alert("Erro ao carregar estados!");
-        });
+      // Sempre tenta IBGE para mostrar todos os estados do Brasil.
+      try {
+        const res = await fetch("https://servicodados.ibge.gov.br/api/v1/localidades/estados");
+        const data = await res.json();
+        const ufsIbge = (Array.isArray(data) ? data : [])
+          .map((e) => String(e?.sigla || "").toUpperCase().trim())
+          .filter(Boolean);
+
+        // Merge: lista fixa do Brasil + IBGE + (o que ja existe no sistema). Mantemos tudo.
+        const merged = Array.from(new Set([...UFS_BR, ...ufsIbge, ...ufsDoSistema])).sort();
+        setEstados(merged);
+      } catch (error) {
+        console.error(error);
+        // Se IBGE falhar, ainda assim mostra todos os estados do Brasil.
+        const merged = Array.from(new Set([...UFS_BR, ...ufsDoSistema])).sort();
+        setEstados(merged);
+      }
     };
 
     carregarBases();
@@ -130,20 +147,37 @@ function Obras({ setTela }) {
       .filter((b) => String(b.estado || "").toUpperCase().trim() === String(estado || "").toUpperCase().trim())
       .map((b) => b.cidade)
       .filter(Boolean);
-    if (doCatalogo.length) {
-      setCidades(Array.from(new Set(doCatalogo)).sort());
-      return;
-    }
+    const doCatalogoSet = new Set(doCatalogo.map((c) => String(c || "").toUpperCase().trim()).filter(Boolean));
 
-    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estado}/municipios`)
+    // Sempre tenta IBGE para listar TODAS as cidades daquela UF.
+    // Se falhar, cai no catalogo do sistema (se existir).
+    const uf = String(estado || "").toUpperCase().trim();
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`)
       .then((res) => res.json())
       .then((data) => {
-        const lista = data.map((c) => c.nome);
-        setCidades(lista);
+        const lista = (Array.isArray(data) ? data : [])
+          .map((c) => String(c?.nome || "").trim())
+          .filter(Boolean);
+
+        // Se a cidade ja existe como base no sistema, pode aparecer primeiro (sinaliza "oficial").
+        const ordenada = lista.sort((a, b) => {
+          const aKey = String(a).toUpperCase().trim();
+          const bKey = String(b).toUpperCase().trim();
+          const aEhBase = doCatalogoSet.has(aKey) ? 0 : 1;
+          const bEhBase = doCatalogoSet.has(bKey) ? 0 : 1;
+          if (aEhBase !== bEhBase) return aEhBase - bEhBase;
+          return a.localeCompare(b);
+        });
+
+        setCidades(ordenada);
       })
       .catch((error) => {
         console.error(error);
-        alert("Erro ao carregar cidades!");
+        if (doCatalogo.length) {
+          setCidades(Array.from(new Set(doCatalogo)).sort());
+          return;
+        }
+        alert("Erro ao carregar cidades (IBGE)!");
       });
   }, [estado]);
 
