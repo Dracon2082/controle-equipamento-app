@@ -55,6 +55,16 @@ const PLANO_TESTE_10D = {
   dias: 10
 };
 
+const obterPlanoPorId = (planoId) => {
+  const pid = String(planoId || "").trim();
+  if (!pid) return null;
+  if (pid === PLANO_TESTE_10D.id) return PLANO_TESTE_10D;
+  return PLANOS.find((p) => String(p.id) === pid) || null;
+};
+
+const formatarMoedaBR = (valor) =>
+  Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+
 const COLECOES_OPERACIONAIS = [
   "abastecimentos",
   "almoxarifado_estoque_ferramentas",
@@ -78,6 +88,13 @@ const COLECOES_OPERACIONAIS = [
 ];
 
 const FORMAS_PAGAMENTO = ["PIX", "BOLETO"];
+
+// Cores usadas no status das faturas (mesmas do painel do cliente).
+const STATUS_CORES = {
+  PENDENTE: { fundo: "#eef4ff", borda: "#b8ccff", texto: "#2457d6" },
+  PAGO: { fundo: "#eaf9ef", borda: "#aadfb8", texto: "#1c8f43" },
+  CANCELADO: { fundo: "#fdeff0", borda: "#f2b8bd", texto: "#d33d4f" }
+};
 const STATUS_CLIENTE = ["ATIVO", "INADIMPLENTE", "INATIVO", "TESTE"];
 const PERMISSOES_ADMIN_PADRAO = [
   "admin_relatorios",
@@ -139,6 +156,13 @@ function MasterClientes({ setTela }) {
   const [exportando, setExportando] = useState(false);
   const [financeiroAbertoId, setFinanceiroAbertoId] = useState("");
   const [finDiaVenc, setFinDiaVenc] = useState("10");
+  const [finRefMes, setFinRefMes] = useState(obterRefMesAtual());
+  const [finValorFatura, setFinValorFatura] = useState("");
+  const [finFormaFatura, setFinFormaFatura] = useState("PIX");
+  const [finLinkPagamento, setFinLinkPagamento] = useState("");
+  const [finPixChave, setFinPixChave] = useState("");
+  const [finFaturas, setFinFaturas] = useState([]);
+  const [finCarregandoFaturas, setFinCarregandoFaturas] = useState(false);
 
   const tenantAtual = getTenantId();
   const isProd = process.env.NODE_ENV === "production";
@@ -174,6 +198,15 @@ function MasterClientes({ setTela }) {
   useEffect(() => {
     if (!acoesAbertoId) setAcoesMenuPos(null);
   }, [acoesAbertoId]);
+
+  useEffect(() => {
+    if (!financeiroAbertoId) return;
+    const item = (Array.isArray(lista) ? lista : []).find((c) => String(c?.id || "") === String(financeiroAbertoId));
+    if (!item) return;
+    // Carrega faturas do cliente quando abrir o modal financeiro.
+    carregarFaturasCliente(item);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [financeiroAbertoId]);
 
   // Reposiciona o menu para nao ficar cortado (viewport).
   useEffect(() => {
@@ -513,6 +546,214 @@ function MasterClientes({ setTela }) {
     setFinanceiroAbertoId(String(item?.id || ""));
     const dia = Number(item?.diaVencimento || 10);
     setFinDiaVenc(String(Number.isFinite(dia) && dia >= 1 && dia <= 28 ? dia : 10));
+
+    // Defaults para gerar fatura manualmente (Mercado Pago).
+    const refAtual = obterRefMesAtual();
+    setFinRefMes(refAtual);
+    // Puxa automaticamente o valor do plano (fallback para valorMensal do cliente, se existir).
+    const planoCliente = obterPlanoPorId(item?.planoId);
+    const valorPadrao = Number(item?.valorMensal || planoCliente?.valor || 0);
+    setFinValorFatura(String(Number.isFinite(valorPadrao) ? valorPadrao : 0));
+    setFinFormaFatura(String(item?.formaPagamento || "PIX").toUpperCase());
+    // Preenche com valores padrao do cliente (se tiver), para nao precisar digitar toda vez.
+    setFinLinkPagamento(String(item?.linkPagamento || "").trim());
+    setFinPixChave(String(item?.pixChave || "").trim());
+    setFinFaturas([]);
+    setFinCarregandoFaturas(false);
+  };
+
+  const copiarTexto = async (texto) => {
+    const txt = String(texto || "").trim();
+    if (!txt) return;
+    try {
+      await navigator.clipboard.writeText(txt);
+      alert("Copiado.");
+    } catch {
+      // Fallback (funciona mesmo sem permissao de clipboard)
+      window.prompt("Copie o texto abaixo:", txt);
+    }
+  };
+
+  const salvarPadraoPagamentoCliente = async (cliente) => {
+    const id = String(cliente?.id || "").trim();
+    if (!id) return;
+    try {
+      await updateDoc(doc(db, "clientesSistema", id), {
+        linkPagamento: String(finLinkPagamento || "").trim(),
+        pixChave: String(finPixChave || "").trim(),
+        atualizadoEm: new Date().toISOString()
+      });
+      await carregar();
+      alert("Dados de pagamento (PIX/link) salvos no cadastro do cliente.");
+    } catch (e) {
+      alert(`Falha ao salvar dados do cliente: ${String(e?.message || e || "")}`);
+    }
+  };
+
+  const normalizarRefMes = (ref) => {
+    const raw = String(ref || "").trim();
+    // Aceita YYYY-MM e tambem MM/YYYY (converte).
+    const mY = raw.match(/^(\d{2})\/(\d{4})$/);
+    if (mY) return `${mY[2]}-${mY[1]}`;
+    const yM = raw.match(/^(\d{4})-(\d{2})$/);
+    if (yM) return `${yM[1]}-${yM[2]}`;
+    return "";
+  };
+
+  const calcularVencimentoISO = (refMes, diaVencimento) => {
+    const ref = normalizarRefMes(refMes);
+    if (!ref) return "";
+    const [yy, mm] = ref.split("-").map((x) => Number(x || 0));
+    const dia = Number(diaVencimento || 10);
+    if (!Number.isFinite(yy) || !Number.isFinite(mm) || mm < 1 || mm > 12) return "";
+    if (!Number.isFinite(dia) || dia < 1 || dia > 28) return "";
+    const dt = new Date(Date.UTC(yy, mm - 1, dia, 12, 0, 0));
+    return dt.toISOString();
+  };
+
+  const carregarFaturasCliente = async (item) => {
+    if (!item?.tenantId) return;
+    setFinCarregandoFaturas(true);
+    try {
+      const snap = await getDocs(collection(db, "faturasSistema"));
+      const listaF = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((f) => String(f?.tenantId || "").toLowerCase() === String(item.tenantId || "").toLowerCase())
+        .sort((a, b) => String(b?.refMes || "").localeCompare(String(a?.refMes || ""), "pt-BR"));
+      setFinFaturas(listaF);
+    } catch {
+      setFinFaturas([]);
+    } finally {
+      setFinCarregandoFaturas(false);
+    }
+  };
+
+  const montarMensagemCobranca = (cliente, fatura) => {
+    const nome = String(cliente?.razaoSocial || cliente?.nomeFantasia || "cliente").trim();
+    const ref = String(fatura?.refMes || "").trim();
+    const valor = Number(fatura?.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+    const venc = fatura?.vencimentoISO ? new Date(fatura.vencimentoISO).toLocaleDateString("pt-BR") : "-";
+    const forma = String(fatura?.formaPagamento || cliente?.formaPagamento || "PIX").toUpperCase();
+    const link = String(fatura?.linkPagamento || "").trim();
+    const pix = String(fatura?.pixChave || "").trim();
+
+    const linhas = [
+      `FATURA - ${nome}`,
+      `Referencia: ${ref || "-"}`,
+      `Vencimento: ${venc}`,
+      `Valor: R$ ${valor}`,
+      `Forma: ${forma}`
+    ];
+    if (link) linhas.push(`Link de pagamento: ${link}`);
+    if (pix) linhas.push(`PIX (chave): ${pix}`);
+    linhas.push("Se ja foi pago, por favor desconsidere.");
+    return linhas.join("\n");
+  };
+
+  const abrirWhatsAppCobranca = (cliente, fatura) => {
+    const tel = String(cliente?.telefone || "").replace(/\D/g, "");
+    if (!tel) {
+      alert("Telefone do cliente nao cadastrado.");
+      return;
+    }
+    const msg = montarMensagemCobranca(cliente, fatura);
+    const url = `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const abrirEmailCobranca = (cliente, fatura) => {
+    const email = String(cliente?.emailEmpresa || cliente?.emailContato || cliente?.email || "").trim();
+    if (!email) {
+      alert("E-mail do cliente nao cadastrado.");
+      return;
+    }
+    const assunto = `Fatura ${String(fatura?.refMes || "").trim() || ""}`.trim();
+    const corpo = montarMensagemCobranca(cliente, fatura);
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+  };
+
+  const criarFaturaManual = async (cliente) => {
+    const tenant = String(cliente?.tenantId || "").trim();
+    if (!tenant) {
+      alert("Cliente sem tenantId.");
+      return;
+    }
+
+    const refMesOk = normalizarRefMes(finRefMes);
+    if (!refMesOk) {
+      alert("Mes de referencia invalido. Use YYYY-MM (ex: 2026-04).");
+      return;
+    }
+
+    const valor = Number(String(finValorFatura || "").replace(",", "."));
+    if (!Number.isFinite(valor) || valor < 0) {
+      alert("Valor invalido.");
+      return;
+    }
+
+    const forma = String(finFormaFatura || cliente?.formaPagamento || "PIX").toUpperCase();
+    if (!FORMAS_PAGAMENTO.includes(forma)) {
+      alert("Forma de pagamento invalida.");
+      return;
+    }
+
+    const dia = Number(String(finDiaVenc || "").replace(/\D/g, ""));
+    const vencISO = calcularVencimentoISO(refMesOk, dia);
+    if (!vencISO) {
+      alert("Dia do vencimento invalido (use 1 a 28).");
+      return;
+    }
+
+    const link = String(finLinkPagamento || "").trim();
+    const pix = String(finPixChave || "").trim();
+    if (!link && !pix) {
+      const ok = window.confirm("Voce nao informou link nem PIX. Deseja criar a fatura mesmo assim?");
+      if (!ok) return;
+    }
+
+    // Evita duplicar refMes do mesmo tenant.
+    const dupSnap = await getDocs(
+      query(collection(db, "faturasSistema"), where("tenantId", "==", tenant), where("refMes", "==", refMesOk))
+    );
+    if (!dupSnap.empty) {
+      alert(`Ja existe fatura para ${refMesOk}.`);
+      return;
+    }
+
+    const agora = new Date().toISOString();
+    const payload = {
+      tenantId: tenant,
+      clienteId: String(cliente?.id || ""),
+      cnpj: String(cliente?.cnpj || "").trim(),
+      refMes: refMesOk,
+      vencimentoISO: vencISO,
+      valor,
+      status: "PENDENTE",
+      formaPagamento: forma,
+      linkPagamento: link,
+      pixChave: pix,
+      criadoEmISO: agora,
+      atualizadoEmISO: agora
+    };
+
+    try {
+      await addDoc(collection(db, "faturasSistema"), payload);
+      await carregarFaturasCliente(cliente);
+      alert(`Fatura criada para ${refMesOk}.`);
+    } catch (e) {
+      alert(`Falha ao criar fatura: ${String(e?.message || e || "")}`);
+    }
+  };
+
+  const atualizarStatusFatura = async (faturaId, statusNovo, cliente) => {
+    const st = String(statusNovo || "").toUpperCase();
+    if (!["PENDENTE", "PAGO", "CANCELADO"].includes(st)) return;
+    try {
+      await updateDoc(doc(db, "faturasSistema", String(faturaId)), { status: st, atualizadoEmISO: new Date().toISOString() });
+      await carregarFaturasCliente(cliente);
+    } catch (e) {
+      alert(`Falha ao atualizar status: ${String(e?.message || e || "")}`);
+    }
   };
 
   const salvarDiaVencimento = async (item) => {
@@ -2716,7 +2957,12 @@ function MasterClientes({ setTela }) {
                 borderRadius: 12,
                 border: "1px solid #dbe3ee",
                 boxShadow: "0 18px 40px rgba(15, 36, 64, 0.25)",
-                padding: 16
+                padding: 16,
+                // O modal tem bastante conteudo (criacao de fatura, lista de faturas, etc.).
+                // Sem scroll, a parte de "Link do Mercado Pago / PIX" fica "sumida" em telas menores.
+                maxHeight: "92vh",
+                overflowY: "auto",
+                overflowX: "hidden"
               }}
               onClick={(e) => e.stopPropagation()}
               role="presentation"
@@ -2757,6 +3003,187 @@ function MasterClientes({ setTela }) {
                   <div style={{ fontSize: 12, color: "#5a6b82" }}>Pago ate (YYYY-MM)</div>
                   <div style={{ fontSize: 16, fontWeight: 900, color: "#10243e" }}>{pagoAte}</div>
                   <div style={{ fontSize: 12, color: "#5a6b82" }}>Carencia configurada: 10 dias</div>
+                </div>
+
+                {(() => {
+                  const planoCliente = obterPlanoPorId(item?.planoId);
+                  const nomePlano = String(planoCliente?.nome || item?.planoNome || item?.plano || "-").trim();
+                  const valorPlano = Number(item?.valorMensal || planoCliente?.valor || 0);
+                  const valorPlanoTxt = formatarMoedaBR(valorPlano);
+                  return (
+                    <div style={{ display: "grid", alignContent: "start", gap: 8 }}>
+                      <div style={{ fontSize: 12, color: "#5a6b82" }}>Plano / Valor</div>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: "#10243e" }}>{nomePlano}</div>
+                      <div style={{ fontSize: 12, color: "#5a6b82" }}>
+                        Valor do plano: <strong>R$ {valorPlanoTxt}/mes</strong>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#5a6b82" }}>
+                        Vencimento: <strong>dia {Number.isFinite(diaAtual) ? diaAtual : 10}</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div style={{ marginTop: 14, borderTop: "1px solid #e9eef6", paddingTop: 14 }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: "#10243e" }}>Criar fatura (Mercado Pago)</div>
+                <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: "#5a6b82", marginBottom: 4 }}>Mes de referencia (YYYY-MM)</div>
+                    <input
+                      style={{ ...inputStyle, marginBottom: 0 }}
+                      value={finRefMes}
+                      onChange={(e) => setFinRefMes(e.target.value)}
+                      placeholder="2026-04"
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: "#5a6b82", marginBottom: 4 }}>Valor da fatura (R$)</div>
+                    <input
+                      style={{ ...inputStyle, marginBottom: 0 }}
+                      value={finValorFatura}
+                      onChange={(e) => setFinValorFatura(e.target.value)}
+                      placeholder="450"
+                      inputMode="decimal"
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: "#5a6b82", marginBottom: 4 }}>Forma</div>
+                    <select
+                      style={{ ...inputStyle, marginBottom: 0 }}
+                      value={finFormaFatura}
+                      onChange={(e) => setFinFormaFatura(String(e.target.value || "PIX").toUpperCase())}
+                    >
+                      {FORMAS_PAGAMENTO.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 12, color: "#5a6b82", marginBottom: 4 }}>Link do Mercado Pago (boleto/checkout)</div>
+                    <input
+                      style={{ ...inputStyle, marginBottom: 0 }}
+                      value={finLinkPagamento}
+                      onChange={(e) => setFinLinkPagamento(e.target.value)}
+                      placeholder="Cole aqui o link do boleto/checkout do Mercado Pago"
+                    />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 12, color: "#5a6b82", marginBottom: 4 }}>PIX (copia e cola / chave)</div>
+                    <textarea
+                      style={{ ...inputStyle, height: 74, padding: 10, marginBottom: 0 }}
+                      value={finPixChave}
+                      onChange={(e) => setFinPixChave(e.target.value)}
+                      placeholder="Cole aqui o PIX copia-e-cola (ou chave PIX)"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    style={{ ...secondaryButton, padding: "10px 14px" }}
+                    onClick={() => salvarPadraoPagamentoCliente(item)}
+                  >
+                    Salvar PIX/link (padrao)
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...primaryButton, padding: "10px 14px", background: "#0b7285" }}
+                    onClick={() => criarFaturaManual(item)}
+                  >
+                    Criar fatura
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 12, border: "1px solid #e3e9f2", borderRadius: 10, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 12px", background: "#f7f9fd", borderBottom: "1px solid #e9eef6", fontWeight: 900, color: "#10243e" }}>
+                    Faturas do cliente
+                  </div>
+                  <div style={{ padding: 12 }}>
+                    {finCarregandoFaturas ? (
+                      <div style={{ color: "#5a6b82" }}>Carregando...</div>
+                    ) : (Array.isArray(finFaturas) ? finFaturas : []).length === 0 ? (
+                      <div style={{ color: "#5a6b82" }}>Nenhuma fatura cadastrada ainda.</div>
+                    ) : (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {(Array.isArray(finFaturas) ? finFaturas : []).slice(0, 12).map((f) => {
+                          const statusF = String(f?.status || "PENDENTE").toUpperCase();
+                          const cor = STATUS_CORES[statusF] || STATUS_CORES.PENDENTE;
+                          const vencTxt = f?.vencimentoISO ? (() => {
+                            try { return new Date(f.vencimentoISO).toLocaleDateString("pt-BR"); } catch { return String(f.vencimentoISO || "-"); }
+                          })() : "-";
+                          const valorTxt = Number(f?.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+                          const link = String(f?.linkPagamento || "").trim();
+                          const pix = String(f?.pixChave || "").trim();
+                          return (
+                            <div key={String(f?.id || Math.random())} style={{ border: "1px solid #e9eef6", borderRadius: 10, padding: 10 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                                <div style={{ display: "grid", gap: 2 }}>
+                                  <div style={{ fontWeight: 900, color: "#10243e" }}>{String(f?.refMes || "-")}</div>
+                                  <div style={{ fontSize: 12, color: "#5a6b82" }}>Venc: {vencTxt} | Valor: R$ {valorTxt}</div>
+                                </div>
+                                <span style={{ background: cor.fundo, border: `1px solid ${cor.borda}`, color: cor.texto, fontWeight: 900, borderRadius: 999, padding: "6px 10px" }}>
+                                  {statusF}
+                                </span>
+                              </div>
+
+                              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                                {link && (
+                                  <button
+                                    type="button"
+                                    style={{ ...primaryButton, background: "#198754", padding: "8px 10px" }}
+                                    onClick={() => window.open(link, "_blank", "noopener,noreferrer")}
+                                  >
+                                    Abrir link
+                                  </button>
+                                )}
+                                {pix && (
+                                  <button
+                                    type="button"
+                                    style={{ ...secondaryButton, padding: "8px 10px" }}
+                                    onClick={() => copiarTexto(pix)}
+                                  >
+                                    Copiar PIX
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  style={{ ...secondaryButton, padding: "8px 10px" }}
+                                  onClick={() => abrirWhatsAppCobranca(item, f)}
+                                >
+                                  WhatsApp
+                                </button>
+                                <button
+                                  type="button"
+                                  style={{ ...secondaryButton, padding: "8px 10px" }}
+                                  onClick={() => abrirEmailCobranca(item, f)}
+                                >
+                                  E-mail
+                                </button>
+                                <button
+                                  type="button"
+                                  style={{ ...successButton, padding: "8px 10px" }}
+                                  onClick={() => atualizarStatusFatura(String(f?.id || ""), "PAGO", item)}
+                                >
+                                  Marcar PAGO
+                                </button>
+                                <button
+                                  type="button"
+                                  style={{ ...warningButton, padding: "8px 10px" }}
+                                  onClick={() => atualizarStatusFatura(String(f?.id || ""), "CANCELADO", item)}
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

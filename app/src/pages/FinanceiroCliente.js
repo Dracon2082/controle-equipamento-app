@@ -15,6 +15,8 @@ function FinanceiroCliente({ setTela }) {
   const [cliente, setCliente] = useState(null);
   const [usuariosAtivos, setUsuariosAtivos] = useState(0);
   const [anoFiltro, setAnoFiltro] = useState(new Date().getFullYear());
+  const [faturas, setFaturas] = useState([]);
+  const [faturaAberta, setFaturaAberta] = useState(null);
   const tenantId = getTenantId();
 
   useEffect(() => {
@@ -39,25 +41,51 @@ function FinanceiroCliente({ setTela }) {
     carregar();
   }, [tenantId]);
 
-  const faturamentoSimulado = useMemo(() => {
-    const valor = Number(cliente?.valorMensal || 0);
+  useEffect(() => {
+    if (aba !== "faturas") return;
+    let ativo = true;
+
+    const carregarFaturas = async () => {
+      try {
+        const snap = await getDocs(collection(db, "faturasSistema"));
+        const lista = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((i) => String(i?.tenantId || "").toLowerCase() === String(tenantId || "").toLowerCase())
+          .sort((a, b) => String(b?.refMes || "").localeCompare(String(a?.refMes || ""), "pt-BR"));
+        if (ativo) setFaturas(lista);
+      } catch {
+        if (ativo) setFaturas([]);
+      }
+    };
+
+    carregarFaturas();
+    return () => {
+      ativo = false;
+    };
+  }, [aba, tenantId]);
+
+  const faturasFiltradas = useMemo(() => {
     const ano = Number(anoFiltro);
     const hoje = new Date();
-    const base = [
-      { mes: 4, status: "PENDENTE", vencimento: `${ano}-04-17` },
-      { mes: 3, status: "PAGO", vencimento: `${ano}-03-16` },
-      { mes: 1, status: "CANCELADO", vencimento: `${ano}-01-04` }
-    ];
-    return base
-      .filter((item) => item.mes <= 12)
-      .map((item) => ({
-        ...item,
-        referencia: `${String(item.mes).padStart(2, "0")}/${ano}`,
-        valor,
-        notaFiscal: item.status === "PAGO" ? "Visualizar nota" : "-",
-        hojeMes: hoje.getMonth() + 1 === item.mes && hoje.getFullYear() === ano
-      }));
-  }, [cliente?.valorMensal, anoFiltro]);
+    const refHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+
+    return (Array.isArray(faturas) ? faturas : [])
+      .filter((f) => {
+        const ref = String(f?.refMes || "").trim(); // YYYY-MM
+        const y = Number(ref.split("-")[0] || 0);
+        return y === ano;
+      })
+      .map((f) => {
+        const ref = String(f?.refMes || "").trim();
+        const [y, m] = ref.split("-").map((x) => Number(x || 0));
+        const referencia = y && m ? `${String(m).padStart(2, "0")}/${y}` : ref || "-";
+        return {
+          ...f,
+          referencia,
+          hojeMes: ref === refHoje
+        };
+      });
+  }, [faturas, anoFiltro]);
 
   const planoNome = cliente?.planoNome || cliente?.planoId || "Plano nao definido";
   const valorPlano = Number(cliente?.valorMensal || 0);
@@ -123,6 +151,53 @@ function FinanceiroCliente({ setTela }) {
     );
   };
 
+  const montarMensagemCobranca = (fatura) => {
+    const razao = String(cliente?.razaoSocial || cliente?.nomeFantasia || "CLIENTE").trim();
+    const ref = String(fatura?.refMes || "").trim();
+    const valor = Number(fatura?.valor || 0);
+    const venc = String(fatura?.vencimentoISO || "").trim();
+    const pix = String(fatura?.pixChave || cliente?.pixChave || "").trim();
+    const link = String(fatura?.linkPagamento || cliente?.linkPagamento || "").trim();
+
+    const partes = [];
+    partes.push(`COBRANCA - ${razao}`);
+    if (ref) partes.push(`Referencia: ${ref}`);
+    if (venc) {
+      try {
+        partes.push(`Vencimento: ${new Date(venc).toLocaleDateString("pt-BR")}`);
+      } catch {
+        partes.push(`Vencimento: ${venc}`);
+      }
+    }
+    partes.push(`Valor: R$ ${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`);
+    if (pix) partes.push(`PIX (chave): ${pix}`);
+    if (link) partes.push(`Link: ${link}`);
+    partes.push("Obrigado!");
+    return partes.join("\n");
+  };
+
+  const abrirWhatsApp = (fatura) => {
+    const tel = String(cliente?.telefone || "").replace(/\D/g, "");
+    if (!tel) {
+      alert("Telefone do cliente nao cadastrado. Cadastre em 'Empresa/Cliente' no Master.");
+      return;
+    }
+    const msg = montarMensagemCobranca(fatura);
+    const url = `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const abrirEmail = (fatura) => {
+    const email = String(cliente?.emailEmpresa || cliente?.email || "").trim();
+    if (!email) {
+      alert("E-mail do cliente nao cadastrado.");
+      return;
+    }
+    const assunto = `Fatura ${String(fatura?.refMes || "").trim() || ""}`.trim();
+    const corpo = montarMensagemCobranca(fatura);
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#f4f6fb", padding: 20 }}>
       <div style={{ maxWidth: 1060, margin: "0 auto 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -169,6 +244,9 @@ function FinanceiroCliente({ setTela }) {
           <div style={{ border: "1px solid #e3e9f2", borderRadius: 8, overflow: "hidden" }}>
             <div style={{ padding: "14px 16px", borderBottom: "1px solid #e9eef6", fontWeight: "bold", color: "#223650" }}>Minhas faturas</div>
             <div style={{ padding: 16 }}>
+              <div style={{ marginBottom: 12, fontSize: 12, color: "#5b6d84" }}>
+                Observacao: as faturas sao geradas pelo Master (gestao comercial). Aqui voce apenas consulta e abre a cobranca.
+              </div>
               <div style={{ display: "flex", gap: 10, alignItems: "end", marginBottom: 14, flexWrap: "wrap" }}>
                 <div>
                   <div style={{ fontSize: 12, color: "#5b6d84", marginBottom: 4 }}>Ano</div>
@@ -199,23 +277,37 @@ function FinanceiroCliente({ setTela }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {faturamentoSimulado.map((item) => (
-                      <tr key={`${item.referencia}-${item.status}`} style={{ background: item.hojeMes ? "#fbfdff" : "#fff" }}>
+                    {faturasFiltradas.map((item) => (
+                      <tr key={String(item.id)} style={{ background: item.hojeMes ? "#fbfdff" : "#fff" }}>
                         <td style={{ padding: 12, borderBottom: "1px solid #eef2f8" }}>{item.referencia}</td>
                         <td style={{ padding: 12, borderBottom: "1px solid #eef2f8" }}>
-                          {new Date(item.vencimento).toLocaleDateString("pt-BR")}
+                          {item.vencimentoISO ? new Date(item.vencimentoISO).toLocaleDateString("pt-BR") : "-"}
                         </td>
                         <td style={{ padding: 12, borderBottom: "1px solid #eef2f8" }}>{badgeStatus(item.status)}</td>
                         <td style={{ padding: 12, borderBottom: "1px solid #eef2f8" }}>
                           {`R$ ${Number(item.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                         </td>
                         <td style={{ padding: 12, borderBottom: "1px solid #eef2f8" }}>
-                          {item.notaFiscal === "-" ? "-" : <span style={{ color: "#1d61e7", cursor: "pointer" }}>{item.notaFiscal}</span>}
+                          {item.notaFiscalUrl ? (
+                            <a href={String(item.notaFiscalUrl)} target="_blank" rel="noreferrer" style={{ color: "#1d61e7" }}>
+                              Visualizar nota
+                            </a>
+                          ) : (
+                            "-"
+                          )}
                         </td>
-                        <td style={{ padding: 12, borderBottom: "1px solid #eef2f8", color: "#1d61e7", cursor: "pointer" }}>Abrir fatura</td>
+                        <td style={{ padding: 12, borderBottom: "1px solid #eef2f8" }}>
+                          <button
+                            type="button"
+                            onClick={() => setFaturaAberta(item)}
+                            style={{ border: "none", background: "#1d61e7", color: "#fff", borderRadius: 8, padding: "8px 12px", fontWeight: "bold", cursor: "pointer" }}
+                          >
+                            Abrir
+                          </button>
+                        </td>
                       </tr>
                     ))}
-                    {faturamentoSimulado.length === 0 && (
+                    {faturasFiltradas.length === 0 && (
                       <tr>
                         <td colSpan={6} style={{ padding: 14, textAlign: "center", color: "#5f7186" }}>
                           Nenhuma fatura para o ano selecionado.
@@ -224,6 +316,117 @@ function FinanceiroCliente({ setTela }) {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {faturaAberta && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              zIndex: 20000,
+              display: "grid",
+              placeItems: "center",
+              padding: 14
+            }}
+            onClick={() => setFaturaAberta(null)}
+            role="presentation"
+          >
+            <div
+              style={{
+                width: "min(720px, 96vw)",
+                background: "#fff",
+                borderRadius: 12,
+                border: "1px solid #dbe3ee",
+                boxShadow: "0 18px 40px rgba(15, 36, 64, 0.25)",
+                padding: 16
+              }}
+              onClick={(e) => e.stopPropagation()}
+              role="presentation"
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: "#10243e" }}>Fatura</div>
+                  <div style={{ marginTop: 2, color: "#546a84", fontSize: 13 }}>
+                    Ref: <strong>{String(faturaAberta?.refMes || "-")}</strong>{" "}
+                    {faturaAberta?.status ? <>| {badgeStatus(String(faturaAberta.status).toUpperCase())}</> : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  style={{ border: "none", background: "#e9eef6", color: "#10243e", borderRadius: 8, padding: "8px 12px", fontWeight: "bold", cursor: "pointer" }}
+                  onClick={() => setFaturaAberta(null)}
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                {linhaPlano("Valor", `R$ ${Number(faturaAberta?.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`)}
+                {linhaPlano("Vencimento", faturaAberta?.vencimentoISO ? new Date(faturaAberta.vencimentoISO).toLocaleDateString("pt-BR") : "-")}
+                {linhaPlano("Forma", String(faturaAberta?.formaPagamento || formaPagamento || "PIX").toUpperCase())}
+              </div>
+
+              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                {(() => {
+                  const pix = String(faturaAberta?.pixChave || cliente?.pixChave || "").trim();
+                  const link = String(faturaAberta?.linkPagamento || cliente?.linkPagamento || "").trim();
+                  return (
+                    <>
+                      {pix ? (
+                        <div style={{ border: "1px solid #e6ecf5", borderRadius: 10, padding: 12, background: "#fbfdff" }}>
+                          <div style={{ fontSize: 12, color: "#5b6d84", marginBottom: 6 }}>PIX (chave)</div>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                            <code style={{ padding: "6px 10px", background: "#eef4ff", border: "1px solid #cfe0ff", borderRadius: 8 }}>{pix}</code>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(pix);
+                                  alert("Chave PIX copiada.");
+                                } catch {
+                                  alert("Nao foi possivel copiar automaticamente. Copie manualmente.");
+                                }
+                              }}
+                              style={{ border: "none", background: "#1d61e7", color: "#fff", borderRadius: 8, padding: "8px 12px", fontWeight: "bold", cursor: "pointer" }}
+                            >
+                              Copiar PIX
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {link ? (
+                        <div style={{ border: "1px solid #e6ecf5", borderRadius: 10, padding: 12, background: "#fbfdff" }}>
+                          <div style={{ fontSize: 12, color: "#5b6d84", marginBottom: 6 }}>Link de pagamento</div>
+                          <a href={link} target="_blank" rel="noreferrer" style={{ color: "#1d61e7", wordBreak: "break-all" }}>
+                            {link}
+                          </a>
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()}
+              </div>
+
+              <div style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => abrirWhatsApp(faturaAberta)}
+                  style={{ border: "none", background: "#25D366", color: "#0b1a12", borderRadius: 8, padding: "10px 14px", fontWeight: "bold", cursor: "pointer" }}
+                >
+                  WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => abrirEmail(faturaAberta)}
+                  style={{ border: "none", background: "#10243e", color: "#fff", borderRadius: 8, padding: "10px 14px", fontWeight: "bold", cursor: "pointer" }}
+                >
+                  E-mail
+                </button>
               </div>
             </div>
           </div>

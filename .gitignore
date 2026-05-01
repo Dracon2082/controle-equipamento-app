@@ -4,3 +4,4 @@ app/build/
 *.log
 tools/
 _gitfix/
+_tmp*.txt
