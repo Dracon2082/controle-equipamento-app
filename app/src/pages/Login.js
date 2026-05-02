@@ -568,7 +568,7 @@ function Login({ setTela, authContext, onLoginSucesso }) {
           </div>
 
           <div style={{ marginTop: 14, fontSize: 14, color: "#5e738e" }}>
-            Tenant: <strong>{tenantId}</strong> | Primeiro acesso: senha padrao = 6 primeiros digitos do CPF.
+            No primeiro acesso, utilize a senha cadastrada pelo administrador da sua empresa ou recupere sua senha por e-mail.
           </div>
         </div>
 
