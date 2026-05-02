@@ -37,6 +37,9 @@ import { rememberPublicOriginIfAny } from "./utils/publicUrl";
 function ClientApp() {
   const PERFIL_GESTOR_GERAL = "GESTOR_GERAL";
   const PERFIL_ADMIN_UNIDADE = "ADMIN_UNIDADE";
+  const PERMISSAO_TRANSPORTE_LEGADA = "transportes";
+  const PERMISSAO_INFORMAR_MEIO_TRANSPORTE = "informarMeioTransporte";
+  const PERMISSAO_RECEBER_TRANSPORTE = "receberTransporte";
   const PERMISSAO_ADMIN_RELATORIOS = "admin_relatorios";
   const PERMISSAO_ADMIN_CADASTROS = "admin_cadastros";
   const PERMISSAO_ADMIN_CONTROLE = "admin_controle";
@@ -310,10 +313,18 @@ function ClientApp() {
       return permitidas.includes("receberTransferencia") || permitidas.includes("transferencias");
     }
     if (destino === "receberTransporte") {
-      return permitidas.includes("receberTransporte") || permitidas.includes("transportes") || permitidas.includes("transferencias");
+      return (
+        permitidas.includes(PERMISSAO_RECEBER_TRANSPORTE) ||
+        permitidas.includes(PERMISSAO_TRANSPORTE_LEGADA) ||
+        permitidas.includes("transferencias")
+      );
     }
     if (destino === "transportes") {
-      return permitidas.includes("transportes") || permitidas.includes("transferencias");
+      return (
+        permitidas.includes(PERMISSAO_INFORMAR_MEIO_TRANSPORTE) ||
+        permitidas.includes(PERMISSAO_TRANSPORTE_LEGADA) ||
+        permitidas.includes("transferencias")
+      );
     }
     return permitidas.includes(destino);
   };

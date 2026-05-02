@@ -18,6 +18,9 @@ function Frentista({ setTela }) {
   const PERFIL_GESTOR_GERAL = "GESTOR_GERAL";
   const PERFIL_ADMIN_UNIDADE = "ADMIN_UNIDADE";
   const PERFIL_OPERACIONAL = "OPERACIONAL";
+  const PERMISSAO_TRANSPORTE_LEGADA = "transportes";
+  const PERMISSAO_INFORMAR_MEIO_TRANSPORTE = "informarMeioTransporte";
+  const PERMISSAO_RECEBER_TRANSPORTE = "receberTransporte";
   const sessaoOperacional = (() => {
     try {
       return JSON.parse(localStorage.getItem("sessaoOperacional") || "{}");
@@ -48,7 +51,9 @@ function Frentista({ setTela }) {
     "manutencao",
     "materiaisSaidas",
     // Recebimento de transferencia (QR + assinatura) e operacional.
-    "receberTransferencia"
+    "receberTransferencia",
+    PERMISSAO_INFORMAR_MEIO_TRANSPORTE,
+    PERMISSAO_RECEBER_TRANSPORTE
   ];
 
   const opcoesPermissao = [
@@ -58,8 +63,13 @@ function Frentista({ setTela }) {
     { key: "producaoCampo", label: "Producao de campo / croqui" },
     { key: "manutencao", label: "Manutencao de equipamentos" },
     { key: "materiaisSaidas", label: "Saidas de materiais (almox/insumos/EPI)" },
-    { key: "receberTransferencia", label: "Receber transferencia (QR)" }
+    { key: "receberTransferencia", label: "Receber transferencia (QR)" },
+    { key: PERMISSAO_INFORMAR_MEIO_TRANSPORTE, label: "Informar meio de transporte / gerar romaneio" },
+    { key: PERMISSAO_RECEBER_TRANSPORTE, label: "Receber transporte (QR)" }
   ];
+  const permissoesOperacionaisValidas = Array.from(
+    new Set([...opcoesPermissao.map((op) => op.key), PERMISSAO_TRANSPORTE_LEGADA])
+  );
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -279,7 +289,11 @@ function Frentista({ setTela }) {
       || (String(item.funcao || "").toUpperCase().includes("GESTOR") ? PERFIL_GESTOR_GERAL : PERFIL_OPERACIONAL);
     setPerfilAcesso(perfilInferido);
     setUsuarioChave(item?.usuarioChave === true || perfilInferido === PERFIL_GESTOR_GERAL);
-    setPermissoes(Array.isArray(item.permissoes) ? item.permissoes : []);
+    const permissoesItem = Array.isArray(item.permissoes) ? item.permissoes : [];
+    const permissoesNormalizadas = permissoesItem.map((perm) =>
+      perm === PERMISSAO_TRANSPORTE_LEGADA ? PERMISSAO_INFORMAR_MEIO_TRANSPORTE : perm
+    );
+    setPermissoes(Array.from(new Set(permissoesNormalizadas)));
     const basesItem = Array.isArray(item.basesPermitidas) ? item.basesPermitidas : [];
     setBasesPermitidas(
       perfilInferido === PERFIL_GESTOR_GERAL
@@ -340,7 +354,9 @@ function Frentista({ setTela }) {
       return;
     }
 
-    const permissoesOperacionaisSelecionadas = permissoes.filter((item) => permissoesOperacionaisPadrao.includes(item));
+    const permissoesOperacionaisSelecionadas = permissoes
+      .filter((item) => permissoesOperacionaisValidas.includes(item))
+      .map((item) => (item === PERMISSAO_TRANSPORTE_LEGADA ? PERMISSAO_INFORMAR_MEIO_TRANSPORTE : item));
     if (perfilSelecionado === PERFIL_OPERACIONAL && !permissoesOperacionaisSelecionadas.length) {
       return alert("Selecione pelo menos uma permissao operacional.");
     }

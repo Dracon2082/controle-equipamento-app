@@ -109,7 +109,9 @@ const PERMISSOES_OPERACIONAIS_PADRAO = [
   "producaoCampo",
   "manutencao",
   "almoxarifado",
-  "epi"
+  "epi",
+  "informarMeioTransporte",
+  "receberTransporte"
 ];
 const ASSINATURA_SIMULADA =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2Z2WQAAAAASUVORK5CYII=";

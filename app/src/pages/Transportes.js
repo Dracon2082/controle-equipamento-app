@@ -18,6 +18,9 @@ const COLECAO = "romaneiosTransporte";
 
 function Transportes({ setTela }) {
   const tenantId = getTenantId();
+  const PERMISSAO_TRANSPORTE_LEGADA = "transportes";
+  const PERMISSAO_INFORMAR_MEIO_TRANSPORTE = "informarMeioTransporte";
+  const PERMISSAO_RECEBER_TRANSPORTE = "receberTransporte";
   const sessao = (() => {
     try {
       return JSON.parse(localStorage.getItem("sessaoOperacional") || "{}");
@@ -29,6 +32,21 @@ function Transportes({ setTela }) {
   const apontadorAtual = String(sessao?.nome || localStorage.getItem("usuarioLogado") || "")
     .trim()
     .toUpperCase();
+  const permissoesSessao = Array.isArray(sessao?.permissoes)
+    ? sessao.permissoes.map((item) => String(item || "").trim())
+    : [];
+  const perfilSessao = String(sessao?.perfilAcesso || "").trim().toUpperCase();
+  const acessoAdministrativoTotal = perfilSessao === "GESTOR_GERAL" || perfilSessao === "ADMIN_UNIDADE";
+  const podeInformarMeioTransporte =
+    acessoAdministrativoTotal ||
+    permissoesSessao.includes(PERMISSAO_INFORMAR_MEIO_TRANSPORTE) ||
+    permissoesSessao.includes(PERMISSAO_TRANSPORTE_LEGADA) ||
+    permissoesSessao.includes("transferencias");
+  const podeReceberTransporte =
+    acessoAdministrativoTotal ||
+    permissoesSessao.includes(PERMISSAO_RECEBER_TRANSPORTE) ||
+    permissoesSessao.includes(PERMISSAO_TRANSPORTE_LEGADA) ||
+    permissoesSessao.includes("transferencias");
 
   const assinaturaWidth = Math.min(520, Math.max(280, window.innerWidth - 70));
   const assinaturaSaidaRef = useRef(null);
@@ -360,12 +378,17 @@ function Transportes({ setTela }) {
               type="button"
               onClick={() => setFormularioAberto((prev) => !prev)}
               style={botaoPrimario}
+              disabled={!podeInformarMeioTransporte}
             >
-              {formularioAberto ? "Esconder lancamento" : "Novo romaneio"}
+              {!podeInformarMeioTransporte
+                ? "Sem permissao para lancar"
+                : (formularioAberto ? "Esconder lancamento" : "Novo romaneio")}
             </button>
-            <button type="button" onClick={() => setTela("receberTransporte")} style={botaoSecundario}>
-              Receber transporte
-            </button>
+            {podeReceberTransporte && (
+              <button type="button" onClick={() => setTela("receberTransporte")} style={botaoSecundario}>
+                Receber transporte
+              </button>
+            )}
             <button type="button" onClick={() => setTela("home")} style={{ ...botaoSecundario, background: "#f1f3f5", borderColor: "#dee2e6" }}>
               Voltar
             </button>
@@ -375,6 +398,12 @@ function Transportes({ setTela }) {
 
       {formularioAberto && (
       <div style={card}>
+        {!podeInformarMeioTransporte ? (
+          <div style={{ background: "#fff3cd", border: "1px solid #ffe69c", color: "#7a5b00", borderRadius: 8, padding: 12, fontWeight: 700 }}>
+            Este usuario nao tem permissao para informar meio de transporte ou gerar romaneio.
+          </div>
+        ) : (
+        <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Material</div>
@@ -478,6 +507,8 @@ function Transportes({ setTela }) {
             Limpar formulario
           </button>
         </div>
+        </>
+        )}
       </div>
       )}
 

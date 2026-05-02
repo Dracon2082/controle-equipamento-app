@@ -9,6 +9,9 @@ import logoSistema from "../assets/logo-sistema.png";
 function Login({ setTela, authContext, onLoginSucesso }) {
   const PERFIL_GESTOR_GERAL = "GESTOR_GERAL";
   const PERFIL_ADMIN_UNIDADE = "ADMIN_UNIDADE";
+  const PERMISSAO_TRANSPORTE_LEGADA = "transportes";
+  const PERMISSAO_INFORMAR_MEIO_TRANSPORTE = "informarMeioTransporte";
+  const PERMISSAO_RECEBER_TRANSPORTE = "receberTransporte";
   const PERMISSAO_ADMIN_RELATORIOS = "admin_relatorios";
   const PERMISSAO_ADMIN_CADASTROS = "admin_cadastros";
   const PERMISSAO_ADMIN_CONTROLE = "admin_controle";
@@ -115,6 +118,20 @@ function Login({ setTela, authContext, onLoginSucesso }) {
     // Tela de recebimento (QR) usa permissao propria (ou legado "transferencias").
     if (destinoTela === "receberTransferencia") {
       return lista.includes("receberTransferencia") || lista.includes("transferencias");
+    }
+    if (destinoTela === "receberTransporte") {
+      return (
+        lista.includes(PERMISSAO_RECEBER_TRANSPORTE) ||
+        lista.includes(PERMISSAO_TRANSPORTE_LEGADA) ||
+        lista.includes("transferencias")
+      );
+    }
+    if (destinoTela === "transportes") {
+      return (
+        lista.includes(PERMISSAO_INFORMAR_MEIO_TRANSPORTE) ||
+        lista.includes(PERMISSAO_TRANSPORTE_LEGADA) ||
+        lista.includes("transferencias")
+      );
     }
 
     return lista.includes(destinoTela);

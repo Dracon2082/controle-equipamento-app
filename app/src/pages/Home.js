@@ -14,6 +14,9 @@ function Home({ setTela, onSair }) {
   const tenantId = getTenantId();
   const PERFIL_GESTOR_GERAL = "GESTOR_GERAL";
   const PERFIL_ADMIN_UNIDADE = "ADMIN_UNIDADE";
+  const PERMISSAO_TRANSPORTE_LEGADA = "transportes";
+  const PERMISSAO_INFORMAR_MEIO_TRANSPORTE = "informarMeioTransporte";
+  const PERMISSAO_RECEBER_TRANSPORTE = "receberTransporte";
   const PERMISSAO_ADMIN_RELATORIOS = "admin_relatorios";
   const PERMISSAO_ADMIN_CADASTROS = "admin_cadastros";
   const PERMISSAO_ADMIN_CONTROLE = "admin_controle";
@@ -191,10 +194,18 @@ function Home({ setTela, onSair }) {
         return permissoesUsuario.includes("receberTransferencia") || permissoesUsuario.includes("transferencias");
       }
       if (tela === "receberTransporte") {
-        return permissoesUsuario.includes("receberTransporte") || permissoesUsuario.includes("transportes") || permissoesUsuario.includes("transferencias");
+        return (
+          permissoesUsuario.includes(PERMISSAO_RECEBER_TRANSPORTE) ||
+          permissoesUsuario.includes(PERMISSAO_TRANSPORTE_LEGADA) ||
+          permissoesUsuario.includes("transferencias")
+        );
       }
       if (tela === "transportes") {
-        return permissoesUsuario.includes("transportes") || permissoesUsuario.includes("transferencias");
+        return (
+          permissoesUsuario.includes(PERMISSAO_INFORMAR_MEIO_TRANSPORTE) ||
+          permissoesUsuario.includes(PERMISSAO_TRANSPORTE_LEGADA) ||
+          permissoesUsuario.includes("transferencias")
+        );
       }
       return permissoesUsuario.includes(tela);
     }
