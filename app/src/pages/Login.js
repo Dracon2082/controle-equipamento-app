@@ -394,7 +394,7 @@ function Login({ setTela, authContext, onLoginSucesso }) {
               <strong style={{ fontSize: 28, lineHeight: 1.15, marginTop: 4, textAlign: "center" }}>Equipamento Gestao</strong>
             </div>
             <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 30, lineHeight: 1.2 }}>
-              Tudo da sua operacao em um painel so
+              Gerencie toda a sua operacao em um so lugar.
             </h2>
             <p style={{ marginTop: 0, color: "rgba(255,255,255,0.9)", fontSize: 15 }}>
               Mais controle na obra, no estoque e no financeiro, com visao clara para o gestor.
