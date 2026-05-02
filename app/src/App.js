@@ -35,6 +35,7 @@ import logoSistema from "./assets/logo-sistema.png";
 import { rememberPublicOriginIfAny } from "./utils/publicUrl";
 
 function ClientApp() {
+  const STORAGE_ULTIMA_TELA = "ultimaTelaClientApp";
   const PERFIL_GESTOR_GERAL = "GESTOR_GERAL";
   const PERFIL_ADMIN_UNIDADE = "ADMIN_UNIDADE";
   const PERMISSAO_TRANSPORTE_LEGADA = "transportes";
@@ -357,9 +358,32 @@ function ClientApp() {
   const sairPainel = () => {
     localStorage.removeItem("sessaoOperacional");
     localStorage.removeItem("usuarioLogado");
+    localStorage.removeItem(STORAGE_ULTIMA_TELA);
     setAuthContext({ destino: "" });
     setTela("login");
   };
+
+  useEffect(() => {
+    if (!possuiSessaoAtiva()) return;
+    try {
+      const ultimaTela = String(localStorage.getItem(STORAGE_ULTIMA_TELA) || "").trim();
+      if (!ultimaTela || ultimaTela === "home" || ultimaTela === "login") return;
+      if (isMobileDevice && telasAdministrativas.has(ultimaTela)) return;
+      if (!temAcesso(ultimaTela)) return;
+      setTela((atual) => (atual === "home" ? ultimaTela : atual));
+    } catch {
+      // noop
+    }
+  }, [isMobileDevice]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!tela || tela === "login") return;
+    try {
+      localStorage.setItem(STORAGE_ULTIMA_TELA, tela);
+    } catch {
+      // noop
+    }
+  }, [tela]);
 
   const nomeUsuarioLogado = (() => {
     const sessao = obterSessao();
