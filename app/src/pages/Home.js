@@ -657,7 +657,7 @@ function Home({ setTela, onSair }) {
     if (t.includes("manutencao")) return "Historico, custos e acompanhamento";
     if (t.includes("transporte")) return "Romaneios, transferencias e cargas";
     if (t.includes("almoxarifado")) return "Entrada central e controle de materiais";
-    if (t.includes("cadastros")) return "Estrutura base do cliente e usuarios";
+    if (t.includes("cadastros")) return "Obras, bases, equipamentos e usuarios";
     if (t.includes("financeiro")) return "Pagamentos, plano e auditoria";
     if (t.includes("operacao")) return "Rotinas de campo e lancamentos";
     return "Modulos organizados por setor";
@@ -729,7 +729,7 @@ function Home({ setTela, onSair }) {
       ]
     },
     {
-      titulo: "Administrativo",
+      titulo: "Cadastros",
       itens: [
         { texto: "Bases (UF/Cidades)", tela: "bases" },
         { texto: "Obras", tela: "obras" },
@@ -1204,10 +1204,10 @@ function Home({ setTela, onSair }) {
           style={{
             background: "linear-gradient(135deg, #173454 0%, #0b5ed7 56%, #4c6ef5 100%)",
             borderRadius: 24,
-            padding: isMobileDevice ? 18 : 24,
+            padding: isMobileDevice ? 18 : 18,
             color: "#fff",
             boxShadow: "0 22px 44px rgba(12,56,121,0.22)",
-            marginBottom: 16,
+            marginBottom: 12,
             overflow: "hidden",
             position: "relative"
           }}
@@ -1236,7 +1236,7 @@ function Home({ setTela, onSair }) {
             style={{
               display: "grid",
               gridTemplateColumns: isMobileDevice ? "1fr" : "minmax(0, 1.25fr) minmax(280px, 0.75fr)",
-              gap: 18,
+              gap: 14,
               position: "relative"
             }}
           >
@@ -1253,15 +1253,15 @@ function Home({ setTela, onSair }) {
                   border: `1px solid ${chipStatus.border}`,
                   fontWeight: 800,
                   fontSize: 12,
-                  marginBottom: 14
+                  marginBottom: 10
                 }}
               >
                 {chipStatus.texto}
               </div>
-              <div style={{ fontSize: isMobileDevice ? 27 : 34, fontWeight: 900, lineHeight: 1.05 }}>
+              <div style={{ fontSize: isMobileDevice ? 27 : 28, fontWeight: 900, lineHeight: 1.02 }}>
                 {saudacaoPainel}
               </div>
-              <div style={{ marginTop: 10, maxWidth: 680, color: "rgba(255,255,255,0.86)", lineHeight: 1.6, fontSize: isMobileDevice ? 13 : 15 }}>
+              <div style={{ marginTop: 8, maxWidth: 680, color: "rgba(255,255,255,0.86)", lineHeight: 1.45, fontSize: isMobileDevice ? 13 : 13 }}>
                 {textoPainel}
               </div>
             </div>
@@ -1270,22 +1270,22 @@ function Home({ setTela, onSair }) {
                 background: "rgba(255,255,255,0.12)",
                 border: "1px solid rgba(255,255,255,0.18)",
                 borderRadius: 20,
-                padding: 16,
+                padding: 14,
                 backdropFilter: "blur(6px)"
               }}
             >
               <div style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.72)", marginBottom: 10 }}>
                 Navegacao por setor
               </div>
-              <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.15 }}>
+              <div style={{ fontSize: 17, fontWeight: 900, lineHeight: 1.1 }}>
                 {setorAtivo === "painel" ? "Selecione um setor na lateral" : (setorSelecionado?.titulo || "Setor selecionado")}
               </div>
-              <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.78)" }}>
+              <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.45, color: "rgba(255,255,255,0.78)" }}>
                 {setorAtivo === "painel"
-                  ? "Os modulos ficam escondidos no painel principal. Clique em Engenharia, Manutencao, Transporte, Almoxarifado, Administrativo ou Administrativo Financeiro para abrir apenas o grupo desejado."
+                  ? "Os modulos ficam escondidos no painel principal. Clique em Engenharia, Manutencao, Transporte, Almoxarifado, Cadastros ou Administrativo Financeiro para abrir apenas o grupo desejado."
                   : descricaoSecao(setorSelecionado?.titulo || "")}
               </div>
-              <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {menuSetores
                   .filter((item) => item.chave !== "painel")
                   .map((item) => (
@@ -1294,11 +1294,11 @@ function Home({ setTela, onSair }) {
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
-                        padding: "8px 12px",
+                        padding: "6px 10px",
                         borderRadius: 999,
                         background: setorAtivo === item.chave ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.12)",
                         border: "1px solid rgba(255,255,255,0.16)",
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: 800,
                         color: "#fff"
                       }}
@@ -1317,8 +1317,8 @@ function Home({ setTela, onSair }) {
           style={{
             display: "grid",
             gridTemplateColumns: isMobileDevice ? "1fr" : "repeat(4, minmax(0, 1fr))",
-            gap: 12,
-            marginBottom: 16
+            gap: 10,
+            marginBottom: 12
           }}
         >
           {resumoCards.map((card) => (
@@ -1328,17 +1328,17 @@ function Home({ setTela, onSair }) {
                 background: card.bg,
                 border: `1px solid ${card.accent}22`,
                 borderRadius: 20,
-                padding: 16,
-                boxShadow: "0 10px 24px rgba(18,38,72,0.06)"
+                padding: 12,
+                boxShadow: "0 8px 20px rgba(18,38,72,0.05)"
               }}
             >
               <div style={{ fontSize: 12, fontWeight: 800, color: "#5c6d86", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {card.titulo}
               </div>
-              <div style={{ marginTop: 8, fontSize: isMobileDevice ? 22 : 26, fontWeight: 900, color: "#10243e", lineHeight: 1.1 }}>
+              <div style={{ marginTop: 6, fontSize: isMobileDevice ? 22 : 22, fontWeight: 900, color: "#10243e", lineHeight: 1.05 }}>
                 {card.valor}
               </div>
-              <div style={{ marginTop: 8, fontSize: 13, color: "#5d6f86", lineHeight: 1.45 }}>
+              <div style={{ marginTop: 4, fontSize: 12, color: "#5d6f86", lineHeight: 1.35 }}>
                 {card.detalhe}
               </div>
             </div>
