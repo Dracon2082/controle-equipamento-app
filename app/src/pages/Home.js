@@ -229,6 +229,7 @@ function Home({ setTela, onSair }) {
     return "operacional";
   });
   const [navHover, setNavHover] = useState("");
+  const [setorAtivo, setSetorAtivo] = useState("painel");
 
   const alterarModoPainel = (modo) => {
     setModoPainel(modo);
@@ -666,19 +667,34 @@ function Home({ setTela, onSair }) {
 
   const secoesOperacionais = [
     {
-      titulo: "Operacao",
+      titulo: "Engenharia",
       itens: [
         { texto: "Lancamento Diario de Equipamento", tela: "lancamento" },
         { texto: "Diario de Obra (RDO)", tela: "diarioObra" },
-        { texto: "Abastecimento", tela: "abastecimento" },
         // No computador, evitamos expor "lancamento/croqui" (sem GPS). O uso principal fica no celular.
-        ...(isMobileDevice ? [{ texto: "Producao de Campo / Croqui", tela: "producaoCampo" }] : []),
-        { texto: "Manutencao de Equipamentos", tela: "manutencao" },
-        { texto: "Saidas de Materiais (Almox/EPI)", tela: "materiaisSaidas" },
+        ...(isMobileDevice ? [{ texto: "Producao de Campo / Croqui", tela: "producaoCampo" }] : [])
+      ]
+    },
+    {
+      titulo: "Manutencao",
+      itens: [
+        { texto: "Manutencao de Equipamentos", tela: "manutencao" }
+      ]
+    },
+    {
+      titulo: "Transporte",
+      itens: [
         { texto: "Romaneio de Transporte", tela: "transportes" },
         { texto: "Receber Transporte (QR)", tela: "receberTransporte" },
         // No destino (celular), o recebimento e feito via QR + assinatura.
         { texto: "Receber Transferencia (QR)", tela: "receberTransferencia" }
+      ]
+    },
+    {
+      titulo: "Almoxarifado",
+      itens: [
+        { texto: "Abastecimento", tela: "abastecimento" },
+        { texto: "Saidas de Materiais (Almox/EPI)", tela: "materiaisSaidas" }
       ]
     }
   ];
@@ -716,7 +732,7 @@ function Home({ setTela, onSair }) {
       ]
     },
     {
-      titulo: "Administrativo (Cadastros)",
+      titulo: "Administrativo",
       itens: [
         { texto: "Bases (UF/Cidades)", tela: "bases" },
         { texto: "Obras", tela: "obras" },
@@ -728,7 +744,7 @@ function Home({ setTela, onSair }) {
       ]
     },
     {
-      titulo: "Administrativo (Financeiro/Auditoria)",
+      titulo: "Administrativo Financeiro",
       itens: [
         { texto: "Configuracoes Financeiras", tela: "financeiro" },
         { texto: "Historico", tela: "historico" }
@@ -765,8 +781,22 @@ function Home({ setTela, onSair }) {
       itens: secao.itens.filter((item) => podeAcessarTela(item.tela))
     }))
     .filter((secao) => secao.itens.length > 0);
+  const chaveSecao = (titulo) =>
+    String(titulo || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  const menuSetores = [
+    { chave: "painel", label: "Painel" },
+    ...secoes.map((secao) => ({ chave: chaveSecao(secao.titulo), label: secao.titulo }))
+  ];
+  const secoesVisiveis = setorAtivo === "painel"
+    ? []
+    : secoes.filter((secao) => chaveSecao(secao.titulo) === setorAtivo);
+  const setorSelecionado = secoes.find((secao) => chaveSecao(secao.titulo) === setorAtivo) || null;
   const totalModulosLiberados = secoes.reduce((acc, secao) => acc + secao.itens.length, 0);
-  const atalhosPrincipais = secoes.flatMap((secao) => secao.itens).slice(0, isMobileDevice ? 2 : 4);
   const saudacaoPainel = modoAtivo === "operacional"
     ? "Operacao pronta para o dia"
     : "Visao administrativa organizada";
@@ -819,13 +849,45 @@ function Home({ setTela, onSair }) {
     }
   ];
 
+  useEffect(() => {
+    if (setorAtivo === "painel") return;
+    const existe = secoes.some((secao) => chaveSecao(secao.titulo) === setorAtivo);
+    if (!existe) setSetorAtivo("painel");
+  }, [setorAtivo, secoes]);
+
   return (
     <div style={page}>
       <aside style={sidebar}>
-        <div style={{ ...brand, cursor: "pointer" }} onClick={() => setTela("home")} role="button" tabIndex={0}>
+        <div
+          style={{ ...brand, cursor: "pointer" }}
+          onClick={() => {
+            setSetorAtivo("painel");
+            setTela("home");
+          }}
+          role="button"
+          tabIndex={0}
+        >
           <img src={logoSistema} alt="Logo" style={{ width: 106, height: 106, objectFit: "contain" }} />
         </div>
-        {!isMobileDevice && (
+        {menuSetores.map((item) => {
+          const ativo = setorAtivo === item.chave;
+          return (
+            <button
+              key={item.chave}
+              style={navButtonStyle(item.chave, ativo)}
+              onMouseEnter={() => setNavHover(item.chave)}
+              onMouseLeave={() => setNavHover("")}
+              onClick={() => {
+                setSetorAtivo(item.chave);
+                setTela("home");
+              }}
+              type="button"
+            >
+              {item.label}
+            </button>
+          );
+        })}
+        {false && !isMobileDevice && (
           <button
             style={navButtonStyle("home", true)}
             onMouseEnter={() => setNavHover("home")}
@@ -836,7 +898,7 @@ function Home({ setTela, onSair }) {
             Painel
           </button>
         )}
-        {podeAcessarTela("lancamento") && (
+        {false && podeAcessarTela("lancamento") && (
           <button
             style={navButtonStyle("lancamento", false)}
             onMouseEnter={() => setNavHover("lancamento")}
@@ -847,7 +909,7 @@ function Home({ setTela, onSair }) {
             Diario
           </button>
         )}
-        {podeAcessarTela("diarioObra") && (
+        {false && podeAcessarTela("diarioObra") && (
           <button
             style={navButtonStyle("diarioObra", false)}
             onMouseEnter={() => setNavHover("diarioObra")}
@@ -858,7 +920,7 @@ function Home({ setTela, onSair }) {
             RDO
           </button>
         )}
-        {podeAcessarTela("abastecimento") && (
+        {false && podeAcessarTela("abastecimento") && (
           <button
             style={navButtonStyle("abastecimento", false)}
             onMouseEnter={() => setNavHover("abastecimento")}
@@ -869,7 +931,7 @@ function Home({ setTela, onSair }) {
             Diesel
           </button>
         )}
-        {podeAcessarTela("producaoCampo") && isMobileDevice && (
+        {false && podeAcessarTela("producaoCampo") && isMobileDevice && (
           <button
             style={navButtonStyle("producaoCampo", false)}
             onMouseEnter={() => setNavHover("producaoCampo")}
@@ -880,7 +942,7 @@ function Home({ setTela, onSair }) {
             Croqui
           </button>
         )}
-        {podeAcessarTela("manutencao") && (
+        {false && podeAcessarTela("manutencao") && (
           <button
             style={navButtonStyle("manutencao", false)}
             onMouseEnter={() => setNavHover("manutencao")}
@@ -894,7 +956,7 @@ function Home({ setTela, onSair }) {
             </span>
           </button>
         )}
-        {podeAcessarTela("materiaisSaidas") && (
+        {false && podeAcessarTela("materiaisSaidas") && (
           <button
             style={navButtonStyle("materiaisSaidas", false)}
             onMouseEnter={() => setNavHover("materiaisSaidas")}
@@ -905,7 +967,7 @@ function Home({ setTela, onSair }) {
             Materiais
           </button>
         )}
-        {podeAcessarTela("transferencias") && (
+        {false && podeAcessarTela("transferencias") && (
           <button
             style={navButtonStyle("transferencias", false)}
             onMouseEnter={() => setNavHover("transferencias")}
@@ -916,7 +978,7 @@ function Home({ setTela, onSair }) {
             Transf
           </button>
         )}
-        {podeAcessarTela("transportes") && (
+        {false && podeAcessarTela("transportes") && (
           <button
             style={navButtonStyle("transportes", false)}
             onMouseEnter={() => setNavHover("transportes")}
@@ -1210,38 +1272,37 @@ function Home({ setTela, onSair }) {
               }}
             >
               <div style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.72)", marginBottom: 10 }}>
-                Atalhos principais
+                Navegacao por setor
               </div>
-              <div style={{ display: "grid", gap: 10 }}>
-                {atalhosPrincipais.map((item) => {
-                  const meta = metaTela(item.tela);
-                  return (
-                    <button
-                      key={`atalho-${item.tela}`}
-                      type="button"
-                      onClick={() => setTela(item.tela)}
+              <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.15 }}>
+                {setorAtivo === "painel" ? "Selecione um setor na lateral" : (setorSelecionado?.titulo || "Setor selecionado")}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.78)" }}>
+                {setorAtivo === "painel"
+                  ? "Os modulos ficam escondidos no painel principal. Clique em Engenharia, Manutencao, Transporte, Almoxarifado, Administrativo ou Administrativo Financeiro para abrir apenas o grupo desejado."
+                  : descricaoSecao(setorSelecionado?.titulo || "")}
+              </div>
+              <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {menuSetores
+                  .filter((item) => item.chave !== "painel")
+                  .map((item) => (
+                    <span
+                      key={`chip-${item.chave}`}
                       style={{
-                        border: "1px solid rgba(255,255,255,0.18)",
-                        background: "rgba(7, 26, 52, 0.22)",
-                        color: "#fff",
-                        borderRadius: 16,
-                        padding: "12px 14px",
-                        textAlign: "left",
-                        cursor: "pointer"
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        borderRadius: 999,
+                        background: setorAtivo === item.chave ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.12)",
+                        border: "1px solid rgba(255,255,255,0.16)",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: "#fff"
                       }}
                     >
-                      <div style={{ display: "grid", gridTemplateColumns: "34px 1fr", gap: 10, alignItems: "center" }}>
-                        <div style={{ ...tileIconWrap(meta.accent), width: 34, height: 34, background: "rgba(255,255,255,0.82)" }}>
-                          {iconSvg(meta.icon, meta.accent)}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 800, lineHeight: 1.2 }}>{item.texto}</div>
-                          <div style={{ marginTop: 2, fontSize: 12, color: "rgba(255,255,255,0.72)" }}>{resumoTela(item.tela)}</div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      {item.label}
+                    </span>
+                  ))}
               </div>
             </div>
           </div>
@@ -1279,8 +1340,26 @@ function Home({ setTela, onSair }) {
           ))}
         </div>
 
+        {setorAtivo === "painel" && (
+          <section
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e0e8f5",
+              borderRadius: 22,
+              padding: isMobileDevice ? 16 : 20,
+              boxShadow: "0 14px 30px rgba(20,44,84,0.05)",
+              marginBottom: 16
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 900, color: "#173454" }}>Painel limpo</div>
+            <div style={{ marginTop: 8, color: "#5d6f86", lineHeight: 1.6, maxWidth: 860 }}>
+              Os modulos agora aparecem somente quando voce escolhe um setor na lateral. Assim o painel principal fica menos poluido e cada area abre apenas o conteudo que interessa naquele momento.
+            </div>
+          </section>
+        )}
+
         <div style={sections}>
-          {secoes.map((secao) => (
+          {secoesVisiveis.map((secao) => (
             <section key={secao.titulo} style={section}>
               <div
                 style={{
