@@ -552,19 +552,6 @@ function Login({ setTela, authContext, onLoginSucesso }) {
             >
               {modoTroca ? "Voltar para login" : "Voltar"}
             </button>
-            <button
-              onClick={() => {
-                if (!credencialSimulada?.email) {
-                  alert("Nao existe credencial de simulacao salva no navegador.");
-                  return;
-                }
-                setIdentificador(credencialSimulada.email || "");
-                setSenha(credencialSimulada.senha || "");
-              }}
-              style={{ background: "transparent", color: "#163256", border: "none", padding: 0, fontSize: 14, cursor: "pointer" }}
-            >
-              Preencher simulacao
-            </button>
           </div>
 
           <div style={{ marginTop: 14, fontSize: 14, color: "#5e738e" }}>
