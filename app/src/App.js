@@ -186,7 +186,6 @@ function ClientApp() {
     "lubrificantes",
     "almoxarifado",
     "transferencias",
-    "transportes",
     "bases"
   ]);
 
