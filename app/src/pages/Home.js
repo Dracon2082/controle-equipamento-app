@@ -346,7 +346,7 @@ function Home({ setTela, onSair }) {
     background: "linear-gradient(135deg, #ffffff 0%, #f8fbff 48%, #f3f7ff 100%)",
     borderRadius: 24,
     border: "1px solid #d8e5fb",
-    padding: isMobileDevice ? "16px" : "18px 22px",
+    padding: isMobileDevice ? "12px 14px" : "18px 22px",
     display: "flex",
     flexDirection: isMobileDevice ? "column" : "row",
     justifyContent: "space-between",
@@ -427,7 +427,7 @@ function Home({ setTela, onSair }) {
     background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
     border: "1px solid #e0e8f5",
     borderRadius: 22,
-    padding: 18,
+    padding: isMobileDevice ? 14 : 18,
     boxShadow: "0 14px 30px rgba(20,44,84,0.07)",
     position: "relative",
     overflow: "hidden"
@@ -435,17 +435,15 @@ function Home({ setTela, onSair }) {
 
   const sectionTitle = {
     margin: 0,
-    fontSize: 18,
+    fontSize: isMobileDevice ? 16 : 18,
     color: "#10243e",
     letterSpacing: "-0.02em"
   };
 
   const buttonList = {
     display: "grid",
-    // Tiles se ajustam automaticamente: quando o setor estiver estreito vira 1 coluna;
-    // quando tiver espaco suficiente vira 2.
     gridTemplateColumns: isMobileDevice ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 10
+    gap: isMobileDevice ? 8 : 10
   };
 
   const actionButton = {
@@ -455,7 +453,7 @@ function Home({ setTela, onSair }) {
     color: "#10243e",
     borderRadius: 18,
     borderColor: "#d7e4ff",
-    padding: "14px 14px",
+    padding: isMobileDevice ? "12px 12px" : "14px 14px",
     fontSize: 14,
     fontWeight: 800,
     cursor: "pointer",
@@ -463,13 +461,13 @@ function Home({ setTela, onSair }) {
     boxSizing: "border-box",
     boxShadow: "0 6px 14px rgba(16,36,62,0.06)",
     transition: "transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
-    minHeight: 104,
+    minHeight: isMobileDevice ? 84 : 104,
     overflow: "visible"
   };
   const tileInner = {
     display: "grid",
-    gridTemplateColumns: "36px 1fr",
-    gap: 10,
+    gridTemplateColumns: isMobileDevice ? "32px 1fr" : "36px 1fr",
+    gap: isMobileDevice ? 8 : 10,
     alignItems: "flex-start"
   };
   // Compat: se o navegador ainda estiver com um hot-update antigo em cache,
@@ -483,11 +481,11 @@ function Home({ setTela, onSair }) {
     lineHeight: 1.16,
     whiteSpace: "normal",
     wordBreak: "break-word",
-    fontSize: 15
+    fontSize: isMobileDevice ? 13 : 15
   };
   const tileDesc = {
     marginTop: 6,
-    fontSize: 12,
+    fontSize: isMobileDevice ? 11 : 12,
     fontWeight: 600,
     color: "#55708f",
     lineHeight: 1.35,
@@ -634,9 +632,9 @@ function Home({ setTela, onSair }) {
   };
 
   const tileIconWrap = (accent) => ({
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: isMobileDevice ? 32 : 36,
+    height: isMobileDevice ? 32 : 36,
+    borderRadius: isMobileDevice ? 9 : 10,
     background: "rgba(255,255,255,0.75)",
     border: `1px solid ${accent}33`,
     display: "grid",
@@ -664,7 +662,6 @@ function Home({ setTela, onSair }) {
     if (t.includes("operacao")) return "Rotinas de campo e lancamentos";
     return "Modulos organizados por setor";
   };
-
   const secoesOperacionais = [
     {
       titulo: "Engenharia",
@@ -774,6 +771,7 @@ function Home({ setTela, onSair }) {
     if (modoPainel === "administrativo" && !acessoAdmin) return "operacional";
     return modoPainel;
   })();
+  const pageTitle = modoAtivo === "operacional" ? "Modulos Operacionais" : "Modulos Administrativos";
   const secoesOriginais = modoAtivo === "operacional" ? secoesOperacionais : secoesAdministrativas;
   const secoes = secoesOriginais
     .map((secao) => ({
@@ -995,15 +993,19 @@ function Home({ setTela, onSair }) {
         <header style={topbar}>
           <div style={titleBox}>
             <div>
-              <h1 style={titulo}>Equipamento Gestao</h1>
+              <h1 style={{ ...titulo, fontSize: isMobileDevice ? 18 : titulo.fontSize, margin: isMobileDevice ? 0 : titulo.margin }}>
+                {isMobileDevice ? pageTitle : "Equipamento Gestao"}
+              </h1>
               <p style={subtitulo}>
-                {modoAtivo === "operacional"
-                  ? "Controle operacional de obras e equipamentos"
-                  : "Relatorios, cadastros e controles administrativos"}
+                {isMobileDevice
+                  ? "Selecione o setor e abra o modulo"
+                  : (modoAtivo === "operacional"
+                    ? "Controle operacional de obras e equipamentos"
+                    : "Relatorios, cadastros e controles administrativos")}
               </p>
             </div>
           </div>
-          {alertasAbertosCount > 0 && (
+          {!isMobileDevice && alertasAbertosCount > 0 && (
             <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
               <div
                 role="button"
@@ -1018,7 +1020,7 @@ function Home({ setTela, onSair }) {
               </div>
             </div>
           )}
-          {testeBloqueado && (
+          {!isMobileDevice && testeBloqueado && (
             <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
               <div
                 style={{
@@ -1049,7 +1051,7 @@ function Home({ setTela, onSair }) {
               </div>
             </div>
           )}
-          {!testeBloqueado && inadimplente && (
+          {!isMobileDevice && !testeBloqueado && inadimplente && (
             <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
               <div
                 style={{
@@ -1080,7 +1082,7 @@ function Home({ setTela, onSair }) {
               </div>
             </div>
           )}
-          <div style={{ display: "flex", flexDirection: isMobileDevice ? "column" : "row", alignItems: isMobileDevice ? "flex-start" : "center", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8, width: isMobileDevice ? "100%" : "auto", justifyContent: isMobileDevice ? "space-between" : "flex-start" }}>
             <div style={{ position: "relative" }}>
               <button
                 type="button"
@@ -1197,6 +1199,7 @@ function Home({ setTela, onSair }) {
           </div>
         )}
 
+        {!isMobileDevice && (
         <section
           style={{
             background: "linear-gradient(135deg, #173454 0%, #0b5ed7 56%, #4c6ef5 100%)",
@@ -1307,7 +1310,9 @@ function Home({ setTela, onSair }) {
             </div>
           </div>
         </section>
+        )}
 
+        {!isMobileDevice && (
         <div
           style={{
             display: "grid",
@@ -1339,6 +1344,7 @@ function Home({ setTela, onSair }) {
             </div>
           ))}
         </div>
+        )}
 
         {setorAtivo === "painel" && (
           <section
@@ -1346,14 +1352,16 @@ function Home({ setTela, onSair }) {
               background: "#ffffff",
               border: "1px solid #e0e8f5",
               borderRadius: 22,
-              padding: isMobileDevice ? 16 : 20,
+              padding: isMobileDevice ? 14 : 20,
               boxShadow: "0 14px 30px rgba(20,44,84,0.05)",
               marginBottom: 16
             }}
           >
             <div style={{ fontSize: 18, fontWeight: 900, color: "#173454" }}>Painel limpo</div>
             <div style={{ marginTop: 8, color: "#5d6f86", lineHeight: 1.6, maxWidth: 860 }}>
-              Os modulos agora aparecem somente quando voce escolhe um setor na lateral. Assim o painel principal fica menos poluido e cada area abre apenas o conteudo que interessa naquele momento.
+              {isMobileDevice
+                ? "Escolha um setor na faixa azul acima para abrir os modulos."
+                : "Os modulos agora aparecem somente quando voce escolhe um setor na lateral. Assim o painel principal fica menos poluido e cada area abre apenas o conteudo que interessa naquele momento."}
             </div>
           </section>
         )}
@@ -1375,7 +1383,7 @@ function Home({ setTela, onSair }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
                 <div style={{ position: "relative", zIndex: 1 }}>
                   <h2 style={sectionTitle}>{secao.titulo}</h2>
-                  <div style={{ marginTop: 5, fontSize: 12, color: "#617792", fontWeight: 600 }}>
+                  <div style={{ marginTop: 4, fontSize: isMobileDevice ? 11 : 12, color: "#617792", fontWeight: 600 }}>
                     {descricaoSecao(secao.titulo)}
                   </div>
                 </div>
@@ -1384,14 +1392,14 @@ function Home({ setTela, onSair }) {
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    minWidth: 34,
-                    height: 30,
-                    padding: "0 10px",
+                    minWidth: isMobileDevice ? 28 : 34,
+                    height: isMobileDevice ? 26 : 30,
+                    padding: isMobileDevice ? "0 8px" : "0 10px",
                     borderRadius: 999,
                     background: "#eff5ff",
                     border: "1px solid #d9e6ff",
                     color: "#2457d6",
-                    fontSize: 12,
+                    fontSize: isMobileDevice ? 11 : 12,
                     fontWeight: 800,
                     position: "relative",
                     zIndex: 1
@@ -1414,17 +1422,17 @@ function Home({ setTela, onSair }) {
                     <div
                       style={{
                         position: "absolute",
-                        top: 10,
-                        right: 10,
-                        width: 34,
-                        height: 34,
+                        top: isMobileDevice ? 8 : 10,
+                        right: isMobileDevice ? 8 : 10,
+                        width: isMobileDevice ? 28 : 34,
+                        height: isMobileDevice ? 28 : 34,
                         borderRadius: 999,
                         background: "rgba(255,255,255,0.56)",
                         border: "1px solid rgba(255,255,255,0.7)",
                         display: "grid",
                         placeItems: "center",
                         color: "#5a6b82",
-                        fontSize: 16,
+                        fontSize: isMobileDevice ? 14 : 16,
                         fontWeight: 900
                       }}
                     >
