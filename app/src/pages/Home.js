@@ -54,6 +54,7 @@ function Home({ setTela, onSair }) {
   const permissoesUsuario = Array.isArray(sessaoOperacional?.permissoes)
     ? sessaoOperacional.permissoes.map((p) => String(p || "").trim())
     : [];
+  const podeAlternarPaineis = perfilAcesso === PERFIL_GESTOR_GERAL || usuarioChave;
 
   const acessoTotalBases = perfilAcesso === PERFIL_GESTOR_GERAL || usuarioChave;
   const basesPermitidas = Array.isArray(sessaoOperacional?.basesPermitidas)
@@ -239,20 +240,21 @@ function Home({ setTela, onSair }) {
   };
   const page = {
     minHeight: "100vh",
-    background: "#eef2f7",
+    background: "linear-gradient(180deg, #edf4ff 0%, #f6f8fc 38%, #eef2f7 100%)",
     display: "grid",
-    gridTemplateColumns: isMobileDevice ? "1fr" : "108px 1fr"
+    gridTemplateColumns: isMobileDevice ? "1fr" : "122px 1fr"
   };
 
   const sidebar = {
-    background: "#0b5ed7",
+    background: "linear-gradient(180deg, #0a2f5a 0%, #0b5ed7 55%, #0a4aa9 100%)",
     color: "#fff",
-    padding: isMobileDevice ? "8px" : "10px 10px",
-    borderRight: isMobileDevice ? "none" : "1px solid rgba(255,255,255,0.25)",
+    padding: isMobileDevice ? "10px" : "16px 12px",
+    borderRight: isMobileDevice ? "none" : "1px solid rgba(255,255,255,0.15)",
     display: isMobileDevice ? "flex" : "block",
     gap: isMobileDevice ? 8 : 0,
     overflowX: isMobileDevice ? "auto" : "visible",
-    alignItems: "center"
+    alignItems: "center",
+    boxShadow: isMobileDevice ? "none" : "8px 0 28px rgba(11,42,88,0.10)"
   };
 
   const brand = {
@@ -270,10 +272,10 @@ function Home({ setTela, onSair }) {
   const navButton = {
     width: isMobileDevice ? "auto" : "100%",
     border: "none",
-    background: "rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.10)",
     color: "#fff",
-    borderRadius: 8,
-    padding: "10px 8px",
+    borderRadius: 14,
+    padding: "11px 10px",
     fontSize: 11,
     lineHeight: "14px",
     fontWeight: "bold",
@@ -287,7 +289,7 @@ function Home({ setTela, onSair }) {
     flex: isMobileDevice ? "0 0 auto" : "none",
     minWidth: isMobileDevice ? 88 : "unset",
     outline: "none",
-    transition: "transform 120ms ease, background 120ms ease, box-shadow 120ms ease"
+    transition: "transform 120ms ease, background 120ms ease, box-shadow 120ms ease, border 120ms ease"
   };
 
   const badge = {
@@ -328,27 +330,28 @@ function Home({ setTela, onSair }) {
       ...navButton,
       background: bg,
       boxShadow: isActive
-        ? "0 6px 16px rgba(0,0,0,0.12)"
-        : (isHover ? "0 4px 12px rgba(0,0,0,0.10)" : "none"),
+        ? "0 10px 24px rgba(0,0,0,0.16)"
+        : (isHover ? "0 8px 18px rgba(0,0,0,0.12)" : "none"),
       transform: isHover ? "translateY(-1px)" : "none",
-      border: isActive ? "1px solid rgba(255,255,255,0.55)" : "1px solid rgba(255,255,255,0.0)"
+      border: isActive ? "1px solid rgba(255,255,255,0.58)" : "1px solid rgba(255,255,255,0.08)"
     };
   };
 
   const main = {
-    padding: isMobileDevice ? 10 : 14
+    padding: isMobileDevice ? 12 : 18
   };
 
   const topbar = {
-    background: "#fff",
-    borderRadius: 8,
-    border: "1px solid #dbe3ef",
-    padding: isMobileDevice ? "10px" : "12px 14px",
+    background: "linear-gradient(135deg, #ffffff 0%, #f8fbff 48%, #f3f7ff 100%)",
+    borderRadius: 24,
+    border: "1px solid #d8e5fb",
+    padding: isMobileDevice ? "16px" : "18px 22px",
     display: "flex",
     flexDirection: isMobileDevice ? "column" : "row",
     justifyContent: "space-between",
     alignItems: isMobileDevice ? "flex-start" : "center",
-    marginBottom: 12
+    marginBottom: 16,
+    boxShadow: "0 18px 40px rgba(30,66,124,0.10)"
   };
 
   const titleBox = {
@@ -362,11 +365,12 @@ function Home({ setTela, onSair }) {
 
   const titulo = {
     margin: "6px 0 0",
-    fontSize: isMobileDevice ? 24 : 28,
-    color: "#163256"
+    fontSize: isMobileDevice ? 28 : 36,
+    color: "#163256",
+    letterSpacing: "-0.03em"
   };
 
-  const subtitulo = { margin: 0, color: "#6b7c93", fontSize: isMobileDevice ? 12 : 13 };
+  const subtitulo = { margin: "6px 0 0", color: "#5f6f86", fontSize: isMobileDevice ? 13 : 15, lineHeight: 1.5, maxWidth: 620 };
 
   const contaButton = {
     border: "1px solid #dbe3ef",
@@ -414,24 +418,25 @@ function Home({ setTela, onSair }) {
 
   const sections = {
     display: "grid",
-    // Auto-ajuste: evita setores estreitos demais (que deixam os tiles pequenos).
-    // Em telas grandes, isso tende a ficar em 3-4 colunas em vez de 5.
-    gridTemplateColumns: isMobileDevice ? "1fr" : "repeat(auto-fit, minmax(320px, 1fr))",
-    gap: 12
+    gridTemplateColumns: isMobileDevice ? "1fr" : "repeat(auto-fit, minmax(310px, 1fr))",
+    gap: 16
   };
 
   const section = {
-    background: "#fff",
-    border: "1px solid #e3e7ef",
-    borderRadius: 8,
-    padding: 14,
-    boxShadow: "0 1px 4px rgba(0,0,0,0.06)"
+    background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+    border: "1px solid #e0e8f5",
+    borderRadius: 22,
+    padding: 18,
+    boxShadow: "0 14px 30px rgba(20,44,84,0.07)",
+    position: "relative",
+    overflow: "hidden"
   };
 
   const sectionTitle = {
-    margin: "0 0 12px",
+    margin: 0,
     fontSize: 18,
-    color: "#10243e"
+    color: "#10243e",
+    letterSpacing: "-0.02em"
   };
 
   const buttonList = {
@@ -447,19 +452,17 @@ function Home({ setTela, onSair }) {
     border: "1px solid #e3e7ef",
     background: "#f1f6ff",
     color: "#10243e",
-    borderRadius: 8,
+    borderRadius: 18,
     borderColor: "#d7e4ff",
-    padding: "12px 12px",
+    padding: "14px 14px",
     fontSize: 14,
     fontWeight: 800,
     cursor: "pointer",
     textAlign: "left",
     boxSizing: "border-box",
-    boxShadow: "0 1px 3px rgba(16,36,62,0.08)",
+    boxShadow: "0 6px 14px rgba(16,36,62,0.06)",
     transition: "transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
-    // Mantem os tiles com altura consistente (evita parecer desalinhado).
-    minHeight: 92,
-    // Importante: nao cortar texto com "...". Deixe o tile crescer.
+    minHeight: 104,
     overflow: "visible"
   };
   const tileInner = {
@@ -476,16 +479,17 @@ function Home({ setTela, onSair }) {
   const tileTitle = {
     fontWeight: 800,
     color: "#10243e",
-    lineHeight: 1.2,
+    lineHeight: 1.16,
     whiteSpace: "normal",
-    wordBreak: "break-word"
+    wordBreak: "break-word",
+    fontSize: 15
   };
   const tileDesc = {
-    marginTop: 2,
+    marginTop: 6,
     fontSize: 12,
     fontWeight: 600,
-    color: "#4a5c74",
-    lineHeight: 1.2,
+    color: "#55708f",
+    lineHeight: 1.35,
     whiteSpace: "normal",
     wordBreak: "break-word"
   };
@@ -644,9 +648,20 @@ function Home({ setTela, onSair }) {
       ...actionButton,
       background: meta.bg,
       borderColor: `${meta.accent}33`,
-      boxShadow: "0 2px 10px rgba(16,36,62,0.08)",
+      boxShadow: "0 10px 20px rgba(16,36,62,0.06)",
       borderLeft: `5px solid ${meta.accent}`
     };
+  };
+  const descricaoSecao = (titulo) => {
+    const t = String(titulo || "").toLowerCase();
+    if (t.includes("engenharia")) return "Croqui, RDO e documentos tecnicos";
+    if (t.includes("manutencao")) return "Historico, custos e acompanhamento";
+    if (t.includes("transporte")) return "Romaneios, transferencias e cargas";
+    if (t.includes("almoxarifado")) return "Entrada central e controle de materiais";
+    if (t.includes("cadastros")) return "Estrutura base do cliente e usuarios";
+    if (t.includes("financeiro")) return "Pagamentos, plano e auditoria";
+    if (t.includes("operacao")) return "Rotinas de campo e lancamentos";
+    return "Modulos organizados por setor";
   };
 
   const secoesOperacionais = [
@@ -736,11 +751,13 @@ function Home({ setTela, onSair }) {
     || podeAcessarTela("transportes")
     || podeAcessarTela("receberTransporte");
 
-  const modoAtivo = isMobileDevice
-    ? "operacional"
-    : (!acessoOperacional && acessoAdmin
-        ? "administrativo"
-        : (modoPainel === "administrativo" && !acessoAdmin ? "operacional" : modoPainel));
+  const modoAtivo = (() => {
+    if (isMobileDevice) return "operacional";
+    if (!podeAlternarPaineis) return "administrativo";
+    if (!acessoOperacional && acessoAdmin) return "administrativo";
+    if (modoPainel === "administrativo" && !acessoAdmin) return "operacional";
+    return modoPainel;
+  })();
   const secoesOriginais = modoAtivo === "operacional" ? secoesOperacionais : secoesAdministrativas;
   const secoes = secoesOriginais
     .map((secao) => ({
@@ -748,6 +765,59 @@ function Home({ setTela, onSair }) {
       itens: secao.itens.filter((item) => podeAcessarTela(item.tela))
     }))
     .filter((secao) => secao.itens.length > 0);
+  const totalModulosLiberados = secoes.reduce((acc, secao) => acc + secao.itens.length, 0);
+  const atalhosPrincipais = secoes.flatMap((secao) => secao.itens).slice(0, isMobileDevice ? 2 : 4);
+  const saudacaoPainel = modoAtivo === "operacional"
+    ? "Operacao pronta para o dia"
+    : "Visao administrativa organizada";
+  const textoPainel = modoAtivo === "operacional"
+    ? "Acesse os modulos mais usados com menos poluicao visual e mais foco no que precisa rodar hoje."
+    : "Cadastros, relatorios e controles apresentados de forma mais clara, com cara de produto entregue.";
+  const chipStatus = testeBloqueado
+    ? { texto: "Teste expirado", bg: "#fff0f6", color: "#c2255c", border: "#fcc2d7" }
+    : inadimplente
+    ? { texto: "Financeiro pendente", bg: "#fff4e6", color: "#e67700", border: "#ffd8a8" }
+    : { texto: "Sistema liberado", bg: "#eafaf1", color: "#2b8a3e", border: "#b2f2bb" };
+  const resumoCards = [
+    {
+      titulo: "Modo ativo",
+      valor: modoAtivo === "operacional" ? "Operacional" : "Administrativo",
+      detalhe: modoAtivo === "operacional"
+        ? "Rotinas de campo e lancamentos do dia"
+        : "Cadastros, relatorios e controle gerencial",
+      accent: "#0b5ed7",
+      bg: "linear-gradient(135deg, #eaf2ff 0%, #f7fbff 100%)"
+    },
+    {
+      titulo: "Setores liberados",
+      valor: String(secoes.length).padStart(2, "0"),
+      detalhe: "Areas disponiveis para este usuario",
+      accent: "#5f3dc4",
+      bg: "linear-gradient(135deg, #f3f0ff 0%, #fbf9ff 100%)"
+    },
+    {
+      titulo: "Modulos liberados",
+      valor: String(totalModulosLiberados).padStart(2, "0"),
+      detalhe: "Acessos prontos para uso agora",
+      accent: "#198754",
+      bg: "linear-gradient(135deg, #eafaf1 0%, #f8fffb 100%)"
+    },
+    {
+      titulo: testeBloqueado ? "Status do plano" : (!testeBloqueado && inadimplente ? "Status financeiro" : "Alertas ativos"),
+      valor: testeBloqueado ? "Teste expirado" : (!testeBloqueado && inadimplente ? "Inadimplente" : `${alertasAbertosCount}`),
+      detalhe: testeBloqueado
+        ? "Regularize para liberar operacoes e cadastros"
+        : (!testeBloqueado && inadimplente
+          ? "Financeiro aberto para regularizacao"
+          : "Alertas abertos de manutencao"),
+      accent: testeBloqueado ? "#d6336c" : (!testeBloqueado && inadimplente ? "#fd7e14" : "#dc3545"),
+      bg: testeBloqueado
+        ? "linear-gradient(135deg, #fff0f6 0%, #fff8fb 100%)"
+        : (!testeBloqueado && inadimplente
+          ? "linear-gradient(135deg, #fff4e6 0%, #fffaf2 100%)"
+          : "linear-gradient(135deg, #fff1f1 0%, #fff9f9 100%)")
+    }
+  ];
 
   return (
     <div style={page}>
@@ -983,8 +1053,20 @@ function Home({ setTela, onSair }) {
           </div>
         </header>
 
-        {!isMobileDevice && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        {!isMobileDevice && podeAlternarPaineis && (
+          <div
+            style={{
+              display: "inline-flex",
+              gap: 8,
+              marginBottom: 14,
+              flexWrap: "wrap",
+              padding: 6,
+              borderRadius: 18,
+              background: "#f0f4fb",
+              border: "1px solid #dbe5f4",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)"
+            }}
+          >
             <button
               type="button"
               onClick={() => alterarModoPainel("operacional")}
@@ -992,8 +1074,15 @@ function Home({ setTela, onSair }) {
               style={{
                 ...actionButton,
                 width: "auto",
-                padding: "9px 14px",
-                background: modoAtivo === "operacional" ? "#0b5ed7" : "#6c757d",
+                minHeight: "unset",
+                padding: "11px 18px",
+                borderRadius: 14,
+                background: modoAtivo === "operacional"
+                  ? "linear-gradient(135deg, #173454 0%, #0b5ed7 100%)"
+                  : "transparent",
+                color: modoAtivo === "operacional" ? "#fff" : "#173454",
+                borderColor: modoAtivo === "operacional" ? "#0b5ed7" : "transparent",
+                boxShadow: modoAtivo === "operacional" ? "0 10px 20px rgba(11,94,215,0.18)" : "none",
                 textAlign: "center",
                 opacity: acessoOperacional ? 1 : 0.5,
                 cursor: acessoOperacional ? "pointer" : "not-allowed"
@@ -1008,8 +1097,15 @@ function Home({ setTela, onSair }) {
               style={{
                 ...actionButton,
                 width: "auto",
-                padding: "9px 14px",
-                background: modoAtivo === "administrativo" ? "#0b5ed7" : "#6c757d",
+                minHeight: "unset",
+                padding: "11px 18px",
+                borderRadius: 14,
+                background: modoAtivo === "administrativo"
+                  ? "linear-gradient(135deg, #173454 0%, #0b5ed7 100%)"
+                  : "transparent",
+                color: modoAtivo === "administrativo" ? "#fff" : "#173454",
+                borderColor: modoAtivo === "administrativo" ? "#0b5ed7" : "transparent",
+                boxShadow: modoAtivo === "administrativo" ? "0 10px 20px rgba(11,94,215,0.18)" : "none",
                 textAlign: "center",
                 opacity: acessoAdmin ? 1 : 0.5,
                 cursor: acessoAdmin ? "pointer" : "not-allowed"
@@ -1019,19 +1115,242 @@ function Home({ setTela, onSair }) {
             </button>
           </div>
         )}
+        {!isMobileDevice && !podeAlternarPaineis && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 14,
+              padding: "8px 12px",
+              borderRadius: 999,
+              background: "#eef4ff",
+              border: "1px solid #d8e5ff",
+              color: "#2457d6",
+              fontSize: 12,
+              fontWeight: 800
+            }}
+          >
+            Visao fixa: Painel Administrativo
+          </div>
+        )}
+
+        <section
+          style={{
+            background: "linear-gradient(135deg, #173454 0%, #0b5ed7 56%, #4c6ef5 100%)",
+            borderRadius: 24,
+            padding: isMobileDevice ? 18 : 24,
+            color: "#fff",
+            boxShadow: "0 22px 44px rgba(12,56,121,0.22)",
+            marginBottom: 16,
+            overflow: "hidden",
+            position: "relative"
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: "auto -40px -50px auto",
+              width: 180,
+              height: 180,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.08)"
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: "-40px auto auto -50px",
+              width: 140,
+              height: 140,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.05)"
+            }}
+          />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobileDevice ? "1fr" : "minmax(0, 1.25fr) minmax(280px, 0.75fr)",
+              gap: 18,
+              position: "relative"
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  background: chipStatus.bg,
+                  color: chipStatus.color,
+                  border: `1px solid ${chipStatus.border}`,
+                  fontWeight: 800,
+                  fontSize: 12,
+                  marginBottom: 14
+                }}
+              >
+                {chipStatus.texto}
+              </div>
+              <div style={{ fontSize: isMobileDevice ? 27 : 34, fontWeight: 900, lineHeight: 1.05 }}>
+                {saudacaoPainel}
+              </div>
+              <div style={{ marginTop: 10, maxWidth: 680, color: "rgba(255,255,255,0.86)", lineHeight: 1.6, fontSize: isMobileDevice ? 13 : 15 }}>
+                {textoPainel}
+              </div>
+            </div>
+            <div
+              style={{
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                borderRadius: 20,
+                padding: 16,
+                backdropFilter: "blur(6px)"
+              }}
+            >
+              <div style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.72)", marginBottom: 10 }}>
+                Atalhos principais
+              </div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {atalhosPrincipais.map((item) => {
+                  const meta = metaTela(item.tela);
+                  return (
+                    <button
+                      key={`atalho-${item.tela}`}
+                      type="button"
+                      onClick={() => setTela(item.tela)}
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.18)",
+                        background: "rgba(7, 26, 52, 0.22)",
+                        color: "#fff",
+                        borderRadius: 16,
+                        padding: "12px 14px",
+                        textAlign: "left",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <div style={{ display: "grid", gridTemplateColumns: "34px 1fr", gap: 10, alignItems: "center" }}>
+                        <div style={{ ...tileIconWrap(meta.accent), width: 34, height: 34, background: "rgba(255,255,255,0.82)" }}>
+                          {iconSvg(meta.icon, meta.accent)}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, lineHeight: 1.2 }}>{item.texto}</div>
+                          <div style={{ marginTop: 2, fontSize: 12, color: "rgba(255,255,255,0.72)" }}>{resumoTela(item.tela)}</div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isMobileDevice ? "1fr" : "repeat(4, minmax(0, 1fr))",
+            gap: 12,
+            marginBottom: 16
+          }}
+        >
+          {resumoCards.map((card) => (
+            <div
+              key={card.titulo}
+              style={{
+                background: card.bg,
+                border: `1px solid ${card.accent}22`,
+                borderRadius: 20,
+                padding: 16,
+                boxShadow: "0 10px 24px rgba(18,38,72,0.06)"
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#5c6d86", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {card.titulo}
+              </div>
+              <div style={{ marginTop: 8, fontSize: isMobileDevice ? 22 : 26, fontWeight: 900, color: "#10243e", lineHeight: 1.1 }}>
+                {card.valor}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 13, color: "#5d6f86", lineHeight: 1.45 }}>
+                {card.detalhe}
+              </div>
+            </div>
+          ))}
+        </div>
 
         <div style={sections}>
           {secoes.map((secao) => (
             <section key={secao.titulo} style={section}>
-              <h2 style={sectionTitle}>{secao.titulo}</h2>
+              <div
+                style={{
+                  position: "absolute",
+                  top: -36,
+                  right: -34,
+                  width: 120,
+                  height: 120,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, rgba(76,110,245,0.10) 0%, rgba(11,94,215,0.02) 100%)"
+                }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+                <div style={{ position: "relative", zIndex: 1 }}>
+                  <h2 style={sectionTitle}>{secao.titulo}</h2>
+                  <div style={{ marginTop: 5, fontSize: 12, color: "#617792", fontWeight: 600 }}>
+                    {descricaoSecao(secao.titulo)}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: 34,
+                    height: 30,
+                    padding: "0 10px",
+                    borderRadius: 999,
+                    background: "#eff5ff",
+                    border: "1px solid #d9e6ff",
+                    color: "#2457d6",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    position: "relative",
+                    zIndex: 1
+                  }}
+                >
+                  {secao.itens.length} modulo(s)
+                </span>
+              </div>
               <div style={buttonList}>
                 {secao.itens.map((item) => (
                   <button
                     key={item.tela}
-                    style={tileButtonStyle(item.tela)}
+                    style={{
+                      ...tileButtonStyle(item.tela),
+                      position: "relative"
+                    }}
                     onClick={() => setTela(item.tela)}
                     type="button"
                   >
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 10,
+                        right: 10,
+                        width: 34,
+                        height: 34,
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.56)",
+                        border: "1px solid rgba(255,255,255,0.7)",
+                        display: "grid",
+                        placeItems: "center",
+                        color: "#5a6b82",
+                        fontSize: 16,
+                        fontWeight: 900
+                      }}
+                    >
+                      +
+                    </div>
                     <div style={tileInner}>
                       {(() => {
                         const meta = metaTela(item.tela);
