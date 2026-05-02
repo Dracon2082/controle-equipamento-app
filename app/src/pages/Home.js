@@ -249,46 +249,54 @@ function Home({ setTela, onSair }) {
   const sidebar = {
     background: "linear-gradient(180deg, #0a2f5a 0%, #0b5ed7 55%, #0a4aa9 100%)",
     color: "#fff",
-    padding: isMobileDevice ? "10px" : "16px 12px",
+    padding: isMobileDevice ? "12px 10px 14px" : "16px 12px",
     borderRight: isMobileDevice ? "none" : "1px solid rgba(255,255,255,0.15)",
     display: isMobileDevice ? "flex" : "block",
-    gap: isMobileDevice ? 8 : 0,
-    overflowX: isMobileDevice ? "auto" : "visible",
-    alignItems: "center",
+    flexDirection: isMobileDevice ? "column" : "row",
+    gap: isMobileDevice ? 10 : 0,
+    overflowX: "visible",
+    alignItems: isMobileDevice ? "stretch" : "center",
     boxShadow: isMobileDevice ? "none" : "8px 0 28px rgba(11,42,88,0.10)"
   };
 
   const brand = {
-    width: 98,
-    height: 98,
+    width: isMobileDevice ? "100%" : 98,
+    height: isMobileDevice ? "auto" : 98,
     borderRadius: 0,
     background: "transparent",
-    margin: isMobileDevice ? "0 4px 0 0" : "0 auto 10px",
+    margin: isMobileDevice ? "0 auto 4px" : "0 auto 10px",
     flex: "0 0 auto",
     display: "flex",
     alignItems: "center",
     justifyContent: "center"
   };
 
+  const mobileSetoresGrid = {
+    display: isMobileDevice ? "grid" : "block",
+    gridTemplateColumns: isMobileDevice ? "repeat(3, minmax(0, 1fr))" : "none",
+    gap: isMobileDevice ? 8 : 0,
+    width: "100%"
+  };
+
   const navButton = {
-    width: isMobileDevice ? "auto" : "100%",
+    width: "100%",
     border: "none",
     background: "rgba(255,255,255,0.10)",
     color: "#fff",
     borderRadius: 14,
-    padding: "11px 10px",
-    fontSize: 11,
-    lineHeight: "14px",
+    padding: isMobileDevice ? "10px 8px" : "11px 10px",
+    fontSize: isMobileDevice ? 11 : 11,
+    lineHeight: isMobileDevice ? "13px" : "14px",
     fontWeight: "bold",
     cursor: "pointer",
     textAlign: "center",
     marginBottom: isMobileDevice ? 0 : 8,
-    minHeight: 40,
+    minHeight: isMobileDevice ? 46 : 40,
     boxSizing: "border-box",
     // No painel operacional: preferimos quebrar linha do que abreviar com "...".
     whiteSpace: "normal",
-    flex: isMobileDevice ? "0 0 auto" : "none",
-    minWidth: isMobileDevice ? 88 : "unset",
+    flex: "none",
+    minWidth: "unset",
     outline: "none",
     transition: "transform 120ms ease, background 120ms ease, box-shadow 120ms ease, border 120ms ease"
   };
@@ -865,26 +873,36 @@ function Home({ setTela, onSair }) {
           role="button"
           tabIndex={0}
         >
-          <img src={logoSistema} alt="Logo" style={{ width: 106, height: 106, objectFit: "contain" }} />
+          <img
+            src={logoSistema}
+            alt="Logo"
+            style={{
+              width: isMobileDevice ? 92 : 106,
+              height: isMobileDevice ? 92 : 106,
+              objectFit: "contain"
+            }}
+          />
         </div>
-        {menuSetores.map((item) => {
-          const ativo = setorAtivo === item.chave;
-          return (
-            <button
-              key={item.chave}
-              style={navButtonStyle(item.chave, ativo)}
-              onMouseEnter={() => setNavHover(item.chave)}
-              onMouseLeave={() => setNavHover("")}
-              onClick={() => {
-                setSetorAtivo(item.chave);
-                setTela("home");
-              }}
-              type="button"
-            >
-              {item.label}
-            </button>
-          );
-        })}
+        <div style={mobileSetoresGrid}>
+          {menuSetores.map((item) => {
+            const ativo = setorAtivo === item.chave;
+            return (
+              <button
+                key={item.chave}
+                style={navButtonStyle(item.chave, ativo)}
+                onMouseEnter={() => setNavHover(item.chave)}
+                onMouseLeave={() => setNavHover("")}
+                onClick={() => {
+                  setSetorAtivo(item.chave);
+                  setTela("home");
+                }}
+                type="button"
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
         {false && !isMobileDevice && (
           <button
             style={navButtonStyle("home", true)}
