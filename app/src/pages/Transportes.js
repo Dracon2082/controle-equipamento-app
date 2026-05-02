@@ -1,0 +1,579 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useEffect, useMemo, useRef, useState } from "react";
+import SignatureCanvas from "react-signature-canvas";
+import { collection, doc, getDocs, setDoc } from "firebase/firestore";
+import jsPDF from "jspdf";
+import QRCode from "qrcode";
+import { db } from "../firebase";
+import { registrarHistorico } from "../utils/historico";
+import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
+
+const MATERIAIS = ["BARRO", "BRITA", "AREIA", "ASFALTO", "DIVERSOS"];
+const UNIDADES = [
+  { value: "M3", label: "M³" },
+  { value: "TON", label: "Ton" },
+  { value: "UN", label: "Un" }
+];
+const COLECAO = "romaneiosTransporte";
+
+function Transportes({ setTela }) {
+  const tenantId = getTenantId();
+  const sessao = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("sessaoOperacional") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  const apontadorAtual = String(sessao?.nome || localStorage.getItem("usuarioLogado") || "")
+    .trim()
+    .toUpperCase();
+
+  const assinaturaWidth = Math.min(520, Math.max(280, window.innerWidth - 70));
+  const assinaturaSaidaRef = useRef(null);
+  const assinaturaMotoristaRef = useRef(null);
+
+  const [equipamentos, setEquipamentos] = useState([]);
+  const [lista, setLista] = useState([]);
+  const [salvando, setSalvando] = useState(false);
+  const [material, setMaterial] = useState("BARRO");
+  const [descricaoMaterial, setDescricaoMaterial] = useState("");
+  const [quantidade, setQuantidade] = useState("");
+  const [unidade, setUnidade] = useState("M3");
+  const [origem, setOrigem] = useState("");
+  const [destino, setDestino] = useState("");
+  const [obra, setObra] = useState("");
+  const [caminhaoId, setCaminhaoId] = useState("");
+  const [motorista, setMotorista] = useState("");
+  const [observacao, setObservacao] = useState("");
+  const [romaneioGerado, setRomaneioGerado] = useState(null);
+  const [qrPreview, setQrPreview] = useState("");
+  const [gerandoPdfId, setGerandoPdfId] = useState("");
+  const [formularioAberto, setFormularioAberto] = useState(false);
+
+  const inputStyle = {
+    width: "100%",
+    height: 42,
+    padding: "0 10px",
+    borderRadius: 8,
+    border: "1px solid #cfd7e3",
+    boxSizing: "border-box",
+    background: "#fff"
+  };
+
+  const areaStyle = {
+    ...inputStyle,
+    height: 86,
+    padding: "10px"
+  };
+
+  const card = {
+    background: "#fff",
+    border: "1px solid #e3e7ef",
+    borderRadius: 8,
+    padding: 16,
+    boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+    marginBottom: 14
+  };
+
+  const botaoPrimario = {
+    background: "#5f3dc4",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "10px 16px",
+    fontWeight: 800,
+    cursor: "pointer"
+  };
+
+  const botaoSecundario = {
+    background: "#eef2ff",
+    color: "#2b2f55",
+    border: "1px solid #d8dcff",
+    borderRadius: 8,
+    padding: "10px 14px",
+    fontWeight: 700,
+    cursor: "pointer"
+  };
+
+  const caminhoes = useMemo(() => {
+    const termos = ["CAMINHAO", "CAVALO", "CARRETA", "BASCULANTE", "PIPA", "MUNCK", "PRANCHA"];
+    return equipamentos.filter((item) => {
+      const texto = `${item?.nome || ""} ${item?.categoria || ""} ${item?.codigo || ""}`.toUpperCase();
+      return termos.some((termo) => texto.includes(termo));
+    });
+  }, [equipamentos]);
+
+  const caminhaoSelecionado = useMemo(
+    () => caminhoes.find((item) => item.id === caminhaoId) || null,
+    [caminhoes, caminhaoId]
+  );
+
+  const carregar = async () => {
+    const [snapEquip, snapLista] = await Promise.all([
+      getDocs(collection(db, "equipamentos")),
+      getDocs(collection(db, COLECAO))
+    ]);
+
+    const listaEquip = snapEquip.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((item) => belongsToTenant(item, tenantId))
+      .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || "")));
+    setEquipamentos(listaEquip);
+
+    const transportes = snapLista.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((item) => belongsToTenant(item, tenantId))
+      .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+    setLista(transportes);
+  };
+
+  useEffect(() => {
+    carregar();
+  }, []);
+
+  useEffect(() => {
+    if (!caminhaoSelecionado) return;
+    if (!motorista.trim()) {
+      setMotorista(String(caminhaoSelecionado.motoristaPadrao || caminhaoSelecionado.motorista || "").trim().toUpperCase());
+    }
+  }, [caminhaoSelecionado]);
+
+  useEffect(() => {
+    if (material === "DIVERSOS" && (unidade === "M3" || unidade === "TON")) {
+      setUnidade("UN");
+    }
+  }, [material]);
+
+  const limpar = () => {
+    setMaterial("BARRO");
+    setDescricaoMaterial("");
+    setQuantidade("");
+    setUnidade("M3");
+    setOrigem("");
+    setDestino("");
+    setObra("");
+    setCaminhaoId("");
+    setMotorista("");
+    setObservacao("");
+    assinaturaSaidaRef.current?.clear();
+    assinaturaMotoristaRef.current?.clear();
+  };
+
+  const obterLocalizacao = () =>
+    new Promise((resolve) => {
+      if (!navigator?.geolocation) {
+        resolve({ indisponivel: true });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) =>
+          resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            precisao: pos.coords.accuracy || null
+          }),
+        () => resolve({ indisponivel: true }),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      );
+    });
+
+  const montarNumero = () => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `RT-${yyyy}${mm}${dd}-${hh}${mi}`;
+  };
+
+  const montarPayloadQr = (docId) => `EG_TRANSPORTE|${tenantId}|${docId}`;
+
+  const gerarPdfRomaneio = async (item) => {
+    if (!item?.id) return;
+    setGerandoPdfId(item.id);
+    try {
+      const payload = String(item.qrPayload || montarPayloadQr(item.id));
+      const qrDataUrl = await QRCode.toDataURL(payload, {
+        margin: 1,
+        width: 900,
+        errorCorrectionLevel: "H"
+      });
+
+      const pdf = new jsPDF("p", "mm", "a4");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(15);
+      pdf.text("ROMANEIO DE TRANSPORTE", 105, 16, { align: "center" });
+
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Numero: ${item.numero || "-"}`, 14, 28);
+      pdf.text(`Data/hora saida: ${new Date(item.dataHoraSaida || item.criadoEm || Date.now()).toLocaleString("pt-BR")}`, 14, 34);
+      pdf.text(`Tipo: ${item.tipoTransporte || "-"}`, 14, 40);
+      pdf.text(`Material: ${item.materialLabel || item.material || "-"}`, 14, 46);
+      pdf.text(`Quantidade: ${item.quantidade || "-"} ${item.unidade || ""}`, 14, 52);
+      pdf.text(`Origem: ${item.origem || "-"}`, 14, 58);
+      pdf.text(`Destino: ${item.destino || "-"}`, 14, 64);
+      pdf.text(`Obra/Frente: ${item.obra || "-"}`, 14, 70);
+      pdf.text(`Caminhao: ${item.caminhaoNome || "-"}`, 14, 76);
+      pdf.text(`Motorista: ${item.motorista || "-"}`, 14, 82);
+      pdf.text(`Apontador saida: ${item.apontadorSaida || "-"}`, 14, 88);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.text("OBSERVACAO", 14, 98);
+      pdf.setFont("helvetica", "normal");
+      const obs = String(item.observacao || "-");
+      const obsQuebrada = pdf.splitTextToSize(obs, 180);
+      pdf.text(obsQuebrada, 14, 104);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.text("QR DO ROMANEIO", 105, 144, { align: "center" });
+      pdf.addImage(qrDataUrl, "PNG", 70, 148, 70, 70);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Codigo manual: ${item.numero || item.id}`, 105, 224, { align: "center" });
+
+      pdf.save(`romaneio_transporte_${String(item.numero || item.id || "sem_numero").toLowerCase()}.pdf`);
+    } finally {
+      setGerandoPdfId("");
+    }
+  };
+
+  const formatarLocalizacao = (local) => {
+    const lat = Number(local?.lat);
+    const lng = Number(local?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "Nao informada";
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  };
+
+  const linkMapa = (local) => {
+    const lat = Number(local?.lat);
+    const lng = Number(local?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+    return `https://www.google.com/maps?q=${lat},${lng}`;
+  };
+
+  const salvar = async () => {
+    if (salvando) return;
+    if (!quantidade || Number(String(quantidade).replace(",", ".")) <= 0) return alert("Informe a quantidade.");
+    if (!origem.trim()) return alert("Informe a origem.");
+    if (!destino.trim()) return alert("Informe o destino.");
+    if (!caminhaoSelecionado) return alert("Selecione o caminhao.");
+    if (!motorista.trim()) return alert("Informe o motorista.");
+    if (material === "DIVERSOS" && !descricaoMaterial.trim()) return alert("Descreva o material diverso.");
+
+    const assinaturaSaida = assinaturaSaidaRef.current?.isEmpty()
+      ? ""
+      : assinaturaSaidaRef.current.getCanvas().toDataURL("image/png");
+    const assinaturaMotorista = assinaturaMotoristaRef.current?.isEmpty()
+      ? ""
+      : assinaturaMotoristaRef.current.getCanvas().toDataURL("image/png");
+
+    if (!assinaturaSaida) return alert("A assinatura do apontador da saida e obrigatoria.");
+    if (!assinaturaMotorista) return alert("A assinatura do motorista e obrigatoria.");
+
+    setSalvando(true);
+    try {
+      const numeroBase = montarNumero();
+      const sufixo = String(Date.now()).slice(-4);
+      const numeroFinal = `${numeroBase}-${sufixo}`;
+      const localSaida = await obterLocalizacao();
+      const ref = doc(collection(db, COLECAO));
+      const qrPayload = montarPayloadQr(ref.id);
+
+      await setDoc(
+        ref,
+        withTenant(
+          {
+            numero: numeroFinal,
+            tipoTransporte: material === "DIVERSOS" ? "DIVERSOS" : "MATERIAL",
+            material,
+            materialLabel: material === "DIVERSOS" ? String(descricaoMaterial || "").trim().toUpperCase() : material,
+            descricaoMaterial: String(descricaoMaterial || "").trim().toUpperCase(),
+            quantidade: Number(String(quantidade).replace(",", ".")),
+            unidade,
+            origem: String(origem || "").trim().toUpperCase(),
+            destino: String(destino || "").trim().toUpperCase(),
+            obra: String(obra || "").trim().toUpperCase(),
+            caminhaoId: caminhaoSelecionado.id,
+            caminhaoNome: String(caminhaoSelecionado.nome || "").trim().toUpperCase(),
+            caminhaoCodigo: String(caminhaoSelecionado.codigo || "").trim().toUpperCase(),
+            placa: String(caminhaoSelecionado.placa || "").trim().toUpperCase(),
+            motorista: String(motorista || "").trim().toUpperCase(),
+            observacao: String(observacao || "").trim().toUpperCase(),
+            status: "EM_TRANSITO",
+            apontadorSaida: apontadorAtual || "APONTADOR",
+            assinaturaSaida,
+            assinaturaMotorista,
+            assinaturaRecebimento: "",
+            recebidoStatus: "",
+            observacaoRecebimento: "",
+            qrPayload,
+            criadoEm: new Date().toISOString(),
+            dataHoraSaida: new Date().toISOString(),
+            dataHoraRecebimento: "",
+            localSaida,
+            localRecebimento: null
+          },
+          tenantId
+        )
+      );
+
+      await registrarHistorico({
+        modulo: "TRANSPORTE",
+        acao: "CRIOU",
+        entidade: "ROMANEIO_TRANSPORTE",
+        registroId: ref.id,
+        usuario: apontadorAtual || "-",
+        descricao: `Criou romaneio de transporte ${numeroFinal} para ${String(destino || "").trim().toUpperCase()}.`
+      });
+
+      setRomaneioGerado({
+        id: ref.id,
+        numero: numeroFinal,
+        qrPayload
+      });
+      setQrPreview(await QRCode.toDataURL(qrPayload, { margin: 1, width: 360, errorCorrectionLevel: "H" }));
+      limpar();
+      await carregar();
+      alert("Romaneio criado com sucesso.");
+    } catch (e) {
+      alert(`Falha ao criar romaneio. Detalhes: ${String(e?.message || e || "")}`);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 1120, margin: "0 auto", padding: "18px 10px 28px", background: "#f3f5f8" }}>
+      <div style={card}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div>
+            <h2 style={{ margin: 0, color: "#10243e" }}>Romaneio de Transporte</h2>
+            <div style={{ marginTop: 4, fontSize: 12, color: "#5a6b82" }}>
+              Acompanhe os romaneios abaixo e abra o lancamento so quando precisar.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setFormularioAberto((prev) => !prev)}
+              style={botaoPrimario}
+            >
+              {formularioAberto ? "Esconder lancamento" : "Novo romaneio"}
+            </button>
+            <button type="button" onClick={() => setTela("receberTransporte")} style={botaoSecundario}>
+              Receber transporte
+            </button>
+            <button type="button" onClick={() => setTela("home")} style={{ ...botaoSecundario, background: "#f1f3f5", borderColor: "#dee2e6" }}>
+              Voltar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {formularioAberto && (
+      <div style={card}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Material</div>
+            <select value={material} onChange={(e) => setMaterial(e.target.value)} style={inputStyle}>
+              {MATERIAIS.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Quantidade</div>
+            <input value={quantidade} onChange={(e) => setQuantidade(e.target.value)} style={inputStyle} placeholder="Ex.: 10" />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Unidade</div>
+            <select value={unidade} onChange={(e) => setUnidade(e.target.value)} style={inputStyle}>
+              {UNIDADES.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </select>
+          </div>
+          {material === "DIVERSOS" && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Descricao do material</div>
+              <input value={descricaoMaterial} onChange={(e) => setDescricaoMaterial(e.target.value)} style={inputStyle} placeholder="Ex.: MADEIRA, FERRAGEM, PECAS" />
+            </div>
+          )}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Origem</div>
+            <input value={origem} onChange={(e) => setOrigem(e.target.value)} style={inputStyle} placeholder="Ex.: DEPOSITO CENTRAL" />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Destino</div>
+            <input value={destino} onChange={(e) => setDestino(e.target.value)} style={inputStyle} placeholder="Ex.: OBRA 072 / PISTA KM 12" />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Obra / frente</div>
+            <input value={obra} onChange={(e) => setObra(e.target.value)} style={inputStyle} placeholder="Ex.: 072" />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Caminhao</div>
+            <select value={caminhaoId} onChange={(e) => setCaminhaoId(e.target.value)} style={inputStyle}>
+              <option value="">Selecione</option>
+              {caminhoes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {`${item.nome || "CAMINHAO"}${item.codigo ? ` - ${item.codigo}` : ""}${item.placa ? ` (${item.placa})` : ""}`}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Motorista</div>
+            <input value={motorista} onChange={(e) => setMotorista(e.target.value.toUpperCase())} style={inputStyle} placeholder="Nome do motorista" />
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Observacao</div>
+            <textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} style={areaStyle} placeholder="Opcional" />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 12, color: "#5a6b82" }}>
+          A viagem ja e o proprio romaneio. Aqui voce informa so o material, a quantidade, a unidade e os dados da carga.
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: 14 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>
+              Assinatura do apontador da saida ({apontadorAtual || "APONTADOR"})
+            </div>
+            <div style={{ border: "1px solid #dbe3ef", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
+              <SignatureCanvas
+                ref={assinaturaSaidaRef}
+                penColor="black"
+                canvasProps={{ width: assinaturaWidth, height: 150, style: { width: "100%", height: 150, display: "block" } }}
+              />
+            </div>
+            <button type="button" onClick={() => assinaturaSaidaRef.current?.clear()} style={{ ...botaoSecundario, marginTop: 8 }}>
+              Limpar assinatura
+            </button>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Assinatura do motorista</div>
+            <div style={{ border: "1px solid #dbe3ef", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
+              <SignatureCanvas
+                ref={assinaturaMotoristaRef}
+                penColor="black"
+                canvasProps={{ width: assinaturaWidth, height: 150, style: { width: "100%", height: 150, display: "block" } }}
+              />
+            </div>
+            <button type="button" onClick={() => assinaturaMotoristaRef.current?.clear()} style={{ ...botaoSecundario, marginTop: 8 }}>
+              Limpar assinatura
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+          <button type="button" onClick={salvar} disabled={salvando} style={{ ...botaoPrimario, opacity: salvando ? 0.7 : 1 }}>
+            {salvando ? "Salvando..." : "Gerar romaneio"}
+          </button>
+          <button type="button" onClick={limpar} style={botaoSecundario}>
+            Limpar formulario
+          </button>
+        </div>
+      </div>
+      )}
+
+      {romaneioGerado && (
+        <div style={card}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "#5a6b82", fontWeight: 700 }}>Ultimo romaneio criado</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#10243e", marginTop: 4 }}>{romaneioGerado.numero}</div>
+              <div style={{ marginTop: 6, fontSize: 12, color: "#5a6b82" }}>
+                O motorista pode levar este QR em print, PDF ou WhatsApp. No destino, use a tela de recebimento.
+              </div>
+            </div>
+            {qrPreview && (
+              <img src={qrPreview} alt="QR do romaneio" style={{ width: 150, height: 150, objectFit: "contain", background: "#fff" }} />
+            )}
+          </div>
+        </div>
+      )}
+
+      <div style={card}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <h3 style={{ margin: 0, color: "#10243e" }}>Romaneios recentes</h3>
+          <div style={{ fontSize: 12, color: "#5a6b82" }}>{lista.length} registro(s)</div>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
+            <thead style={{ background: "#f1f3f5" }}>
+              <tr>
+                {["Numero", "Material", "Qtd.", "Origem", "Destino", "Locais", "Caminhao", "Motorista", "Status", "Acoes"].map((col) => (
+                  <th key={col} style={{ border: "1px solid #e5ebf3", padding: 8, fontSize: 12, color: "#173454", textAlign: "left" }}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!lista.length && (
+                <tr>
+                  <td colSpan="10" style={{ border: "1px solid #e5ebf3", padding: 12, textAlign: "center", color: "#5a6b82" }}>
+                    Nenhum romaneio criado ainda.
+                  </td>
+                </tr>
+              )}
+              {lista.slice(0, 20).map((item) => (
+                <tr key={item.id} style={{ background: String(item.status || "").toUpperCase() === "RECEBIDO" ? "#f3fff8" : "#fff" }}>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8, fontWeight: 800 }}>{item.numero || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.materialLabel || item.material || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{`${item.quantidade || "-"} ${item.unidade || ""}`}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.origem || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.destino || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8, fontSize: 12 }}>
+                    <div><strong>Saida:</strong> {formatarLocalizacao(item.localSaida)}</div>
+                    {linkMapa(item.localSaida) && (
+                      <div>
+                        <a href={linkMapa(item.localSaida)} target="_blank" rel="noreferrer">Mapa saida</a>
+                      </div>
+                    )}
+                    <div style={{ marginTop: 4 }}><strong>Receb.:</strong> {formatarLocalizacao(item.localRecebimento)}</div>
+                    {linkMapa(item.localRecebimento) && (
+                      <div>
+                        <a href={linkMapa(item.localRecebimento)} target="_blank" rel="noreferrer">Mapa receb.</a>
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.caminhaoNome || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.motorista || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8, fontWeight: 800 }}>{item.status || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setRomaneioGerado({ id: item.id, numero: item.numero, qrPayload: item.qrPayload });
+                          setQrPreview(await QRCode.toDataURL(String(item.qrPayload || montarPayloadQr(item.id)), { margin: 1, width: 360, errorCorrectionLevel: "H" }));
+                        }}
+                        style={botaoSecundario}
+                      >
+                        Ver QR
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => gerarPdfRomaneio(item)}
+                        disabled={gerandoPdfId === item.id}
+                        style={{ ...botaoSecundario, opacity: gerandoPdfId === item.id ? 0.7 : 1 }}
+                      >
+                        {gerandoPdfId === item.id ? "Gerando..." : "PDF"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Transportes;

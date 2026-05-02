@@ -155,12 +155,12 @@ function Home({ setTela, onSair }) {
   })();
 
   const podeAcessarTela = (tela) => {
-  const telasAdminRelatorios = new Set(["relatorio", "relatorioAbastecimento", "relatorioTransferencias", "relatorioManutencao", "relatorioProducaoCampo", "relatorioDiarioObra", "historico"]);
+  const telasAdminRelatorios = new Set(["relatorio", "relatorioAbastecimento", "relatorioTransferencias", "relatorioTransportes", "relatorioManutencao", "relatorioProducaoCampo", "relatorioDiarioObra", "historico"]);
     const telasAdminCadastros = new Set(["equipamentos", "funcionarios", "obras", "bases", "frentistas", "empresas", "configEmpresa"]);
-    const telasAdminControle = new Set(["lubrificantes", "almoxarifado", "transferencias"]);
+    const telasAdminControle = new Set(["lubrificantes", "almoxarifado", "transferencias", "transportes"]);
     const telasAdminFinanceiro = new Set(["financeiro"]);
     const telasExclusivasUsuarioChave = new Set(["configEmpresa"]);
-  const telasOperacionais = new Set(["lancamento", "diarioObra", "abastecimento", "producaoCampo", "manutencao", "materiaisSaidas", "receberTransferencia"]);
+  const telasOperacionais = new Set(["lancamento", "diarioObra", "abastecimento", "producaoCampo", "manutencao", "materiaisSaidas", "receberTransferencia", "transportes", "receberTransporte"]);
 
     // TESTE 10 dias expirado: bloqueia operacao/cadastros/controle.
     // Mantemos relatorios e financeiro liberados para o cliente visualizar e escolher um plano.
@@ -189,6 +189,12 @@ function Home({ setTela, onSair }) {
       // ReceberTransferencia (QR) segue permissao propria (ou legado "transferencias").
       if (tela === "receberTransferencia") {
         return permissoesUsuario.includes("receberTransferencia") || permissoesUsuario.includes("transferencias");
+      }
+      if (tela === "receberTransporte") {
+        return permissoesUsuario.includes("receberTransporte") || permissoesUsuario.includes("transportes") || permissoesUsuario.includes("transferencias");
+      }
+      if (tela === "transportes") {
+        return permissoesUsuario.includes("transportes") || permissoesUsuario.includes("transferencias");
       }
       return permissoesUsuario.includes(tela);
     }
@@ -483,9 +489,12 @@ function Home({ setTela, onSair }) {
     if (t === "materiaissaidas") return "Saidas: ferramentas + insumos + EPI";
     if (t === "transferencias") return "Boletim e movimentacoes";
     if (t === "recebertransferencia") return "Leitura QR + assinatura no destino";
+    if (t === "transportes") return "Romaneio simples de carga";
+    if (t === "recebertransporte") return "Recebimento de carga por QR";
     if (t === "relatorio") return "Mensal de equipamento";
     if (t === "relatorioabastecimento") return "Relatorio de diesel";
     if (t === "relatoriotransferencias") return "Relatorio de transferencias";
+    if (t === "relatoriotransportes") return "Relatorio de cargas e viagens";
     if (t === "relatoriomanutencao") return "Relatorio de manutencao";
     if (t === "relatorioproducaocampo") return "PDF do croqui e itens";
     if (t === "relatoriodiarioobra") return "RDO: relatorio de diario de obra";
@@ -514,11 +523,14 @@ function Home({ setTela, onSair }) {
     if (t === "materiaissaidas") return { accent: "#0b7285", bg: "#e7f5ff", icon: "box" };
     if (t === "transferencias") return { accent: "#495057", bg: "#f1f3f5", icon: "arrows" };
     if (t === "recebertransferencia") return { accent: "#0b5ed7", bg: "#eaf2ff", icon: "arrows" };
+    if (t === "transportes") return { accent: "#7048e8", bg: "#f3f0ff", icon: "truck" };
+    if (t === "recebertransporte") return { accent: "#5f3dc4", bg: "#f3f0ff", icon: "truck" };
 
     // Admin
     if (t === "relatorio") return { accent: "#5c7cfa", bg: "#eef2ff", icon: "chart" };
     if (t === "relatorioabastecimento") return { accent: "#2f9e44", bg: "#eafaf1", icon: "file" };
     if (t === "relatoriotransferencias") return { accent: "#868e96", bg: "#f1f3f5", icon: "file" };
+    if (t === "relatoriotransportes") return { accent: "#7048e8", bg: "#f3f0ff", icon: "file" };
     if (t === "relatoriomanutencao") return { accent: "#fd7e14", bg: "#fff4e6", icon: "file" };
     if (t === "relatorioproducaocampo") return { accent: "#d63384", bg: "#fff0f6", icon: "file" };
     if (t === "relatoriodiarioobra") return { accent: "#3b5bdb", bg: "#eef2ff", icon: "file" };
@@ -637,6 +649,8 @@ function Home({ setTela, onSair }) {
         ...(isMobileDevice ? [{ texto: "Producao de Campo / Croqui", tela: "producaoCampo" }] : []),
         { texto: "Manutencao de Equipamentos", tela: "manutencao" },
         { texto: "Saidas de Materiais (Almox/EPI)", tela: "materiaisSaidas" },
+        { texto: "Romaneio de Transporte", tela: "transportes" },
+        { texto: "Receber Transporte (QR)", tela: "receberTransporte" },
         // No destino (celular), o recebimento e feito via QR + assinatura.
         { texto: "Receber Transferencia (QR)", tela: "receberTransferencia" }
       ]
@@ -662,6 +676,8 @@ function Home({ setTela, onSair }) {
     {
       titulo: "Transporte",
       itens: [
+        { texto: "Romaneio de Transporte", tela: "transportes" },
+        { texto: "Relatorio de Transportes", tela: "relatorioTransportes" },
         { texto: "Boletim de Transferencia", tela: "transferencias" },
         { texto: "Relatorio de Transferencias", tela: "relatorioTransferencias" },
         { texto: "Relatorio de Abastecimento", tela: "relatorioAbastecimento" }
@@ -705,7 +721,9 @@ function Home({ setTela, onSair }) {
     || podeAcessarTela("producaoCampo")
     || podeAcessarTela("manutencao")
     || podeAcessarTela("materiaisSaidas")
-    || podeAcessarTela("receberTransferencia");
+    || podeAcessarTela("receberTransferencia")
+    || podeAcessarTela("transportes")
+    || podeAcessarTela("receberTransporte");
 
   const modoAtivo = isMobileDevice
     ? "operacional"
@@ -815,6 +833,17 @@ function Home({ setTela, onSair }) {
             type="button"
           >
             Transf
+          </button>
+        )}
+        {podeAcessarTela("transportes") && (
+          <button
+            style={navButtonStyle("transportes", false)}
+            onMouseEnter={() => setNavHover("transportes")}
+            onMouseLeave={() => setNavHover("")}
+            onClick={() => setTela("transportes")}
+            type="button"
+          >
+            Cargas
           </button>
         )}
       </aside>

@@ -25,6 +25,9 @@ import MinhaConta from "./pages/MinhaConta";
 import Transferencias from "./pages/Transferencias";
 import RelatorioTransferencias from "./pages/RelatorioTransferencias";
 import ReceberTransferencia from "./pages/ReceberTransferencia";
+import Transportes from "./pages/Transportes";
+import ReceberTransporte from "./pages/ReceberTransporte";
+import RelatorioTransportes from "./pages/RelatorioTransportes";
 import EntradaMateriais from "./pages/EntradaMateriais";
 import Bases from "./pages/Bases";
 import { isMasterAutenticado } from "./utils/masterAuth";
@@ -99,6 +102,9 @@ function ClientApp() {
     epi: 1080,
     transferencias: 1120,
     receberTransferencia: 980,
+    transportes: 1120,
+    receberTransporte: 980,
+    relatorioTransportes: 1240,
     bases: 900
   };
   const maxWidthTopo = Number(maxWidthPorTela[tela] || 1240);
@@ -153,7 +159,9 @@ function ClientApp() {
     "producaoCampo",
     "manutencao",
     "materiaisSaidas",
-    "receberTransferencia"
+    "receberTransferencia",
+    "transportes",
+    "receberTransporte"
   ]);
 
   const telasAdministrativas = new Set([
@@ -164,6 +172,7 @@ function ClientApp() {
     "relatorio",
     "relatorioAbastecimento",
     "relatorioTransferencias",
+    "relatorioTransportes",
     "relatorioManutencao",
     "relatorioDiarioObra",
     "obras",
@@ -173,6 +182,7 @@ function ClientApp() {
     "lubrificantes",
     "almoxarifado",
     "transferencias",
+    "transportes",
     "bases"
   ]);
 
@@ -180,6 +190,7 @@ function ClientApp() {
     "relatorio",
     "relatorioAbastecimento",
     "relatorioTransferencias",
+    "relatorioTransportes",
     "relatorioManutencao",
     "historico"
   ]);
@@ -200,7 +211,8 @@ function ClientApp() {
   const telasAdminControle = new Set([
     "lubrificantes",
     "almoxarifado",
-    "transferencias"
+    "transferencias",
+    "transportes"
   ]);
   const telasAdminFinanceiro = new Set([
     "financeiro"
@@ -296,6 +308,12 @@ function ClientApp() {
     // ReceberTransferencia e uma permissao operacional propria (QR + assinatura).
     if (destino === "receberTransferencia") {
       return permitidas.includes("receberTransferencia") || permitidas.includes("transferencias");
+    }
+    if (destino === "receberTransporte") {
+      return permitidas.includes("receberTransporte") || permitidas.includes("transportes") || permitidas.includes("transferencias");
+    }
+    if (destino === "transportes") {
+      return permitidas.includes("transportes") || permitidas.includes("transferencias");
     }
     return permitidas.includes(destino);
   };
@@ -411,6 +429,7 @@ function ClientApp() {
       {tela === "relatorio" && <Relatorio setTela={navegar} />}
       {tela === "relatorioAbastecimento" && <RelatorioAbastecimento setTela={navegar} />}
       {tela === "relatorioTransferencias" && <RelatorioTransferencias setTela={navegar} />}
+      {tela === "relatorioTransportes" && <RelatorioTransportes setTela={navegar} />}
       {tela === "relatorioManutencao" && <Manutencao setTela={navegar} modoRelatorio />}
       {tela === "relatorioDiarioObra" && <RelatorioDiarioObra setTela={navegar} />}
       {tela === "obras" && <Obras setTela={navegar} />}
@@ -427,6 +446,8 @@ function ClientApp() {
       {tela === "materiaisSaidas" && <SaidasMateriais setTela={navegar} />}
   {tela === "transferencias" && <Transferencias setTela={navegar} />}
   {tela === "receberTransferencia" && <ReceberTransferencia setTela={navegar} />}
+  {tela === "transportes" && <Transportes setTela={navegar} />}
+  {tela === "receberTransporte" && <ReceberTransporte setTela={navegar} />}
   {tela === "lubrificantes" && <EntradaMateriais setTela={navegar} abaInicial="DIESEL" />}
       {tela === "login" && <Login setTela={navegar} authContext={authContext} onLoginSucesso={loginSucesso} />}
       {tela === "minhaConta" && <MinhaConta setTela={navegar} />}
