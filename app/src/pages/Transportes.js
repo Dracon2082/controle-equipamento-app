@@ -471,7 +471,7 @@ function Transportes({ setTela }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: 14 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>
-              Assinatura do apontador da saida ({apontadorAtual || "APONTADOR"})
+              Assinatura do apontador da saida
             </div>
             <div style={{ border: "1px solid #dbe3ef", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
               <SignatureCanvas

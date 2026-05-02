@@ -147,13 +147,9 @@ function Home({ setTela, onSair }) {
   const [menuContaAberto, setMenuContaAberto] = useState(false);
 
   const nomeUsuarioLogado = String(sessaoOperacional?.nome || localStorage.getItem("usuarioLogado") || "USUARIO").trim();
-  const nomeUsuarioCurto = (() => {
-    const primeiro = nomeUsuarioLogado.split(" ").filter(Boolean)[0] || "USUARIO";
-    return primeiro.toUpperCase();
-  })();
   const iniciaisUsuario = (() => {
     const partes = nomeUsuarioLogado.split(" ").filter(Boolean);
-    if (!partes.length) return "US";
+    if (!partes.length) return "EG";
     if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
     return `${partes[0].slice(0, 1)}${partes[partes.length - 1].slice(0, 1)}`.toUpperCase();
   })();
@@ -1108,7 +1104,7 @@ function Home({ setTela, onSair }) {
                 style={contaButton}
               >
                 <span style={avatar}>{iniciaisUsuario}</span>
-                <span style={{ fontWeight: 700, color: "#173454" }}>{nomeUsuarioCurto}</span>
+                <span style={{ fontWeight: 700, color: "#173454" }}>Conta</span>
               </button>
               {menuContaAberto && (
                 <div style={menuConta}>

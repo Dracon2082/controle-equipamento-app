@@ -964,7 +964,7 @@ function Abastecimento({ setTela }) {
           fontWeight: "bold",
           color: "#0066cc"
         }}>
-          Frentista: {localStorage.getItem("usuarioLogado")}
+          Responsavel pelo abastecimento
         </span>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

@@ -391,13 +391,9 @@ function ClientApp() {
   })();
   const iniciaisUsuario = (() => {
     const partes = nomeUsuarioLogado.split(" ").filter(Boolean);
-    if (!partes.length) return "US";
+    if (!partes.length) return "EG";
     if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
     return `${partes[0].slice(0, 1)}${partes[partes.length - 1].slice(0, 1)}`.toUpperCase();
-  })();
-  const nomeUsuarioCurto = (() => {
-    const primeiro = nomeUsuarioLogado.split(" ").filter(Boolean)[0] || "USUARIO";
-    return primeiro.toUpperCase();
   })();
 
   const userChip = {
@@ -449,7 +445,7 @@ function ClientApp() {
           </div>
           <div style={userChip} title={nomeUsuarioLogado}>
             <span style={userAvatar}>{iniciaisUsuario}</span>
-            {!isMobileDevice && <span>{nomeUsuarioCurto}</span>}
+            {!isMobileDevice && <span>Conta</span>}
           </div>
         </div>
       )}

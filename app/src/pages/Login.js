@@ -17,16 +17,8 @@ function Login({ setTela, authContext, onLoginSucesso }) {
   const PERMISSAO_ADMIN_CONTROLE = "admin_controle";
   const PERMISSAO_ADMIN_FINANCEIRO = "admin_financeiro";
   const isMobile = window.innerWidth <= 700;
-  const credencialSimulada = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("credencialSimulacaoCliente") || "null");
-    } catch {
-      return null;
-    }
-  })();
-
-  const [identificador, setIdentificador] = useState(credencialSimulada?.email || "");
-  const [senha, setSenha] = useState(credencialSimulada?.senha || "");
+  const [identificador, setIdentificador] = useState("");
+  const [senha, setSenha] = useState("");
   const [modoTroca, setModoTroca] = useState(() => {
     try {
       const forcar = localStorage.getItem("forcarModoTrocaSenha") === "1";
@@ -397,7 +389,8 @@ function Login({ setTela, authContext, onLoginSucesso }) {
               Gerencie toda a sua operacao em um so lugar.
             </h2>
             <p style={{ marginTop: 0, color: "rgba(255,255,255,0.9)", fontSize: 15 }}>
-              Mais controle na obra, no estoque e no financeiro, com visao clara para o gestor.
+              Assinaturas digitais, identificacao rapida e localizacao por coordenadas
+              para agilizar a operacao.
             </p>
             <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
               {[
