@@ -680,6 +680,49 @@ function MasterClientes({ setTela }) {
     return dt.toISOString();
   };
 
+  const calcularDiferencaDias = (alvo, base = new Date()) => {
+    if (!(alvo instanceof Date) || Number.isNaN(alvo.getTime())) return null;
+    const ref = new Date(base);
+    ref.setHours(12, 0, 0, 0);
+    const destino = new Date(alvo);
+    destino.setHours(12, 0, 0, 0);
+    return Math.ceil((destino.getTime() - ref.getTime()) / (24 * 60 * 60 * 1000));
+  };
+
+  const obterResumoPrazoCliente = (item) => {
+    const statusAtual = String(item?.status || "").trim().toUpperCase();
+
+    if (statusAtual === "TESTE") {
+      const expiraTxt = String(item?.testeExpiraEm || "").trim();
+      const expira = expiraTxt ? new Date(expiraTxt) : null;
+      const dias = calcularDiferencaDias(expira);
+      if (dias === null) return { texto: "Teste sem data definida", cor: "#6c757d" };
+      if (dias < 0) return { texto: `Teste vencido ha ${Math.abs(dias)} dia(s)`, cor: "#d33d4f" };
+      if (dias === 0) return { texto: "Teste vence hoje", cor: "#f08c00" };
+      if (dias <= 3) return { texto: `Teste: ${dias} dia(s) restantes`, cor: "#f08c00" };
+      return { texto: `Teste: ${dias} dia(s) restantes`, cor: "#1c8f43" };
+    }
+
+    const diaVencimento = Number(item?.diaVencimento || 10);
+    const pagoAte = normalizarRefMes(item?.pagoAteRef || "");
+    let refVencimento = obterRefMesAtual();
+    if (pagoAte) {
+      const [yy, mm] = pagoAte.split("-").map((x) => Number(x || 0));
+      if (Number.isFinite(yy) && Number.isFinite(mm) && mm >= 1 && mm <= 12) {
+        const proximo = new Date(yy, mm, 1, 12, 0, 0);
+        refVencimento = `${proximo.getFullYear()}-${String(proximo.getMonth() + 1).padStart(2, "0")}`;
+      }
+    }
+    const vencimentoISO = calcularVencimentoISO(refVencimento, diaVencimento);
+    const vencimento = vencimentoISO ? new Date(vencimentoISO) : null;
+    const dias = calcularDiferencaDias(vencimento);
+    if (dias === null) return { texto: "Sem vencimento definido", cor: "#6c757d" };
+    if (dias < 0) return { texto: `Atrasado ha ${Math.abs(dias)} dia(s)`, cor: "#d33d4f" };
+    if (dias === 0) return { texto: "Vence hoje", cor: "#f08c00" };
+    if (dias <= 5) return { texto: `Vence em ${dias} dia(s)`, cor: "#f08c00" };
+    return { texto: `Vence em ${dias} dia(s)`, cor: "#1c8f43" };
+  };
+
   const carregarFaturasCliente = async (item) => {
     if (!item?.tenantId) return;
     setFinCarregandoFaturas(true);
@@ -2762,7 +2805,17 @@ function MasterClientes({ setTela }) {
                   )}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", verticalAlign: "middle" }}>{item.formaPagamento || "-"}</td>
-                <td style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", fontWeight: "bold", verticalAlign: "middle" }}>{item.status || "-"}</td>
+                <td style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", fontWeight: "bold", verticalAlign: "middle" }}>
+                  <div>{item.status || "-"}</div>
+                  {(() => {
+                    const prazo = obterResumoPrazoCliente(item);
+                    return (
+                      <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: prazo.cor || "#5f6f86", lineHeight: 1.2 }}>
+                        {prazo.texto}
+                      </div>
+                    );
+                  })()}
+                </td>
                 <td style={{ border: "1px solid #ccc", padding: 8, fontSize: 12, verticalAlign: "middle", lineHeight: 1.25 }}>
                   <div
                     title={item.acessoInicial?.emailGestor || "-"}
@@ -3071,6 +3124,7 @@ function MasterClientes({ setTela }) {
         if (!item) return null;
         const pagoAte = String(item?.pagoAteRef || "").trim() || "-";
         const diaAtual = Number(item?.diaVencimento || 10);
+        const prazoCliente = obterResumoPrazoCliente(item);
         return (
           <div
             style={{
@@ -3137,7 +3191,7 @@ function MasterClientes({ setTela }) {
                 <div style={{ display: "grid", alignContent: "start", gap: 8 }}>
                   <div style={{ fontSize: 12, color: "#5a6b82" }}>Pago ate (YYYY-MM)</div>
                   <div style={{ fontSize: 16, fontWeight: 900, color: "#10243e" }}>{pagoAte}</div>
-                  <div style={{ fontSize: 12, color: "#5a6b82" }}>Carencia configurada: 10 dias</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: prazoCliente.cor || "#5a6b82" }}>{prazoCliente.texto}</div>
                 </div>
 
                 {(() => {
