@@ -132,6 +132,10 @@ function ReceberTransporte({ setTela }) {
       setErroScan("Romaneio nao pertence a esta empresa.");
       return;
     }
+    if (String(data.tipoTransporte || "").trim().toUpperCase() === "SAIDA_SIMPLES") {
+      setErroScan("Esta saida simples e concluida na origem e nao exige recebimento no destino.");
+      return;
+    }
     setRomaneio(data);
     setCodigoManual(data.numero || "");
   };
@@ -148,6 +152,10 @@ function ReceberTransporte({ setTela }) {
       .find((data) => String(data.numero || "").trim().toUpperCase() === alvo || String(data.id || "").trim().toUpperCase() === alvo);
     if (!item) {
       setErroScan("Romaneio nao encontrado.");
+      return;
+    }
+    if (String(item.tipoTransporte || "").trim().toUpperCase() === "SAIDA_SIMPLES") {
+      setErroScan("Esta saida simples e concluida na origem e nao exige recebimento no destino.");
       return;
     }
     setRomaneio(item);

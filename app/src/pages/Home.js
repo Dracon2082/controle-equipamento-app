@@ -1104,7 +1104,7 @@ function Home({ setTela, onSair }) {
                 style={contaButton}
               >
                 <span style={avatar}>{iniciaisUsuario}</span>
-                <span style={{ fontWeight: 700, color: "#173454" }}>Conta</span>
+                <span style={{ fontWeight: 700, color: "#173454" }}>{nomeUsuarioLogado}</span>
               </button>
               {menuContaAberto && (
                 <div style={menuConta}>

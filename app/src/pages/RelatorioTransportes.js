@@ -130,6 +130,7 @@ function RelatorioTransportes({ setTela }) {
       emTransito: filtrada.filter((item) => normalizar(item.status) === "EM_TRANSITO").length,
       recebidos: filtrada.filter((item) => normalizar(item.status) === "RECEBIDO").length,
       divergencias: filtrada.filter((item) => normalizar(item.status) === "DIVERGENCIA").length,
+      saidasSimples: filtrada.filter((item) => normalizar(item.status) === "SAIDA_SIMPLES_CONCLUIDA").length,
       porMaterial,
       porCaminhao
     };
@@ -157,12 +158,13 @@ function RelatorioTransportes({ setTela }) {
 
     autoTable(pdf, {
       startY: 26,
-      head: [["Registros", "Em transito", "Recebidos", "Divergencias", "Periodo"]],
+      head: [["Registros", "Em transito", "Recebidos", "Divergencias", "Saidas simples", "Periodo"]],
       body: [[
         String(resumo.totalRegistros),
         String(resumo.emTransito),
         String(resumo.recebidos),
         String(resumo.divergencias),
+        String(resumo.saidasSimples),
         `${filtroDataIni || "-"} ate ${filtroDataFim || "-"}`
       ]],
       theme: "grid",
@@ -286,6 +288,7 @@ function RelatorioTransportes({ setTela }) {
               <option value="EM_TRANSITO">EM TRANSITO</option>
               <option value="RECEBIDO">RECEBIDO</option>
               <option value="DIVERGENCIA">DIVERGENCIA</option>
+              <option value="SAIDA_SIMPLES_CONCLUIDA">SAIDA SIMPLES CONCLUIDA</option>
             </select>
           </div>
         </div>
@@ -319,6 +322,7 @@ function RelatorioTransportes({ setTela }) {
         <div style={card}><strong>Em transito:</strong> {resumo.emTransito}</div>
         <div style={card}><strong>Recebidos:</strong> {resumo.recebidos}</div>
         <div style={card}><strong>Divergencias:</strong> {resumo.divergencias}</div>
+        <div style={card}><strong>Saidas simples:</strong> {resumo.saidasSimples}</div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>

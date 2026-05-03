@@ -13,36 +13,43 @@ const PLANOS = [
   {
     id: "PLANO_1",
     nome: "Plano 1",
-    valor: 299,
+    valor: 349,
     limiteGestores: 1,
-    limiteAdmins: 5,
-    limiteOperadores: 20
+    limiteAdmins: 7,
+    limiteOperadores: 30
   },
   {
     id: "PLANO_2",
     nome: "Plano 2",
-    valor: 450,
+    valor: 499,
     limiteGestores: 1,
-    limiteAdmins: 8,
-    limiteOperadores: 35
+    limiteAdmins: 10,
+    limiteOperadores: 50
   },
   {
     id: "PLANO_600",
     // Mantemos o ID antigo por compatibilidade com clientes ja cadastrados.
     nome: "Plano 3",
-    valor: 600,
+    valor: 699,
     limiteGestores: 1,
-    limiteAdmins: 10,
-    limiteOperadores: null
+    limiteAdmins: 15,
+    limiteOperadores: 80
   },
   {
     id: "PLANO_4",
     nome: "Plano 4",
-    valor: 800,
+    valor: 899,
     limiteGestores: 1,
     limiteAdmins: 20,
     limiteOperadores: null
   }
+];
+
+const CICLOS_PLANOS = [
+  { meses: 1, nome: "Mensal", descontoPct: 0 },
+  { meses: 3, nome: "3 meses", descontoPct: 5 },
+  { meses: 6, nome: "6 meses", descontoPct: 10 },
+  { meses: 12, nome: "12 meses", descontoPct: 15 }
 ];
 
 const PLANO_TESTE_10D = {
@@ -60,6 +67,31 @@ const obterPlanoPorId = (planoId) => {
   if (!pid) return null;
   if (pid === PLANO_TESTE_10D.id) return PLANO_TESTE_10D;
   return PLANOS.find((p) => String(p.id) === pid) || null;
+};
+
+const obterCicloPlano = (meses) => {
+  const ciclo = Number(meses || 1);
+  return CICLOS_PLANOS.find((item) => Number(item.meses) === ciclo) || CICLOS_PLANOS[0];
+};
+
+const arredondarMoeda = (valor) => Math.round(Number(valor || 0) * 100) / 100;
+
+const calcularPrecoPlano = (valorBase, meses) => {
+  const ciclo = obterCicloPlano(meses);
+  const base = Number(valorBase || 0);
+  const bruto = arredondarMoeda(base * ciclo.meses);
+  const descontoValor = arredondarMoeda((bruto * Number(ciclo.descontoPct || 0)) / 100);
+  const total = arredondarMoeda(bruto - descontoValor);
+  const equivalenteMensal = ciclo.meses > 0 ? arredondarMoeda(total / ciclo.meses) : total;
+  return {
+    cicloMeses: ciclo.meses,
+    descontoPct: Number(ciclo.descontoPct || 0),
+    valorBase: base,
+    valorBruto: bruto,
+    descontoValor,
+    total,
+    equivalenteMensal
+  };
 };
 
 const formatarMoedaBR = (valor) =>
@@ -128,7 +160,8 @@ function MasterClientes({ setTela }) {
   const [enderecoCobranca, setEnderecoCobranca] = useState("");
   const [telefone, setTelefone] = useState("");
   const [emailContato, setEmailContato] = useState("");
-  const [planoId, setPlanoId] = useState("PLANO_2");
+  const [planoId, setPlanoId] = useState("PLANO_1");
+  const [cicloPlanoMeses, setCicloPlanoMeses] = useState(1);
   const [valorMensal, setValorMensal] = useState(349);
   const [formaPagamento, setFormaPagamento] = useState("PIX");
   const [status, setStatus] = useState("ATIVO");
@@ -141,6 +174,7 @@ function MasterClientes({ setTela }) {
   const [whatsSuporte, setWhatsSuporte] = useState("");
   const [clientePlanoEdicaoId, setClientePlanoEdicaoId] = useState("");
   const [planoEdicaoId, setPlanoEdicaoId] = useState("");
+  const [cicloPlanoEdicaoMeses, setCicloPlanoEdicaoMeses] = useState(1);
   const [valorPlanoEdicao, setValorPlanoEdicao] = useState("");
   const [acoesAbertoId, setAcoesAbertoId] = useState("");
   const acoesMenuRef = useRef(null);
@@ -317,6 +351,20 @@ function MasterClientes({ setTela }) {
     return `Obra@${base}`;
   };
 
+  const recalcularValorCadastro = (proximoPlanoId = planoId, proximoCiclo = cicloPlanoMeses) => {
+    const plano = PLANOS.find((p) => p.id === proximoPlanoId);
+    if (!plano) return;
+    const calc = calcularPrecoPlano(plano.valor, proximoCiclo);
+    setValorMensal(String(calc.total));
+  };
+
+  const recalcularValorEdicaoPlano = (proximoPlanoId = planoEdicaoId, proximoCiclo = cicloPlanoEdicaoMeses) => {
+    const plano = PLANOS.find((p) => p.id === proximoPlanoId);
+    if (!plano) return;
+    const calc = calcularPrecoPlano(plano.valor, proximoCiclo);
+    setValorPlanoEdicao(String(calc.total));
+  };
+
   const calcularMaxUsuariosPlano = (plano) => {
     const limiteGestores = Number(plano?.limiteGestores || 0);
     const limiteAdmins = Number(plano?.limiteAdmins || 0);
@@ -328,14 +376,18 @@ function MasterClientes({ setTela }) {
 
   const iniciarEdicaoPlano = (item) => {
     const planoAtual = PLANOS.find((p) => p.id === item.planoId) || PLANOS.find((p) => p.nome === item.planoNome) || PLANOS[0];
+    const cicloAtual = Number(item?.cicloPlanoMeses || 1);
     setClientePlanoEdicaoId(item.id);
     setPlanoEdicaoId(planoAtual?.id || PLANOS[0].id);
-    setValorPlanoEdicao(String(Number(item.valorMensal || planoAtual?.valor || 0)));
+    setCicloPlanoEdicaoMeses(cicloAtual);
+    const calc = calcularPrecoPlano(planoAtual?.valor || 0, cicloAtual);
+    setValorPlanoEdicao(String(Number(item.valorMensal || calc.total || planoAtual?.valor || 0)));
   };
 
   const cancelarEdicaoPlano = () => {
     setClientePlanoEdicaoId("");
     setPlanoEdicaoId("");
+    setCicloPlanoEdicaoMeses(1);
     setValorPlanoEdicao("");
   };
 
@@ -345,6 +397,7 @@ function MasterClientes({ setTela }) {
       alert("Selecione um plano valido.");
       return;
     }
+    const calc = calcularPrecoPlano(planoSelecionado.valor, cicloPlanoEdicaoMeses);
     const limiteGestoresPlano = Number(planoSelecionado.limiteGestores || 1);
     const limiteAdminsPlano = Number(planoSelecionado.limiteAdmins || 0);
     const limiteOperadoresPlano =
@@ -354,7 +407,11 @@ function MasterClientes({ setTela }) {
     await updateDoc(doc(db, "clientesSistema", item.id), {
       planoId: planoSelecionado.id,
       planoNome: planoSelecionado.nome,
-      valorMensal: Number(valorPlanoEdicao || planoSelecionado.valor || 0),
+      cicloPlanoMeses: calc.cicloMeses,
+      descontoPlanoPct: calc.descontoPct,
+      valorMensalBase: calc.valorBase,
+      valorMensalEquivalente: calc.equivalenteMensal,
+      valorMensal: Number(valorPlanoEdicao || calc.total || planoSelecionado.valor || 0),
       maxUsuariosNoPlano,
       limiteGestoresPlano,
       limiteAdminsPlano,
@@ -402,6 +459,7 @@ function MasterClientes({ setTela }) {
 
     const tenantId = cnpjNumero;
     const planoSelecionado = PLANOS.find((p) => p.id === planoId);
+    const calc = calcularPrecoPlano(planoSelecionado?.valor || 0, cicloPlanoMeses);
     const limiteGestoresPlano = Number(planoSelecionado?.limiteGestores || 1);
     const limiteAdminsPlano = Number(planoSelecionado?.limiteAdmins || 2);
     const limiteOperadoresPlano = planoSelecionado?.limiteOperadores === null ? null : Number(planoSelecionado?.limiteOperadores || 20);
@@ -418,7 +476,11 @@ function MasterClientes({ setTela }) {
       emailContato: email,
       planoId,
       planoNome: planoSelecionado?.nome || planoId,
-      valorMensal: Number(valorMensal || 0),
+      cicloPlanoMeses: calc.cicloMeses,
+      descontoPlanoPct: calc.descontoPct,
+      valorMensalBase: calc.valorBase,
+      valorMensalEquivalente: calc.equivalenteMensal,
+      valorMensal: Number(valorMensal || calc.total || 0),
       maxUsuariosNoPlano,
       limiteGestoresPlano,
       limiteAdminsPlano,
@@ -489,7 +551,8 @@ function MasterClientes({ setTela }) {
     setEnderecoCobranca("");
     setTelefone("");
     setEmailContato("");
-    setPlanoId("PLANO_2");
+    setPlanoId("PLANO_1");
+    setCicloPlanoMeses(1);
     setValorMensal(349);
     setFormaPagamento("PIX");
     setStatus("ATIVO");
@@ -524,6 +587,10 @@ function MasterClientes({ setTela }) {
         status: "TESTE",
         planoId: PLANO_TESTE_10D.id,
         planoNome: PLANO_TESTE_10D.nome,
+        cicloPlanoMeses: 1,
+        descontoPlanoPct: 0,
+        valorMensalBase: 0,
+        valorMensalEquivalente: 0,
         valorMensal: 0,
         formaPagamento: "PIX",
         limiteGestoresPlano: 1,
@@ -2467,8 +2534,7 @@ function MasterClientes({ setTela }) {
             onChange={(e) => {
               const id = e.target.value;
               setPlanoId(id);
-              const plano = PLANOS.find((p) => p.id === id);
-              if (plano) setValorMensal(plano.valor);
+              recalcularValorCadastro(id, cicloPlanoMeses);
             }}
           >
             {PLANOS.map((plano) => (
@@ -2477,9 +2543,24 @@ function MasterClientes({ setTela }) {
               </option>
             ))}
           </select>
+          <select
+            style={inputStyle}
+            value={String(cicloPlanoMeses)}
+            onChange={(e) => {
+              const meses = Number(e.target.value || 1);
+              setCicloPlanoMeses(meses);
+              recalcularValorCadastro(planoId, meses);
+            }}
+          >
+            {CICLOS_PLANOS.map((ciclo) => (
+              <option key={ciclo.meses} value={ciclo.meses}>
+                {ciclo.descontoPct > 0 ? `${ciclo.nome} - ${ciclo.descontoPct}% off` : ciclo.nome}
+              </option>
+            ))}
+          </select>
           <input
             style={inputStyle}
-            placeholder="Valor mensal (R$)"
+            placeholder="Valor a cobrar (R$)"
             value={valorMensal}
             onChange={(e) => setValorMensal(e.target.value)}
           />
@@ -2494,6 +2575,23 @@ function MasterClientes({ setTela }) {
             ))}
           </select>
         </div>
+        {(() => {
+          const planoAtual = PLANOS.find((p) => p.id === planoId);
+          if (!planoAtual) return null;
+          const calc = calcularPrecoPlano(planoAtual.valor, cicloPlanoMeses);
+          return (
+            <div style={{ marginTop: 4, fontSize: 13, color: "#43556d" }}>
+              {calc.cicloMeses === 1 ? (
+                <span>Mensal sem desconto: <strong>R$ {formatarMoedaBR(calc.total)}</strong></span>
+              ) : (
+                <span>
+                  Pacote {calc.cicloMeses} meses: <strong>R$ {formatarMoedaBR(calc.total)}</strong>{" "}
+                  ({calc.descontoPct}% off | equivale a R$ {formatarMoedaBR(calc.equivalenteMensal)}/mes)
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {mostrarFerramentasPerigosas && (
           <>
@@ -2596,8 +2694,7 @@ function MasterClientes({ setTela }) {
                         onChange={(e) => {
                           const id = e.target.value;
                           setPlanoEdicaoId(id);
-                          const plano = PLANOS.find((p) => p.id === id);
-                          if (plano) setValorPlanoEdicao(String(plano.valor));
+                          recalcularValorEdicaoPlano(id, cicloPlanoEdicaoMeses);
                         }}
                       >
                         {PLANOS.map((plano) => (
@@ -2606,17 +2703,50 @@ function MasterClientes({ setTela }) {
                           </option>
                         ))}
                       </select>
+                      <select
+                        style={{ width: "100%", height: 34, borderRadius: 6, border: "1px solid #c9d2df", padding: "0 8px" }}
+                        value={String(cicloPlanoEdicaoMeses)}
+                        onChange={(e) => {
+                          const meses = Number(e.target.value || 1);
+                          setCicloPlanoEdicaoMeses(meses);
+                          recalcularValorEdicaoPlano(planoEdicaoId, meses);
+                        }}
+                      >
+                        {CICLOS_PLANOS.map((ciclo) => (
+                          <option key={ciclo.meses} value={ciclo.meses}>
+                            {ciclo.descontoPct > 0 ? `${ciclo.nome} - ${ciclo.descontoPct}% off` : ciclo.nome}
+                          </option>
+                        ))}
+                      </select>
                       <input
                         style={{ width: "100%", height: 34, borderRadius: 6, border: "1px solid #c9d2df", padding: "0 8px", boxSizing: "border-box" }}
                         value={valorPlanoEdicao}
                         onChange={(e) => setValorPlanoEdicao(e.target.value)}
-                        placeholder="Valor mensal"
+                        placeholder="Valor a cobrar"
                       />
                     </div>
                   ) : (
                     <>
+                      {(() => {
+                        const ciclo = obterCicloPlano(item?.cicloPlanoMeses || 1);
+                        const valorCobrado = Number(item?.valorMensal || 0);
+                        const equivalente = Number(item?.valorMensalEquivalente || (ciclo.meses > 0 ? valorCobrado / ciclo.meses : valorCobrado));
+                        return (
+                          <>
                       {item.planoNome || item.planoId} <br />
-                      <strong>R$ {Number(item.valorMensal || 0).toLocaleString("pt-BR")}/mes</strong>
+                      <strong>
+                        {ciclo.meses === 1
+                          ? `R$ ${Number(item.valorMensal || 0).toLocaleString("pt-BR")}/mes`
+                          : `R$ ${valorCobrado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / ${ciclo.nome}`}
+                      </strong>
+                      {ciclo.meses > 1 && (
+                        <>
+                          <br />
+                          <span style={{ fontSize: 12 }}>
+                            {ciclo.descontoPct}% off | equivale a R$ {equivalente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mes
+                          </span>
+                        </>
+                      )}
                       <br />
                       <span style={{ fontSize: 12 }}>
                         1 Gestor, {Number(item.limiteAdminsPlano || 0)} ADM, {
@@ -2625,6 +2755,9 @@ function MasterClientes({ setTela }) {
                             : `${Number(item.limiteOperadoresPlano)} Operadores`
                         }
                       </span>
+                          </>
+                        );
+                      })()}
                     </>
                   )}
                 </td>
@@ -3009,16 +3142,27 @@ function MasterClientes({ setTela }) {
 
                 {(() => {
                   const planoCliente = obterPlanoPorId(item?.planoId);
+                  const ciclo = obterCicloPlano(item?.cicloPlanoMeses || 1);
                   const nomePlano = String(planoCliente?.nome || item?.planoNome || item?.plano || "-").trim();
                   const valorPlano = Number(item?.valorMensal || planoCliente?.valor || 0);
+                  const valorEquivalente = Number(item?.valorMensalEquivalente || (ciclo.meses > 0 ? valorPlano / ciclo.meses : valorPlano));
                   const valorPlanoTxt = formatarMoedaBR(valorPlano);
                   return (
                     <div style={{ display: "grid", alignContent: "start", gap: 8 }}>
                       <div style={{ fontSize: 12, color: "#5a6b82" }}>Plano / Valor</div>
                       <div style={{ fontSize: 16, fontWeight: 900, color: "#10243e" }}>{nomePlano}</div>
                       <div style={{ fontSize: 12, color: "#5a6b82" }}>
-                        Valor do plano: <strong>R$ {valorPlanoTxt}/mes</strong>
+                        {ciclo.meses === 1 ? (
+                          <>Valor do plano: <strong>R$ {valorPlanoTxt}/mes</strong></>
+                        ) : (
+                          <>Pacote {ciclo.nome}: <strong>R$ {valorPlanoTxt}</strong></>
+                        )}
                       </div>
+                      {ciclo.meses > 1 && (
+                        <div style={{ fontSize: 12, color: "#5a6b82" }}>
+                          Desconto: <strong>{ciclo.descontoPct}%</strong> | Equivalente mensal: <strong>R$ {formatarMoedaBR(valorEquivalente)}/mes</strong>
+                        </div>
+                      )}
                       <div style={{ fontSize: 12, color: "#5a6b82" }}>
                         Vencimento: <strong>dia {Number.isFinite(diaAtual) ? diaAtual : 10}</strong>
                       </div>
@@ -3045,7 +3189,7 @@ function MasterClientes({ setTela }) {
                       style={{ ...inputStyle, marginBottom: 0 }}
                       value={finValorFatura}
                       onChange={(e) => setFinValorFatura(e.target.value)}
-                      placeholder="450"
+                      placeholder="349"
                       inputMode="decimal"
                     />
                   </div>

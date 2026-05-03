@@ -15,6 +15,8 @@ const UNIDADES = [
   { value: "UN", label: "Un" }
 ];
 const COLECAO = "romaneiosTransporte";
+const MODO_ROMANEIO = "ROMANEIO";
+const MODO_SAIDA_SIMPLES = "SAIDA_SIMPLES";
 
 function Transportes({ setTela }) {
   const tenantId = getTenantId();
@@ -55,6 +57,7 @@ function Transportes({ setTela }) {
   const [equipamentos, setEquipamentos] = useState([]);
   const [lista, setLista] = useState([]);
   const [salvando, setSalvando] = useState(false);
+  const [modoLancamento, setModoLancamento] = useState(MODO_ROMANEIO);
   const [material, setMaterial] = useState("BARRO");
   const [descricaoMaterial, setDescricaoMaterial] = useState("");
   const [quantidade, setQuantidade] = useState("");
@@ -63,6 +66,7 @@ function Transportes({ setTela }) {
   const [destino, setDestino] = useState("");
   const [obra, setObra] = useState("");
   const [caminhaoId, setCaminhaoId] = useState("");
+  const [placaAvulsa, setPlacaAvulsa] = useState("");
   const [motorista, setMotorista] = useState("");
   const [observacao, setObservacao] = useState("");
   const [romaneioGerado, setRomaneioGerado] = useState(null);
@@ -165,6 +169,7 @@ function Transportes({ setTela }) {
   }, [material]);
 
   const limpar = () => {
+    setModoLancamento(MODO_ROMANEIO);
     setMaterial("BARRO");
     setDescricaoMaterial("");
     setQuantidade("");
@@ -173,6 +178,7 @@ function Transportes({ setTela }) {
     setDestino("");
     setObra("");
     setCaminhaoId("");
+    setPlacaAvulsa("");
     setMotorista("");
     setObservacao("");
     assinaturaSaidaRef.current?.clear();
@@ -213,12 +219,16 @@ function Transportes({ setTela }) {
     if (!item?.id) return;
     setGerandoPdfId(item.id);
     try {
-      const payload = String(item.qrPayload || montarPayloadQr(item.id));
-      const qrDataUrl = await QRCode.toDataURL(payload, {
-        margin: 1,
-        width: 900,
-        errorCorrectionLevel: "H"
-      });
+      const payload = String(item.qrPayload || "").trim();
+      const exibirQr = Boolean(payload);
+      let qrDataUrl = "";
+      if (exibirQr) {
+        qrDataUrl = await QRCode.toDataURL(payload, {
+          margin: 1,
+          width: 900,
+          errorCorrectionLevel: "H"
+        });
+      }
 
       const pdf = new jsPDF("p", "mm", "a4");
       pdf.setFont("helvetica", "bold");
@@ -236,21 +246,33 @@ function Transportes({ setTela }) {
       pdf.text(`Destino: ${item.destino || "-"}`, 14, 64);
       pdf.text(`Obra/Frente: ${item.obra || "-"}`, 14, 70);
       pdf.text(`Caminhao: ${item.caminhaoNome || "-"}`, 14, 76);
-      pdf.text(`Motorista: ${item.motorista || "-"}`, 14, 82);
-      pdf.text(`Apontador saida: ${item.apontadorSaida || "-"}`, 14, 88);
+      pdf.text(`Placa: ${item.placa || "-"}`, 14, 82);
+      pdf.text(`Motorista: ${item.motorista || "-"}`, 14, 88);
+      pdf.text(`Apontador saida: ${item.apontadorSaida || "-"}`, 14, 94);
 
       pdf.setFont("helvetica", "bold");
-      pdf.text("OBSERVACAO", 14, 98);
+      pdf.text("OBSERVACAO", 14, 104);
       pdf.setFont("helvetica", "normal");
       const obs = String(item.observacao || "-");
       const obsQuebrada = pdf.splitTextToSize(obs, 180);
-      pdf.text(obsQuebrada, 14, 104);
+      pdf.text(obsQuebrada, 14, 110);
 
-      pdf.setFont("helvetica", "bold");
-      pdf.text("QR DO ROMANEIO", 105, 144, { align: "center" });
-      pdf.addImage(qrDataUrl, "PNG", 70, 148, 70, 70);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`Codigo manual: ${item.numero || item.id}`, 105, 224, { align: "center" });
+      if (exibirQr) {
+        pdf.setFont("helvetica", "bold");
+        pdf.text("QR DO ROMANEIO", 105, 150, { align: "center" });
+        pdf.addImage(qrDataUrl, "PNG", 70, 154, 70, 70);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(`Codigo manual: ${item.numero || item.id}`, 105, 230, { align: "center" });
+      } else {
+        pdf.setFont("helvetica", "bold");
+        pdf.text("SAIDA SIMPLES CONCLUIDA", 105, 154, { align: "center" });
+        pdf.setFont("helvetica", "normal");
+        const aviso = pdf.splitTextToSize(
+          "Este registro foi encerrado na saida com conferencia e assinatura do motorista, sem fluxo de recebimento no destino.",
+          160
+        );
+        pdf.text(aviso, 105, 164, { align: "center" });
+      }
 
       pdf.save(`romaneio_transporte_${String(item.numero || item.id || "sem_numero").toLowerCase()}.pdf`);
     } finally {
@@ -277,7 +299,8 @@ function Transportes({ setTela }) {
     if (!quantidade || Number(String(quantidade).replace(",", ".")) <= 0) return alert("Informe a quantidade.");
     if (!origem.trim()) return alert("Informe a origem.");
     if (!destino.trim()) return alert("Informe o destino.");
-    if (!caminhaoSelecionado) return alert("Selecione o caminhao.");
+    if (modoLancamento === MODO_ROMANEIO && !caminhaoSelecionado) return alert("Selecione o caminhao.");
+    if (modoLancamento === MODO_SAIDA_SIMPLES && !placaAvulsa.trim()) return alert("Informe a placa do caminhao.");
     if (!motorista.trim()) return alert("Informe o motorista.");
     if (material === "DIVERSOS" && !descricaoMaterial.trim()) return alert("Descreva o material diverso.");
 
@@ -296,16 +319,26 @@ function Transportes({ setTela }) {
       const numeroBase = montarNumero();
       const sufixo = String(Date.now()).slice(-4);
       const numeroFinal = `${numeroBase}-${sufixo}`;
-      const localSaida = await obterLocalizacao();
+      const localSaida = modoLancamento === MODO_ROMANEIO ? await obterLocalizacao() : null;
       const ref = doc(collection(db, COLECAO));
-      const qrPayload = montarPayloadQr(ref.id);
+      const qrPayload = modoLancamento === MODO_ROMANEIO ? montarPayloadQr(ref.id) : "";
+      const caminhaoNomeFinal = modoLancamento === MODO_ROMANEIO
+        ? String(caminhaoSelecionado?.nome || "").trim().toUpperCase()
+        : "CAMINHAO AVULSO";
+      const placaFinal = modoLancamento === MODO_ROMANEIO
+        ? String(caminhaoSelecionado?.placa || "").trim().toUpperCase()
+        : String(placaAvulsa || "").trim().toUpperCase();
+      const statusFinal = modoLancamento === MODO_SAIDA_SIMPLES ? "SAIDA_SIMPLES_CONCLUIDA" : "EM_TRANSITO";
+      const tipoFinal = modoLancamento === MODO_SAIDA_SIMPLES
+        ? "SAIDA_SIMPLES"
+        : (material === "DIVERSOS" ? "DIVERSOS" : "MATERIAL");
 
       await setDoc(
         ref,
         withTenant(
           {
             numero: numeroFinal,
-            tipoTransporte: material === "DIVERSOS" ? "DIVERSOS" : "MATERIAL",
+            tipoTransporte: tipoFinal,
             material,
             materialLabel: material === "DIVERSOS" ? String(descricaoMaterial || "").trim().toUpperCase() : material,
             descricaoMaterial: String(descricaoMaterial || "").trim().toUpperCase(),
@@ -313,14 +346,14 @@ function Transportes({ setTela }) {
             unidade,
             origem: String(origem || "").trim().toUpperCase(),
             destino: String(destino || "").trim().toUpperCase(),
-            obra: String(obra || "").trim().toUpperCase(),
-            caminhaoId: caminhaoSelecionado.id,
-            caminhaoNome: String(caminhaoSelecionado.nome || "").trim().toUpperCase(),
-            caminhaoCodigo: String(caminhaoSelecionado.codigo || "").trim().toUpperCase(),
-            placa: String(caminhaoSelecionado.placa || "").trim().toUpperCase(),
+            obra: modoLancamento === MODO_ROMANEIO ? String(obra || "").trim().toUpperCase() : "",
+            caminhaoId: modoLancamento === MODO_ROMANEIO ? caminhaoSelecionado.id : "",
+            caminhaoNome: caminhaoNomeFinal,
+            caminhaoCodigo: modoLancamento === MODO_ROMANEIO ? String(caminhaoSelecionado.codigo || "").trim().toUpperCase() : "",
+            placa: placaFinal,
             motorista: String(motorista || "").trim().toUpperCase(),
             observacao: String(observacao || "").trim().toUpperCase(),
-            status: "EM_TRANSITO",
+            status: statusFinal,
             apontadorSaida: apontadorAtual || "APONTADOR",
             assinaturaSaida,
             assinaturaMotorista,
@@ -328,6 +361,7 @@ function Transportes({ setTela }) {
             recebidoStatus: "",
             observacaoRecebimento: "",
             qrPayload,
+            usaRecebimentoDestino: modoLancamento === MODO_ROMANEIO,
             criadoEm: new Date().toISOString(),
             dataHoraSaida: new Date().toISOString(),
             dataHoraRecebimento: "",
@@ -344,18 +378,25 @@ function Transportes({ setTela }) {
         entidade: "ROMANEIO_TRANSPORTE",
         registroId: ref.id,
         usuario: apontadorAtual || "-",
-        descricao: `Criou romaneio de transporte ${numeroFinal} para ${String(destino || "").trim().toUpperCase()}.`
+        descricao: modoLancamento === MODO_SAIDA_SIMPLES
+          ? `Registrou saida simples ${numeroFinal} para ${String(destino || "").trim().toUpperCase()}.`
+          : `Criou romaneio de transporte ${numeroFinal} para ${String(destino || "").trim().toUpperCase()}.`
       });
 
       setRomaneioGerado({
         id: ref.id,
         numero: numeroFinal,
-        qrPayload
+        qrPayload,
+        tipoTransporte: tipoFinal
       });
-      setQrPreview(await QRCode.toDataURL(qrPayload, { margin: 1, width: 360, errorCorrectionLevel: "H" }));
+      if (qrPayload) {
+        setQrPreview(await QRCode.toDataURL(qrPayload, { margin: 1, width: 360, errorCorrectionLevel: "H" }));
+      } else {
+        setQrPreview("");
+      }
       limpar();
       await carregar();
-      alert("Romaneio criado com sucesso.");
+      alert(modoLancamento === MODO_SAIDA_SIMPLES ? "Saida simples registrada com sucesso." : "Romaneio criado com sucesso.");
     } catch (e) {
       alert(`Falha ao criar romaneio. Detalhes: ${String(e?.message || e || "")}`);
     } finally {
@@ -376,13 +417,27 @@ function Transportes({ setTela }) {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               type="button"
-              onClick={() => setFormularioAberto((prev) => !prev)}
+              onClick={() => {
+                setModoLancamento(MODO_ROMANEIO);
+                setFormularioAberto((prev) => !prev || modoLancamento !== MODO_ROMANEIO);
+              }}
               style={botaoPrimario}
               disabled={!podeInformarMeioTransporte}
             >
               {!podeInformarMeioTransporte
                 ? "Sem permissao para lancar"
-                : (formularioAberto ? "Esconder lancamento" : "Novo romaneio")}
+                : (formularioAberto && modoLancamento === MODO_ROMANEIO ? "Esconder lancamento" : "Novo romaneio")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setModoLancamento(MODO_SAIDA_SIMPLES);
+                setFormularioAberto(true);
+              }}
+              style={{ ...botaoSecundario, background: "#fff4e6", borderColor: "#ffd8a8", color: "#9a4d00" }}
+              disabled={!podeInformarMeioTransporte}
+            >
+              Saida simples
             </button>
             {podeReceberTransporte && (
               <button type="button" onClick={() => setTela("receberTransporte")} style={botaoSecundario}>
@@ -433,27 +488,36 @@ function Transportes({ setTela }) {
           )}
           <div>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Origem</div>
-            <input value={origem} onChange={(e) => setOrigem(e.target.value)} style={inputStyle} placeholder="Ex.: DEPOSITO CENTRAL" />
+            <input value={origem} onChange={(e) => setOrigem(e.target.value)} style={inputStyle} placeholder={modoLancamento === MODO_SAIDA_SIMPLES ? "Ex.: JAZIDA CENTRAL" : "Ex.: DEPOSITO CENTRAL"} />
           </div>
           <div>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Destino</div>
-            <input value={destino} onChange={(e) => setDestino(e.target.value)} style={inputStyle} placeholder="Ex.: OBRA 072 / PISTA KM 12" />
+            <input value={destino} onChange={(e) => setDestino(e.target.value)} style={inputStyle} placeholder={modoLancamento === MODO_SAIDA_SIMPLES ? "Ex.: ENTREGA AVULSA / CLIENTE" : "Ex.: OBRA 072 / PISTA KM 12"} />
           </div>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Obra / frente</div>
-            <input value={obra} onChange={(e) => setObra(e.target.value)} style={inputStyle} placeholder="Ex.: 072" />
-          </div>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Caminhao</div>
-            <select value={caminhaoId} onChange={(e) => setCaminhaoId(e.target.value)} style={inputStyle}>
-              <option value="">Selecione</option>
-              {caminhoes.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {`${item.nome || "CAMINHAO"}${item.codigo ? ` - ${item.codigo}` : ""}${item.placa ? ` (${item.placa})` : ""}`}
-                </option>
-              ))}
-            </select>
-          </div>
+          {modoLancamento === MODO_ROMANEIO ? (
+            <>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Obra / frente</div>
+                <input value={obra} onChange={(e) => setObra(e.target.value)} style={inputStyle} placeholder="Ex.: 072" />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Caminhao</div>
+                <select value={caminhaoId} onChange={(e) => setCaminhaoId(e.target.value)} style={inputStyle}>
+                  <option value="">Selecione</option>
+                  {caminhoes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {`${item.nome || "CAMINHAO"}${item.codigo ? ` - ${item.codigo}` : ""}${item.placa ? ` (${item.placa})` : ""}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Placa do caminhao</div>
+              <input value={placaAvulsa} onChange={(e) => setPlacaAvulsa(e.target.value.toUpperCase())} style={inputStyle} placeholder="Ex.: ABC-1234" />
+            </div>
+          )}
           <div>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Motorista</div>
             <input value={motorista} onChange={(e) => setMotorista(e.target.value.toUpperCase())} style={inputStyle} placeholder="Nome do motorista" />
@@ -465,7 +529,9 @@ function Transportes({ setTela }) {
         </div>
 
         <div style={{ marginTop: 10, fontSize: 12, color: "#5a6b82" }}>
-          A viagem ja e o proprio romaneio. Aqui voce informa so o material, a quantidade, a unidade e os dados da carga.
+          {modoLancamento === MODO_SAIDA_SIMPLES
+            ? "Use saida simples para material avulso da jazida ou venda direta. A conferencia acontece na assinatura do motorista, sem recebimento no destino."
+            : "A viagem ja e o proprio romaneio. Aqui voce informa so o material, a quantidade, a unidade e os dados da carga."}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: 14 }}>
@@ -501,7 +567,7 @@ function Transportes({ setTela }) {
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
           <button type="button" onClick={salvar} disabled={salvando} style={{ ...botaoPrimario, opacity: salvando ? 0.7 : 1 }}>
-            {salvando ? "Salvando..." : "Gerar romaneio"}
+            {salvando ? "Salvando..." : (modoLancamento === MODO_SAIDA_SIMPLES ? "Registrar saida simples" : "Gerar romaneio")}
           </button>
           <button type="button" onClick={limpar} style={botaoSecundario}>
             Limpar formulario
@@ -519,7 +585,9 @@ function Transportes({ setTela }) {
               <div style={{ fontSize: 12, color: "#5a6b82", fontWeight: 700 }}>Ultimo romaneio criado</div>
               <div style={{ fontSize: 22, fontWeight: 900, color: "#10243e", marginTop: 4 }}>{romaneioGerado.numero}</div>
               <div style={{ marginTop: 6, fontSize: 12, color: "#5a6b82" }}>
-                O motorista pode levar este QR em print, PDF ou WhatsApp. No destino, use a tela de recebimento.
+                {romaneioGerado.tipoTransporte === "SAIDA_SIMPLES"
+                  ? "Saida simples concluida na conferencia do motorista. Este registro ja entra no relatorio positivo de material."
+                  : "O motorista pode levar este QR em print, PDF ou WhatsApp. No destino, use a tela de recebimento."}
               </div>
             </div>
             {qrPreview && (
@@ -577,16 +645,18 @@ function Transportes({ setTela }) {
                   <td style={{ border: "1px solid #e5ebf3", padding: 8, fontWeight: 800 }}>{item.status || "-"}</td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setRomaneioGerado({ id: item.id, numero: item.numero, qrPayload: item.qrPayload });
-                          setQrPreview(await QRCode.toDataURL(String(item.qrPayload || montarPayloadQr(item.id)), { margin: 1, width: 360, errorCorrectionLevel: "H" }));
-                        }}
-                        style={botaoSecundario}
-                      >
-                        Ver QR
-                      </button>
+                      {item.qrPayload && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setRomaneioGerado({ id: item.id, numero: item.numero, qrPayload: item.qrPayload, tipoTransporte: item.tipoTransporte });
+                            setQrPreview(await QRCode.toDataURL(String(item.qrPayload || montarPayloadQr(item.id)), { margin: 1, width: 360, errorCorrectionLevel: "H" }));
+                          }}
+                          style={botaoSecundario}
+                        >
+                          Ver QR
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => gerarPdfRomaneio(item)}

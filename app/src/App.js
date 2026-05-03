@@ -445,7 +445,7 @@ function ClientApp() {
           </div>
           <div style={userChip} title={nomeUsuarioLogado}>
             <span style={userAvatar}>{iniciaisUsuario}</span>
-            {!isMobileDevice && <span>Conta</span>}
+            {!isMobileDevice && <span>{nomeUsuarioLogado}</span>}
           </div>
         </div>
       )}
