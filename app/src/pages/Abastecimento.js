@@ -168,8 +168,10 @@ function Abastecimento({ setTela }) {
   // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ REQUISIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢O MAIS SEGURA
   const gerarReq = async (cidadeParam = cidadeBase) => {
     const cidadeReq = normalizarCidade(cidadeParam);
+    const hoje = new Date();
+    const dataBase = `${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, "0")}${String(hoje.getDate()).padStart(2, "0")}`;
     if (!cidadeReq) {
-      setReq("001");
+      setReq(`RQ-${dataBase}-001`);
       return;
     }
 
@@ -178,12 +180,16 @@ function Abastecimento({ setTela }) {
       .map((d) => d.data())
       .filter((item) => belongsToTenant(item, tenantId))
       .filter((item) => normalizarCidade(item.obraCidade) === cidadeReq)
-      .map((item) => Number(String(item.req || "").replace(/\D/g, "")))
+      .map((item) => {
+        const reqTexto = String(item.req || "").trim().toUpperCase();
+        const match = reqTexto.match(/(\d{3})$/);
+        return match ? Number(match[1]) : 0;
+      })
       .filter((num) => Number.isFinite(num) && num > 0)
       .reduce((max, atual) => (atual > max ? atual : max), 0);
 
     const proximo = maiorAtual + 1;
-    setReq(String(proximo).padStart(3, "0"));
+    setReq(`RQ-${dataBase}-${String(proximo).padStart(3, "0")}`);
   };
 
   // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ BUSCAR ESTOQUE
@@ -612,7 +618,10 @@ function Abastecimento({ setTela }) {
   };
 
   const nomeArquivoCupom = (dados) => {
-    const reqTxt = String(dados?.req || "").replace(/\D/g, "").padStart(3, "0");
+    const reqTxt = String(dados?.req || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g, "");
     const obraNum = String(dados?.obraNumero || identificarNumeroObra(dados?.obra) || "").replace(/\D/g, "");
     const dataTxt = String(dados?.data || "").replace(/[^\d]/g, "");
     const pedacos = ["cupom", dataTxt, obraNum ? `obra${obraNum}` : "", reqTxt ? `req${reqTxt}` : ""].filter(Boolean);
@@ -913,10 +922,10 @@ function Abastecimento({ setTela }) {
       }));
 
       // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ ordena do mais recente
-      const dadosTenant = dados
-        .filter((item) => belongsToTenant(item, tenantId))
-        .sort((a, b) => b.req - a.req);
-      setLista(dadosTenant);
+        const dadosTenant = dados
+          .filter((item) => belongsToTenant(item, tenantId))
+          .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+        setLista(dadosTenant);
 
     } catch (error) {
       console.error(error);
