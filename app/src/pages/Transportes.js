@@ -233,6 +233,14 @@ function Transportes({ setTela }) {
     };
   };
 
+  const montarNumeroRomaneio = (sequencial) => {
+    const agora = new Date();
+    const y = agora.getFullYear();
+    const m = String(agora.getMonth() + 1).padStart(2, "0");
+    const d = String(agora.getDate()).padStart(2, "0");
+    return `RT-${y}${m}${d}-${String(sequencial || "").padStart(3, "0")}`;
+  };
+
   const montarPayloadQr = (docId) => `EG_TRANSPORTE|${tenantId}|${docId}`;
 
   const gerarPdfRomaneio = async (item) => {
@@ -393,11 +401,11 @@ function Transportes({ setTela }) {
     if (!assinaturaSaida) return alert("A assinatura do apontador da saida e obrigatoria.");
     if (!assinaturaMotorista) return alert("A assinatura do motorista e obrigatoria.");
 
-    setSalvando(true);
-    try {
-      const { numeroSequencial, numeroExibicao, origemChave } = montarNumeroSequencial(origem);
-      const numeroFinal = numeroExibicao;
-      const localSaida = modoLancamento === MODO_ROMANEIO ? await obterLocalizacao() : null;
+      setSalvando(true);
+      try {
+        const { numeroSequencial, numeroExibicao, origemChave } = montarNumeroSequencial(origem);
+        const numeroFinal = montarNumeroRomaneio(numeroExibicao);
+        const localSaida = modoLancamento === MODO_ROMANEIO ? await obterLocalizacao() : null;
       const ref = doc(collection(db, COLECAO));
       const qrPayload = modoLancamento === MODO_ROMANEIO ? montarPayloadQr(ref.id) : "";
         const caminhaoNomeFinal = modoLancamento === MODO_ROMANEIO
