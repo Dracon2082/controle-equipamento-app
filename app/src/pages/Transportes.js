@@ -207,14 +207,28 @@ function Transportes({ setTela }) {
       );
     });
 
-  const montarNumero = () => {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mi = String(d.getMinutes()).padStart(2, "0");
-    return `RT-${yyyy}${mm}${dd}-${hh}${mi}`;
+  const normalizarOrigemChave = (valor) =>
+    String(valor || "")
+      .trim()
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/[^A-Z0-9]/g, "_");
+
+  const montarNumeroSequencial = (origemValor) => {
+    const origemChave = normalizarOrigemChave(origemValor);
+    const maiorAtual = lista
+      .filter((item) => normalizarOrigemChave(item.origemChave || item.origem) === origemChave)
+      .map((item) => Number(item.numeroSequencial || 0))
+      .filter((num) => Number.isFinite(num) && num > 0)
+      .reduce((max, atual) => (atual > max ? atual : max), 0);
+    const proximo = maiorAtual + 1;
+    return {
+      numeroSequencial: proximo,
+      numeroExibicao: String(proximo).padStart(3, "0"),
+      origemChave
+    };
   };
 
   const montarPayloadQr = (docId) => `EG_TRANSPORTE|${tenantId}|${docId}`;
@@ -234,34 +248,40 @@ function Transportes({ setTela }) {
         });
       }
 
-      const pdf = new jsPDF("p", "mm", "a4");
+      const pageHeight = exibirQr ? 240 : 210;
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [80, pageHeight]
+      });
       const logoBase64 = await resolverLogoPdf(config);
       if (logoBase64) {
         try {
-          pdf.addImage(logoBase64, formatoLogoPdf(logoBase64), 14, 10, 34, 14);
+          pdf.addImage(logoBase64, formatoLogoPdf(logoBase64), 28, 5, 24, 10);
         } catch {
           // segue sem logo
         }
       }
 
-      pdf.setDrawColor(220, 226, 234);
-      pdf.roundedRect(12, 8, 186, 28, 4, 4);
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(16);
-      pdf.text("COMPROVANTE DE TRANSPORTE", 105, 19, { align: "center" });
-      pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
-      pdf.text(String(config?.nome || "Equipamento Gestao"), 105, 25, { align: "center" });
-      pdf.text(`Numero do romaneio: ${item.numero || "-"}`, 105, 30, { align: "center" });
+      pdf.text("COMPROVANTE", 40, 20, { align: "center" });
+      pdf.text("DE TRANSPORTE", 40, 25, { align: "center" });
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7);
+      pdf.text(String(config?.nome || "Equipamento Gestao"), 40, 31, { align: "center" });
+      pdf.text(`Romaneio: ${item.numero || "-"}`, 40, 35, { align: "center" });
 
       let y = 46;
       const linha = (rotulo, valor) => {
         pdf.setFont("helvetica", "bold");
-        pdf.text(`${rotulo}:`, 14, y);
+        pdf.setFontSize(7);
+        pdf.text(`${rotulo}:`, 10, y);
         pdf.setFont("helvetica", "normal");
-        const texto = pdf.splitTextToSize(String(valor || "-"), 145);
-        pdf.text(texto, 48, y);
-        y += Math.max(6, texto.length * 5);
+        pdf.setFontSize(7);
+        const texto = pdf.splitTextToSize(String(valor || "-"), 28);
+        pdf.text(texto, 34, y);
+        y += Math.max(4.5, texto.length * 3.8);
       };
 
       linha("Data/hora da saida", new Date(item.dataHoraSaida || item.criadoEm || Date.now()).toLocaleString("pt-BR"));
@@ -275,54 +295,59 @@ function Transportes({ setTela }) {
       linha("Placa", item.placa || "-");
       linha("Motorista", item.motorista || "-");
       linha("Apontador da saida", item.apontadorSaida || "-");
-      linha("Status", item.status || "-");
+      const statusLabel = String(item.status || "")
+        .trim()
+        .toUpperCase()
+        .replace(/_/g, " ");
+      linha("Status", statusLabel || "-");
 
       pdf.setFont("helvetica", "bold");
-      pdf.text("Observacao:", 14, y);
+      pdf.setFontSize(7);
+      pdf.text("Observacao:", 10, y);
       pdf.setFont("helvetica", "normal");
-      const obsQuebrada = pdf.splitTextToSize(String(item.observacao || "-"), 178);
-      pdf.text(obsQuebrada, 14, y + 6);
-      y += 12 + obsQuebrada.length * 5;
+      pdf.setFontSize(7);
+      const obsQuebrada = pdf.splitTextToSize(String(item.observacao || "-"), 58);
+      pdf.text(obsQuebrada, 10, y + 4);
+      y += 7 + obsQuebrada.length * 3.8;
 
       const assinaturaSaida = String(item.assinaturaSaida || "");
       const assinaturaMotorista = String(item.assinaturaMotorista || "");
       if (assinaturaSaida || assinaturaMotorista) {
         pdf.setFont("helvetica", "bold");
-        pdf.text("Assinaturas", 14, y);
+        pdf.setFontSize(7);
+        pdf.text("Assinaturas", 10, y);
         y += 4;
-        pdf.setDrawColor(210, 216, 226);
-        pdf.roundedRect(14, y, 84, 32, 3, 3);
-        pdf.roundedRect(110, y, 84, 32, 3, 3);
-        pdf.setFontSize(8);
-        pdf.text("Apontador da saida", 56, y + 5, { align: "center" });
-        pdf.text("Motorista", 152, y + 5, { align: "center" });
+        pdf.setFontSize(6);
+        pdf.text("Apontador da saida", 24, y + 4, { align: "center" });
+        pdf.text("Motorista", 56, y + 4, { align: "center" });
         if (assinaturaSaida) {
-          pdf.addImage(assinaturaSaida, "PNG", 18, y + 7, 76, 18);
+          pdf.addImage(assinaturaSaida, "PNG", 10, y + 6, 28, 12);
         }
         if (assinaturaMotorista) {
-          pdf.addImage(assinaturaMotorista, "PNG", 114, y + 7, 76, 18);
+          pdf.addImage(assinaturaMotorista, "PNG", 42, y + 6, 28, 12);
         }
-        y += 38;
+        y += 22;
       }
 
       if (exibirQr) {
         pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(11);
-        pdf.text("QR do romaneio", 105, y, { align: "center" });
-        pdf.addImage(qrDataUrl, "PNG", 77, y + 4, 56, 56);
+        pdf.setFontSize(8);
+        pdf.text("QR do romaneio", 40, y, { align: "center" });
+        pdf.addImage(qrDataUrl, "PNG", 20, y + 4, 40, 40);
         pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(9);
-        pdf.text(`Codigo manual: ${item.numero || item.id}`, 105, y + 66, { align: "center" });
+        pdf.setFontSize(7);
+        pdf.text(`Codigo manual: ${item.numero || item.id}`, 40, y + 49, { align: "center" });
       } else {
         pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(11);
-        pdf.text("Saida simples concluida", 105, y + 8, { align: "center" });
+        pdf.setFontSize(8);
+        pdf.text("Saida simples concluida", 40, y + 6, { align: "center" });
         pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7);
         const aviso = pdf.splitTextToSize(
           "Conferencia realizada na origem com assinatura do apontador e do motorista. Este comprovante nao exige recebimento no destino.",
-          150
+          54
         );
-        pdf.text(aviso, 105, y + 18, { align: "center" });
+        pdf.text(aviso, 40, y + 14, { align: "center" });
       }
 
       pdf.save(`romaneio_transporte_${String(item.numero || item.id || "sem_numero").toLowerCase()}.pdf`);
@@ -367,9 +392,8 @@ function Transportes({ setTela }) {
 
     setSalvando(true);
     try {
-      const numeroBase = montarNumero();
-      const sufixo = String(Date.now()).slice(-4);
-      const numeroFinal = `${numeroBase}-${sufixo}`;
+      const { numeroSequencial, numeroExibicao, origemChave } = montarNumeroSequencial(origem);
+      const numeroFinal = numeroExibicao;
       const localSaida = modoLancamento === MODO_ROMANEIO ? await obterLocalizacao() : null;
       const ref = doc(collection(db, COLECAO));
       const qrPayload = modoLancamento === MODO_ROMANEIO ? montarPayloadQr(ref.id) : "";
@@ -389,6 +413,7 @@ function Transportes({ setTela }) {
         withTenant(
           {
             numero: numeroFinal,
+            numeroSequencial,
             tipoTransporte: tipoFinal,
             material,
             materialLabel: material === "DIVERSOS" ? String(descricaoMaterial || "").trim().toUpperCase() : material,
@@ -396,6 +421,7 @@ function Transportes({ setTela }) {
             quantidade: Number(String(quantidade).replace(",", ".")),
             unidade,
             origem: String(origem || "").trim().toUpperCase(),
+            origemChave,
             destino: String(destino || "").trim().toUpperCase(),
             obra: modoLancamento === MODO_ROMANEIO ? String(obra || "").trim().toUpperCase() : "",
             caminhaoId: modoLancamento === MODO_ROMANEIO ? caminhaoSelecionado.id : "",

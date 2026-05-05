@@ -22,8 +22,15 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
   const isMobileUA = /Android|iPhone|iPad|iPod|Mobi/i.test(ua);
   const isMobile = isCoarsePointer || isSmallScreen || isMobileUA;
   const precisaHttpsParaGps = (isCoarsePointer || isMobileUA) && window.isSecureContext === false;
-  // No computador, esta tela vira "relatorio" por padrao (lancamento deve ser feito no celular).
-  const modoRelatorio = !isMobile || String(modo || "").toLowerCase() === "relatorio";
+  // Respeita o modo explicitamente passado pela navegacao.
+  // Se nao vier nada, no computador cai no relatorio por padrao.
+  const modoNormalizado = String(modo || "").trim().toLowerCase();
+  const modoRelatorio =
+    modoNormalizado === "relatorio"
+      ? true
+      : modoNormalizado === "operacional"
+        ? false
+        : !isMobile;
   const tenantId = getTenantId();
   const sessaoOperacional = (() => {
     try {

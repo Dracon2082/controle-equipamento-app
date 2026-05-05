@@ -670,10 +670,8 @@ function Home({ setTela, onSair }) {
     {
       titulo: "Engenharia",
       itens: [
-        { texto: "Lancamento Diario de Equipamento", tela: "lancamento" },
         { texto: "Diario de Obra (RDO)", tela: "diarioObra" },
-        // No computador, evitamos expor "lancamento/croqui" (sem GPS). O uso principal fica no celular.
-        ...(isMobileDevice ? [{ texto: "Producao de Campo / Croqui", tela: "producaoCampo" }] : [])
+        { texto: "Producao de Campo / Croqui", tela: "producaoCampo" }
       ]
     },
     {
@@ -685,6 +683,7 @@ function Home({ setTela, onSair }) {
     {
       titulo: "Transporte",
       itens: [
+        { texto: "Lancamento Diario de Equipamento", tela: "lancamento" },
         { texto: "Romaneio de Transporte", tela: "transportes" },
         { texto: "Receber Transporte (QR)", tela: "receberTransporte" },
         // No destino (celular), o recebimento e feito via QR + assinatura.
@@ -702,13 +701,13 @@ function Home({ setTela, onSair }) {
 
   // Painel Administrativo separado por setores (mais facil de entender no dia a dia).
   const secoesAdministrativas = [
-    {
-      titulo: "Engenharia",
-      itens: [
-        { texto: "Relatorio Producao de Campo / Croqui", tela: "relatorioProducaoCampo" },
-        { texto: "Relatorio Diario de Obra (RDO)", tela: "relatorioDiarioObra" }
-      ]
-    },
+      {
+        titulo: "Engenharia",
+        itens: [
+         { texto: "Relatorio Producao de Campo / Croqui", tela: "relatorioProducaoCampo" },
+          { texto: "Relatorio Diario de Obra (RDO)", tela: "relatorioDiarioObra" }
+        ]
+      },
     {
       titulo: "Manutencao",
       itens: [
