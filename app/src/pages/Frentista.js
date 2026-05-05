@@ -155,7 +155,7 @@ function Frentista({ setTela }) {
   };
 
   const thStyle = { border: "1px solid #ccc", padding: 6, whiteSpace: "nowrap", textAlign: "center", fontSize: 13 };
-  const tdStyle = { border: "1px solid #ccc", padding: 6, verticalAlign: "middle", wordBreak: "break-word", overflowWrap: "break-word", fontSize: 12 };
+  const tdStyle = { border: "1px solid #ccc", padding: 6, verticalAlign: "top", wordBreak: "break-word", overflowWrap: "anywhere", fontSize: 12, lineHeight: 1.35 };
   const tdNoWrap = { ...tdStyle, whiteSpace: "nowrap" };
   const tdAcoes = { ...tdStyle, textAlign: "center", whiteSpace: "nowrap" };
 
@@ -385,6 +385,20 @@ function Frentista({ setTela }) {
     );
     if (perfilSelecionado === PERFIL_OPERACIONAL && cpfExiste) return alert("CPF ja cadastrado.");
 
+    if (perfilSelecionado === PERFIL_OPERACIONAL) {
+      const duplicadoMesmaBase = lista.find((item) => {
+        if (item.id === editandoId) return false;
+        const mesmoCpf = cpfNumero.length === 11 && apenasDigitos(item.cpf) === cpfNumero;
+        const mesmoEmail = String(item.email || "").trim().toLowerCase() === emailDigitado;
+        if (!mesmoCpf && !mesmoEmail) return false;
+        return basesSobrepostas(item.basesPermitidas, basesUsuarioFinal);
+      });
+
+      if (duplicadoMesmaBase) {
+        return alert("Ja existe um operador com este CPF ou e-mail em uma das mesmas bases selecionadas.");
+      }
+    }
+
     let permissoesFinal = permissoesOperacionaisSelecionadas;
     if (perfilSelecionado === PERFIL_ADMIN_UNIDADE) {
       permissoesFinal = Array.from(new Set([...permissoesOperacionaisSelecionadas, ...permissoesAdministrativas]));
@@ -444,6 +458,7 @@ function Frentista({ setTela }) {
           return `Temp@${base}`;
         })();
       payload.senha = senhaProvisionada;
+      payload.senhaInicial = senhaProvisionada;
       payload.trocarSenhaObrigatoria = false;
       payload.criadoEm = new Date().toISOString();
       const ref = await addDoc(collection(db, "frentistas"), payload);
@@ -502,6 +517,17 @@ function Frentista({ setTela }) {
     (Array.isArray(itens) ? itens : [])
       .map((chave) => formatarBaseLabel(chave))
       .join(" | ");
+
+  const basesSobrepostas = (basesA, basesB) => {
+    const setA = new Set(
+      (Array.isArray(basesA) ? basesA : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    );
+    return (Array.isArray(basesB) ? basesB : []).some((item) =>
+      setA.has(String(item || "").trim())
+    );
+  };
 
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 20, background: "#f5f7fa", minHeight: "100vh" }}>
@@ -655,17 +681,17 @@ function Frentista({ setTela }) {
         />
 
         <div style={{ width: "100%", overflowX: "auto" }}>
-          <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", tableLayout: "fixed" }}>
+          <table style={{ width: "100%", minWidth: 1180, borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", tableLayout: "auto" }}>
             <thead style={{ background: "#0b3d91", color: "#fff" }}>
               <tr>
                 <th style={{ ...thStyle, width: "16%" }}>Nome</th>
                 <th style={{ ...thStyle, width: "18%" }}>E-mail</th>
                 <th style={{ ...thStyle, width: "10%" }}>CPF/Login</th>
-                <th style={{ ...thStyle, width: "9%" }}>Senha</th>
-                <th style={{ ...thStyle, width: "14%" }}>Perfil / Funcao</th>
-                <th style={{ ...thStyle, width: "15%" }}>Permissoes</th>
+                <th style={{ ...thStyle, width: "11%" }}>Senha inicial</th>
+                <th style={{ ...thStyle, width: "13%" }}>Perfil / Funcao</th>
+                <th style={{ ...thStyle, width: "16%" }}>Permissoes</th>
                 <th style={{ ...thStyle, width: "10%" }}>Bases</th>
-                <th style={{ ...thStyle, width: "10%" }}>Acoes</th>
+                <th style={{ ...thStyle, width: "6%" }}>Acoes</th>
               </tr>
             </thead>
             <tbody>
@@ -681,7 +707,7 @@ function Frentista({ setTela }) {
                 <td style={tdStyle}>{item.nome || "-"}</td>
                 <td style={{ ...tdNoWrap, textAlign: "left" }}>{item.email || "-"}</td>
                 <td style={{ ...tdNoWrap, textAlign: "center" }}>{formatarCpf(item.cpf || "") || "-"}</td>
-                <td style={{ ...tdNoWrap, fontFamily: "monospace", textAlign: "center" }}>{item.senha || "-"}</td>
+                <td style={{ ...tdNoWrap, fontFamily: "monospace", textAlign: "center" }}>{item.senhaInicial || item.senha || "-"}</td>
                 <td style={tdStyle}>
                   <div style={{ fontWeight: "bold" }}>{item.perfilAcesso || PERFIL_OPERACIONAL}</div>
                   <div>{item.funcao || "-"}</div>

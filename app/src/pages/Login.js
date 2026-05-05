@@ -58,7 +58,7 @@ function Login({ setTela, authContext, onLoginSucesso }) {
 
   const validarSenhaUsuario = async (senhaDigitada, cpfLimpo, dadosUsuario) => {
     const senhaPadrao = cpfLimpo.substring(0, 6);
-    const senhaCadastrada = String(dadosUsuario?.senha || "").trim();
+    const senhaCadastrada = String(dadosUsuario?.senha || dadosUsuario?.senhaInicial || "").trim();
     if (senhaCadastrada && senhaDigitada === senhaCadastrada) return true;
     const emailUsuario = String(dadosUsuario?.email || "").trim().toLowerCase();
     if (await validarSenhaViaAuth(emailUsuario, senhaDigitada)) return true;
@@ -191,7 +191,7 @@ function Login({ setTela, authContext, onLoginSucesso }) {
     for (const candidato of usuariosLocalizados) {
       const u = candidato?.dados || {};
       // Atalho: se a senha cadastrada bater exatamente, seleciona logo.
-      const senhaCadastrada = String(u?.senha || "").trim();
+      const senhaCadastrada = String(u?.senha || u?.senhaInicial || "").trim();
       if (senhaCadastrada && senhaCadastrada === String(senha || "").trim()) {
         escolhido = candidato;
         break;
