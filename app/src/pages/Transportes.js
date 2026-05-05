@@ -1,12 +1,13 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useMemo, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
-import { collection, doc, getDocs, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { db } from "../firebase";
 import { registrarHistorico } from "../utils/historico";
-import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
+import { formatoLogoPdf, resolverLogoPdf } from "../utils/pdfLogo";
+import { belongsToTenant, getConfigDocId, getTenantId, withTenant } from "../utils/tenant";
 
 const MATERIAIS = ["BARRO", "BRITA", "AREIA", "ASFALTO", "DIVERSOS"];
 const UNIDADES = [
@@ -57,6 +58,7 @@ function Transportes({ setTela }) {
   const [equipamentos, setEquipamentos] = useState([]);
   const [lista, setLista] = useState([]);
   const [salvando, setSalvando] = useState(false);
+  const [config, setConfig] = useState(null);
   const [modoLancamento, setModoLancamento] = useState(MODO_ROMANEIO);
   const [material, setMaterial] = useState("BARRO");
   const [descricaoMaterial, setDescricaoMaterial] = useState("");
@@ -133,9 +135,10 @@ function Transportes({ setTela }) {
   );
 
   const carregar = async () => {
-    const [snapEquip, snapLista] = await Promise.all([
+    const [snapEquip, snapLista, snapConfig] = await Promise.all([
       getDocs(collection(db, "equipamentos")),
-      getDocs(collection(db, COLECAO))
+      getDocs(collection(db, COLECAO)),
+      getDoc(doc(db, "configuracoes", getConfigDocId(tenantId)))
     ]);
 
     const listaEquip = snapEquip.docs
@@ -149,6 +152,7 @@ function Transportes({ setTela }) {
       .filter((item) => belongsToTenant(item, tenantId))
       .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
     setLista(transportes);
+    setConfig(snapConfig.exists() ? snapConfig.data() : null);
   };
 
   useEffect(() => {
@@ -231,47 +235,94 @@ function Transportes({ setTela }) {
       }
 
       const pdf = new jsPDF("p", "mm", "a4");
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(15);
-      pdf.text("ROMANEIO DE TRANSPORTE", 105, 16, { align: "center" });
+      const logoBase64 = await resolverLogoPdf(config);
+      if (logoBase64) {
+        try {
+          pdf.addImage(logoBase64, formatoLogoPdf(logoBase64), 14, 10, 34, 14);
+        } catch {
+          // segue sem logo
+        }
+      }
 
+      pdf.setDrawColor(220, 226, 234);
+      pdf.roundedRect(12, 8, 186, 28, 4, 4);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(16);
+      pdf.text("COMPROVANTE DE TRANSPORTE", 105, 19, { align: "center" });
+      pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`Numero: ${item.numero || "-"}`, 14, 28);
-      pdf.text(`Data/hora saida: ${new Date(item.dataHoraSaida || item.criadoEm || Date.now()).toLocaleString("pt-BR")}`, 14, 34);
-      pdf.text(`Tipo: ${item.tipoTransporte || "-"}`, 14, 40);
-      pdf.text(`Material: ${item.materialLabel || item.material || "-"}`, 14, 46);
-      pdf.text(`Quantidade: ${item.quantidade || "-"} ${item.unidade || ""}`, 14, 52);
-      pdf.text(`Origem: ${item.origem || "-"}`, 14, 58);
-      pdf.text(`Destino: ${item.destino || "-"}`, 14, 64);
-      pdf.text(`Obra/Frente: ${item.obra || "-"}`, 14, 70);
-      pdf.text(`Caminhao: ${item.caminhaoNome || "-"}`, 14, 76);
-      pdf.text(`Placa: ${item.placa || "-"}`, 14, 82);
-      pdf.text(`Motorista: ${item.motorista || "-"}`, 14, 88);
-      pdf.text(`Apontador saida: ${item.apontadorSaida || "-"}`, 14, 94);
+      pdf.text(String(config?.nome || "Equipamento Gestao"), 105, 25, { align: "center" });
+      pdf.text(`Numero do romaneio: ${item.numero || "-"}`, 105, 30, { align: "center" });
+
+      let y = 46;
+      const linha = (rotulo, valor) => {
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`${rotulo}:`, 14, y);
+        pdf.setFont("helvetica", "normal");
+        const texto = pdf.splitTextToSize(String(valor || "-"), 145);
+        pdf.text(texto, 48, y);
+        y += Math.max(6, texto.length * 5);
+      };
+
+      linha("Data/hora da saida", new Date(item.dataHoraSaida || item.criadoEm || Date.now()).toLocaleString("pt-BR"));
+      linha("Tipo", item.tipoTransporte || "-");
+      linha("Material", item.materialLabel || item.material || "-");
+      linha("Quantidade", `${item.quantidade || "-"} ${item.unidade || ""}`.trim());
+      linha("Origem", item.origem || "-");
+      linha("Destino", item.destino || "-");
+      if (String(item.obra || "").trim()) linha("Obra / Frente", item.obra);
+      linha("Caminhao", item.caminhaoNome || "-");
+      linha("Placa", item.placa || "-");
+      linha("Motorista", item.motorista || "-");
+      linha("Apontador da saida", item.apontadorSaida || "-");
+      linha("Status", item.status || "-");
 
       pdf.setFont("helvetica", "bold");
-      pdf.text("OBSERVACAO", 14, 104);
+      pdf.text("Observacao:", 14, y);
       pdf.setFont("helvetica", "normal");
-      const obs = String(item.observacao || "-");
-      const obsQuebrada = pdf.splitTextToSize(obs, 180);
-      pdf.text(obsQuebrada, 14, 110);
+      const obsQuebrada = pdf.splitTextToSize(String(item.observacao || "-"), 178);
+      pdf.text(obsQuebrada, 14, y + 6);
+      y += 12 + obsQuebrada.length * 5;
+
+      const assinaturaSaida = String(item.assinaturaSaida || "");
+      const assinaturaMotorista = String(item.assinaturaMotorista || "");
+      if (assinaturaSaida || assinaturaMotorista) {
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Assinaturas", 14, y);
+        y += 4;
+        pdf.setDrawColor(210, 216, 226);
+        pdf.roundedRect(14, y, 84, 32, 3, 3);
+        pdf.roundedRect(110, y, 84, 32, 3, 3);
+        pdf.setFontSize(8);
+        pdf.text("Apontador da saida", 56, y + 5, { align: "center" });
+        pdf.text("Motorista", 152, y + 5, { align: "center" });
+        if (assinaturaSaida) {
+          pdf.addImage(assinaturaSaida, "PNG", 18, y + 7, 76, 18);
+        }
+        if (assinaturaMotorista) {
+          pdf.addImage(assinaturaMotorista, "PNG", 114, y + 7, 76, 18);
+        }
+        y += 38;
+      }
 
       if (exibirQr) {
         pdf.setFont("helvetica", "bold");
-        pdf.text("QR DO ROMANEIO", 105, 150, { align: "center" });
-        pdf.addImage(qrDataUrl, "PNG", 70, 154, 70, 70);
+        pdf.setFontSize(11);
+        pdf.text("QR do romaneio", 105, y, { align: "center" });
+        pdf.addImage(qrDataUrl, "PNG", 77, y + 4, 56, 56);
         pdf.setFont("helvetica", "normal");
-        pdf.text(`Codigo manual: ${item.numero || item.id}`, 105, 230, { align: "center" });
+        pdf.setFontSize(9);
+        pdf.text(`Codigo manual: ${item.numero || item.id}`, 105, y + 66, { align: "center" });
       } else {
         pdf.setFont("helvetica", "bold");
-        pdf.text("SAIDA SIMPLES CONCLUIDA", 105, 154, { align: "center" });
+        pdf.setFontSize(11);
+        pdf.text("Saida simples concluida", 105, y + 8, { align: "center" });
         pdf.setFont("helvetica", "normal");
         const aviso = pdf.splitTextToSize(
-          "Este registro foi encerrado na saida com conferencia e assinatura do motorista, sem fluxo de recebimento no destino.",
-          160
+          "Conferencia realizada na origem com assinatura do apontador e do motorista. Este comprovante nao exige recebimento no destino.",
+          150
         );
-        pdf.text(aviso, 105, 164, { align: "center" });
+        pdf.text(aviso, 105, y + 18, { align: "center" });
       }
 
       pdf.save(`romaneio_transporte_${String(item.numero || item.id || "sem_numero").toLowerCase()}.pdf`);
