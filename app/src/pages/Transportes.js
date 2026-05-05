@@ -68,6 +68,7 @@ function Transportes({ setTela }) {
   const [destino, setDestino] = useState("");
   const [obra, setObra] = useState("");
   const [caminhaoId, setCaminhaoId] = useState("");
+  const [veiculoAvulso, setVeiculoAvulso] = useState("");
   const [placaAvulsa, setPlacaAvulsa] = useState("");
   const [motorista, setMotorista] = useState("");
   const [observacao, setObservacao] = useState("");
@@ -182,6 +183,7 @@ function Transportes({ setTela }) {
     setDestino("");
     setObra("");
     setCaminhaoId("");
+    setVeiculoAvulso("");
     setPlacaAvulsa("");
     setMotorista("");
     setObservacao("");
@@ -291,9 +293,9 @@ function Transportes({ setTela }) {
       linha("Origem", item.origem || "-");
       linha("Destino", item.destino || "-");
       if (String(item.obra || "").trim()) linha("Obra / Frente", item.obra);
-      linha("Caminhao", item.caminhaoNome || "-");
-      linha("Placa", item.placa || "-");
-      linha("Motorista", item.motorista || "-");
+        linha(item.tipoTransporte === "SAIDA_SIMPLES" ? "Veiculo" : "Caminhao", item.caminhaoNome || "-");
+        linha("Placa", item.placa || "-");
+        linha("Motorista", item.motorista || "-");
       linha("Apontador da saida", item.apontadorSaida || "-");
       const statusLabel = String(item.status || "")
         .trim()
@@ -376,6 +378,7 @@ function Transportes({ setTela }) {
     if (!origem.trim()) return alert("Informe a origem.");
     if (!destino.trim()) return alert("Informe o destino.");
     if (modoLancamento === MODO_ROMANEIO && !caminhaoSelecionado) return alert("Selecione o caminhao.");
+    if (modoLancamento === MODO_SAIDA_SIMPLES && !veiculoAvulso.trim()) return alert("Informe o veiculo.");
     if (modoLancamento === MODO_SAIDA_SIMPLES && !placaAvulsa.trim()) return alert("Informe a placa do caminhao.");
     if (!motorista.trim()) return alert("Informe o motorista.");
     if (material === "DIVERSOS" && !descricaoMaterial.trim()) return alert("Descreva o material diverso.");
@@ -397,9 +400,9 @@ function Transportes({ setTela }) {
       const localSaida = modoLancamento === MODO_ROMANEIO ? await obterLocalizacao() : null;
       const ref = doc(collection(db, COLECAO));
       const qrPayload = modoLancamento === MODO_ROMANEIO ? montarPayloadQr(ref.id) : "";
-      const caminhaoNomeFinal = modoLancamento === MODO_ROMANEIO
-        ? String(caminhaoSelecionado?.nome || "").trim().toUpperCase()
-        : "CAMINHAO AVULSO";
+        const caminhaoNomeFinal = modoLancamento === MODO_ROMANEIO
+          ? String(caminhaoSelecionado?.nome || "").trim().toUpperCase()
+          : String(veiculoAvulso || "").trim().toUpperCase();
       const placaFinal = modoLancamento === MODO_ROMANEIO
         ? String(caminhaoSelecionado?.placa || "").trim().toUpperCase()
         : String(placaAvulsa || "").trim().toUpperCase();
@@ -590,10 +593,16 @@ function Transportes({ setTela }) {
               </div>
             </>
           ) : (
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Placa do caminhao</div>
-              <input value={placaAvulsa} onChange={(e) => setPlacaAvulsa(e.target.value.toUpperCase())} style={inputStyle} placeholder="Ex.: ABC-1234" />
-            </div>
+            <>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Veiculo</div>
+                <input value={veiculoAvulso} onChange={(e) => setVeiculoAvulso(e.target.value.toUpperCase())} style={inputStyle} placeholder="Ex.: CACAMBA TRUCADA / CARRETA / TRATOR" />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Placa do caminhao</div>
+                <input value={placaAvulsa} onChange={(e) => setPlacaAvulsa(e.target.value.toUpperCase())} style={inputStyle} placeholder="Ex.: ABC-1234" />
+              </div>
+            </>
           )}
           <div>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Motorista</div>
