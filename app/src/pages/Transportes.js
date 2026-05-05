@@ -54,6 +54,7 @@ function Transportes({ setTela }) {
   const assinaturaWidth = Math.min(520, Math.max(280, window.innerWidth - 70));
   const assinaturaSaidaRef = useRef(null);
   const assinaturaMotoristaRef = useRef(null);
+  const suportaCompartilhamento = Boolean(window.navigator?.share);
 
   const [equipamentos, setEquipamentos] = useState([]);
   const [lista, setLista] = useState([]);
@@ -243,7 +244,7 @@ function Transportes({ setTela }) {
 
   const montarPayloadQr = (docId) => `EG_TRANSPORTE|${tenantId}|${docId}`;
 
-  const gerarPdfRomaneio = async (item) => {
+  const gerarPdfRomaneio = async (item, acao = "download") => {
     if (!item?.id) return;
     setGerandoPdfId(item.id);
     try {
@@ -360,7 +361,32 @@ function Transportes({ setTela }) {
         pdf.text(aviso, 40, y + 14, { align: "center" });
       }
 
-      pdf.save(`romaneio_transporte_${String(item.numero || item.id || "sem_numero").toLowerCase()}.pdf`);
+      const nomeArquivo = `romaneio_transporte_${String(item.numero || item.id || "sem_numero").toLowerCase()}.pdf`;
+      if (acao === "share" && suportaCompartilhamento) {
+        const blob = pdf.output("blob");
+        const arquivo = new File([blob], nomeArquivo, { type: "application/pdf" });
+        try {
+          if (window.navigator?.canShare?.({ files: [arquivo] })) {
+            await window.navigator.share({
+              title: `Romaneio ${item.numero || ""}`.trim(),
+              text: `Comprovante do romaneio ${item.numero || ""}`.trim(),
+              files: [arquivo]
+            });
+          } else {
+            await window.navigator.share({
+              title: `Romaneio ${item.numero || ""}`.trim(),
+              text: `Comprovante do romaneio ${item.numero || ""}`.trim()
+            });
+            pdf.save(nomeArquivo);
+          }
+        } catch (erroShare) {
+          if (String(erroShare?.name || "") !== "AbortError") {
+            pdf.save(nomeArquivo);
+          }
+        }
+      } else {
+        pdf.save(nomeArquivo);
+      }
     } finally {
       setGerandoPdfId("");
     }
@@ -759,6 +785,16 @@ function Transportes({ setTela }) {
                       >
                         {gerandoPdfId === item.id ? "Gerando..." : "PDF"}
                       </button>
+                      {suportaCompartilhamento && (
+                        <button
+                          type="button"
+                          onClick={() => gerarPdfRomaneio(item, "share")}
+                          disabled={gerandoPdfId === item.id}
+                          style={{ ...botaoSecundario, opacity: gerandoPdfId === item.id ? 0.7 : 1 }}
+                        >
+                          {gerandoPdfId === item.id ? "Gerando..." : "Compartilhar"}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
