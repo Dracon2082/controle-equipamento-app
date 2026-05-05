@@ -77,6 +77,7 @@ function Transportes({ setTela }) {
   const [qrPreview, setQrPreview] = useState("");
   const [gerandoPdfId, setGerandoPdfId] = useState("");
   const [formularioAberto, setFormularioAberto] = useState(false);
+  const [menuComprovanteAbertoId, setMenuComprovanteAbertoId] = useState("");
 
   const inputStyle = {
     width: "100%",
@@ -763,41 +764,74 @@ function Transportes({ setTela }) {
                   <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.caminhaoNome || "-"}</td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.motorista || "-"}</td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 8, fontWeight: 800 }}>{item.status || "-"}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {item.qrPayload && (
-                        <button
-                          type="button"
+                    <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "relative" }}>
+                        {item.qrPayload && (
+                          <button
+                            type="button"
                           onClick={async () => {
                             setRomaneioGerado({ id: item.id, numero: item.numero, qrPayload: item.qrPayload, tipoTransporte: item.tipoTransporte });
                             setQrPreview(await QRCode.toDataURL(String(item.qrPayload || montarPayloadQr(item.id)), { margin: 1, width: 360, errorCorrectionLevel: "H" }));
                           }}
                           style={botaoSecundario}
-                        >
-                          Ver QR
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => gerarPdfRomaneio(item)}
-                        disabled={gerandoPdfId === item.id}
-                        style={{ ...botaoSecundario, opacity: gerandoPdfId === item.id ? 0.7 : 1 }}
-                      >
-                        {gerandoPdfId === item.id ? "Gerando..." : "PDF"}
-                      </button>
-                      {suportaCompartilhamento && (
-                        <button
-                          type="button"
-                          onClick={() => gerarPdfRomaneio(item, "share")}
-                          disabled={gerandoPdfId === item.id}
-                          style={{ ...botaoSecundario, opacity: gerandoPdfId === item.id ? 0.7 : 1 }}
-                        >
-                          {gerandoPdfId === item.id ? "Gerando..." : "Compartilhar"}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                          >
+                            Ver QR
+                          </button>
+                        )}
+                        <div style={{ position: "relative" }}>
+                          <button
+                            type="button"
+                            onClick={() => setMenuComprovanteAbertoId((prev) => (prev === item.id ? "" : item.id))}
+                            disabled={gerandoPdfId === item.id}
+                            style={{ ...botaoSecundario, opacity: gerandoPdfId === item.id ? 0.7 : 1 }}
+                          >
+                            {gerandoPdfId === item.id ? "Gerando..." : "Comprovante"}
+                          </button>
+                          {menuComprovanteAbertoId === item.id && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "calc(100% + 6px)",
+                                right: 0,
+                                minWidth: 170,
+                                background: "#fff",
+                                border: "1px solid #dbe3ef",
+                                borderRadius: 10,
+                                boxShadow: "0 12px 24px rgba(16,36,62,0.14)",
+                                padding: 8,
+                                zIndex: 20,
+                                display: "grid",
+                                gap: 6
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMenuComprovanteAbertoId("");
+                                  gerarPdfRomaneio(item);
+                                }}
+                                style={{ ...botaoSecundario, width: "100%", textAlign: "left" }}
+                              >
+                                Baixar PDF
+                              </button>
+                              {suportaCompartilhamento && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMenuComprovanteAbertoId("");
+                                    gerarPdfRomaneio(item, "share");
+                                  }}
+                                  style={{ ...botaoSecundario, width: "100%", textAlign: "left" }}
+                                >
+                                  Compartilhar
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
               ))}
             </tbody>
           </table>
