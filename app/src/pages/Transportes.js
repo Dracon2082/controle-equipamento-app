@@ -57,6 +57,7 @@ function Transportes({ setTela }) {
   const suportaCompartilhamento = Boolean(window.navigator?.share);
 
   const [equipamentos, setEquipamentos] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
   const [lista, setLista] = useState([]);
   const [salvando, setSalvando] = useState(false);
   const [config, setConfig] = useState(null);
@@ -68,6 +69,7 @@ function Transportes({ setTela }) {
   const [origem, setOrigem] = useState("");
   const [destino, setDestino] = useState("");
   const [obra, setObra] = useState("");
+  const [requisitante, setRequisitante] = useState("");
   const [caminhaoId, setCaminhaoId] = useState("");
   const [veiculoAvulso, setVeiculoAvulso] = useState("");
   const [placaAvulsa, setPlacaAvulsa] = useState("");
@@ -138,8 +140,9 @@ function Transportes({ setTela }) {
   );
 
   const carregar = async () => {
-    const [snapEquip, snapLista, snapConfig] = await Promise.all([
+    const [snapEquip, snapEmpresas, snapLista, snapConfig] = await Promise.all([
       getDocs(collection(db, "equipamentos")),
+      getDocs(collection(db, "empresas")),
       getDocs(collection(db, COLECAO)),
       getDoc(doc(db, "configuracoes", getConfigDocId(tenantId)))
     ]);
@@ -149,6 +152,12 @@ function Transportes({ setTela }) {
       .filter((item) => belongsToTenant(item, tenantId))
       .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || "")));
     setEquipamentos(listaEquip);
+
+    const listaEmpresas = snapEmpresas.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((item) => belongsToTenant(item, tenantId))
+      .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || "")));
+    setEmpresas(listaEmpresas);
 
     const transportes = snapLista.docs
       .map((d) => ({ id: d.id, ...d.data() }))
@@ -184,6 +193,7 @@ function Transportes({ setTela }) {
     setOrigem("");
     setDestino("");
     setObra("");
+    setRequisitante("");
     setCaminhaoId("");
     setVeiculoAvulso("");
     setPlacaAvulsa("");
@@ -302,6 +312,7 @@ function Transportes({ setTela }) {
       linha("Quantidade", `${item.quantidade || "-"} ${item.unidade || ""}`.trim());
       linha("Origem", item.origem || "-");
       linha("Destino", item.destino || "-");
+      linha("Requisitante", item.requisitante || "-");
       if (String(item.obra || "").trim()) linha("Obra / Frente", item.obra);
         linha(item.tipoTransporte === "SAIDA_SIMPLES" ? "Veiculo" : "Caminhao", item.caminhaoNome || "-");
         linha("Placa", item.placa || "-");
@@ -409,10 +420,11 @@ function Transportes({ setTela }) {
 
   const salvar = async () => {
     if (salvando) return;
-    if (!quantidade || Number(String(quantidade).replace(",", ".")) <= 0) return alert("Informe a quantidade.");
-    if (!origem.trim()) return alert("Informe a origem.");
-    if (!destino.trim()) return alert("Informe o destino.");
-    if (modoLancamento === MODO_ROMANEIO && !caminhaoSelecionado) return alert("Selecione o caminhao.");
+      if (!quantidade || Number(String(quantidade).replace(",", ".")) <= 0) return alert("Informe a quantidade.");
+      if (!origem.trim()) return alert("Informe a origem.");
+      if (!destino.trim()) return alert("Informe o destino.");
+      if (!requisitante.trim()) return alert("Informe a empresa requisitante.");
+      if (modoLancamento === MODO_ROMANEIO && !caminhaoSelecionado) return alert("Selecione o caminhao.");
     if (modoLancamento === MODO_SAIDA_SIMPLES && !veiculoAvulso.trim()) return alert("Informe o veiculo.");
     if (modoLancamento === MODO_SAIDA_SIMPLES && !placaAvulsa.trim()) return alert("Informe a placa do caminhao.");
     if (!motorista.trim()) return alert("Informe o motorista.");
@@ -458,11 +470,12 @@ function Transportes({ setTela }) {
             descricaoMaterial: String(descricaoMaterial || "").trim().toUpperCase(),
             quantidade: Number(String(quantidade).replace(",", ".")),
             unidade,
-            origem: String(origem || "").trim().toUpperCase(),
-            origemChave,
-            destino: String(destino || "").trim().toUpperCase(),
-            obra: modoLancamento === MODO_ROMANEIO ? String(obra || "").trim().toUpperCase() : "",
-            caminhaoId: modoLancamento === MODO_ROMANEIO ? caminhaoSelecionado.id : "",
+              origem: String(origem || "").trim().toUpperCase(),
+              origemChave,
+              destino: String(destino || "").trim().toUpperCase(),
+              obra: modoLancamento === MODO_ROMANEIO ? String(obra || "").trim().toUpperCase() : "",
+              requisitante: String(requisitante || "").trim().toUpperCase(),
+             caminhaoId: modoLancamento === MODO_ROMANEIO ? caminhaoSelecionado.id : "",
             caminhaoNome: caminhaoNomeFinal,
             caminhaoCodigo: modoLancamento === MODO_ROMANEIO ? String(caminhaoSelecionado.codigo || "").trim().toUpperCase() : "",
             placa: placaFinal,
@@ -616,6 +629,17 @@ function Transportes({ setTela }) {
                 <input value={obra} onChange={(e) => setObra(e.target.value)} style={inputStyle} placeholder="Ex.: 072" />
               </div>
               <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Empresa requisitante</div>
+                <select value={requisitante} onChange={(e) => setRequisitante(e.target.value.toUpperCase())} style={inputStyle}>
+                  <option value="">Selecione</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={String(item.nome || "").trim().toUpperCase()}>
+                      {String(item.nome || "").trim().toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Caminhao</div>
                 <select value={caminhaoId} onChange={(e) => setCaminhaoId(e.target.value)} style={inputStyle}>
                   <option value="">Selecione</option>
@@ -629,6 +653,10 @@ function Transportes({ setTela }) {
             </>
           ) : (
             <>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Empresa requisitante</div>
+                <input value={requisitante} onChange={(e) => setRequisitante(e.target.value.toUpperCase())} style={inputStyle} placeholder="Ex.: PREFEITURA / CLIENTE / EMPRESA" />
+              </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Veiculo</div>
                 <input value={veiculoAvulso} onChange={(e) => setVeiculoAvulso(e.target.value.toUpperCase())} style={inputStyle} placeholder="Ex.: CACAMBA TRUCADA / CARRETA / TRATOR" />
@@ -727,7 +755,7 @@ function Transportes({ setTela }) {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
             <thead style={{ background: "#f1f3f5" }}>
               <tr>
-                {["Numero", "Material", "Qtd.", "Origem", "Destino", "Locais", "Caminhao", "Motorista", "Status", "Acoes"].map((col) => (
+                {["Numero", "Material", "Qtd.", "Origem", "Destino", "Requisitante", "Locais", "Caminhao", "Motorista", "Status", "Acoes"].map((col) => (
                   <th key={col} style={{ border: "1px solid #e5ebf3", padding: 8, fontSize: 12, color: "#173454", textAlign: "left" }}>{col}</th>
                 ))}
               </tr>
@@ -735,7 +763,7 @@ function Transportes({ setTela }) {
             <tbody>
               {!lista.length && (
                 <tr>
-                  <td colSpan="10" style={{ border: "1px solid #e5ebf3", padding: 12, textAlign: "center", color: "#5a6b82" }}>
+                  <td colSpan="11" style={{ border: "1px solid #e5ebf3", padding: 12, textAlign: "center", color: "#5a6b82" }}>
                     Nenhum romaneio criado ainda.
                   </td>
                 </tr>
@@ -747,6 +775,7 @@ function Transportes({ setTela }) {
                   <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{`${item.quantidade || "-"} ${item.unidade || ""}`}</td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.origem || "-"}</td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.destino || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.requisitante || "-"}</td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 8, fontSize: 12 }}>
                     <div><strong>Saida:</strong> {formatarLocalizacao(item.localSaida)}</div>
                     {linkMapa(item.localSaida) && (
