@@ -737,7 +737,7 @@ function Lubrificantes({ setTela, embed = false }) {
             marginBottom: 10,
             boxSizing: "border-box"
           }}
-          placeholder="Numero da Nota Fiscal"
+          placeholder="Número da Nota Fiscal"
           value={nota}
           onChange={(e) => setNota(e.target.value)}
         />
@@ -941,7 +941,7 @@ function Lubrificantes({ setTela, embed = false }) {
               Fornecedor
             </th>
             <th style={{ border: "1px solid #ccc", padding: 8 }}>
-              Acoes
+              Ações
             </th>
             </tr>
         </thead>
@@ -1057,6 +1057,7 @@ function Lubrificantes({ setTela, embed = false }) {
 }
 
 export default Lubrificantes;
+
 
 
 

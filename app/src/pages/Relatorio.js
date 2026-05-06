@@ -534,7 +534,7 @@ function Relatorio({ setTela }) {
           equipamentoObj?.placa || "-"
         ],
         [
-          "Codigo",
+          "Código",
           equipamentoObj?.codigo || "-",
           "Requisitante",
           requisitanteEquipamento
@@ -542,7 +542,7 @@ function Relatorio({ setTela }) {
         [
           "Operador",
           primeiroNome(operadorCabecalho?.nome || "-"),
-          "Periodo",
+          "Período",
           formatarMesAno(mes)
         ],
         [
@@ -778,10 +778,10 @@ function Relatorio({ setTela }) {
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 10px 28px", background: "#f3f5f8" }}>
       <div style={{ ...headerCard, marginBottom: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <h2 style={{ margin: 0, color: "#0f2440" }}>Relatorio Mensal de Equipamento</h2>
+          <h2 style={{ margin: 0, color: "#0f2440" }}>Relatório Mensal de Equipamento</h2>
           </div>
         <p style={{ margin: "4px 0 0", color: "#4a5c74" }}>
-          Relatorio mensal com descricao de servico, horas, diesel, oleo, graxa e detalhamento de lubrificacao.
+          Relatório mensal com descricao de servico, horas, diesel, oleo, graxa e detalhamento de lubrificacao.
         </p>
         <p style={{ margin: "4px 0 0", color: "#4a5c74", fontWeight: "bold" }}>
           Requisitante: {requisitanteEquipamento}
@@ -968,4 +968,5 @@ function Relatorio({ setTela }) {
 }
 
 export default Relatorio;
+
 

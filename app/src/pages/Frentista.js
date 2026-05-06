@@ -60,8 +60,8 @@ function Frentista({ setTela }) {
     { key: "abastecimento", label: "Abastecimento" },
     { key: "lancamento", label: "Lancamento diario de equipamento" },
     { key: "diarioObra", label: "Diario de Obra (RDO)" },
-    { key: "producaoCampo", label: "Producao de campo / croqui" },
-    { key: "manutencao", label: "Manutencao de equipamentos" },
+    { key: "producaoCampo", label: "Produção de campo / croqui" },
+    { key: "manutencao", label: "Manutenção de equipamentos" },
     { key: "materiaisSaidas", label: "Saidas de materiais (almox/insumos/EPI)" },
     { key: "receberTransferencia", label: "Receber transferencia (QR)" },
     { key: PERMISSAO_INFORMAR_MEIO_TRANSPORTE, label: "Informar meio de transporte / gerar romaneio" },
@@ -691,7 +691,7 @@ function Frentista({ setTela }) {
                 <th style={{ ...thStyle, width: "13%" }}>Perfil / Funcao</th>
                 <th style={{ ...thStyle, width: "16%" }}>Permissoes</th>
                 <th style={{ ...thStyle, width: "10%" }}>Bases</th>
-                <th style={{ ...thStyle, width: "6%" }}>Acoes</th>
+                <th style={{ ...thStyle, width: "6%" }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -743,5 +743,6 @@ function Frentista({ setTela }) {
 }
 
 export default Frentista;
+
 
 

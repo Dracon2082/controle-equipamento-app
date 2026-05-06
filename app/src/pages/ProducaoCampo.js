@@ -239,7 +239,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
 
   useEffect(() => {
     // Linha em andamento: manter ref sincronizado.
-    // Observacao: shapesRef.current e atualizado manualmente nos eventos de desenho e nas operacoes
+    // Observação: shapesRef.current e atualizado manualmente nos eventos de desenho e nas operacoes
     // de vincular/editar/excluir para evitar "corrida" no celular.
     linhaInicioRef.current = linhaInicio;
   }, [linhaInicio]);
@@ -360,7 +360,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
     const lon = Number(geo.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return "-";
     const acc = Number(geo.accuracyMeters);
-    const accTexto = Number.isFinite(acc) && acc > 0 ? ` (±${Math.round(acc)}m)` : "";
+    const accTexto = Number.isFinite(acc) && acc > 0 ? ` (Â±${Math.round(acc)}m)` : "";
     return `${lat.toFixed(6)}, ${lon.toFixed(6)}${accTexto}`;
   };
 
@@ -432,10 +432,10 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
     if (/iPhone|iPad|iPod/i.test(ua)) {
       base.push("iPhone/iPad: Ajustes > Privacidade e Seguranca > Servicos de Localizacao (ligado) > Safari > Permitir.");
     } else if (/Android/i.test(ua)) {
-      base.push("Android: Configuracoes > Localizacao (ligado) e no Chrome: Configuracoes > Configuracoes do site > Localizacao.");
+      base.push("Android: Configurações > Localizacao (ligado) e no Chrome: Configurações > Configurações do site > Localizacao.");
     }
 
-    // Observacao importante: muitos browsers bloqueiam geolocalizacao fora de HTTPS.
+    // Observação importante: muitos browsers bloqueiam geolocalizacao fora de HTTPS.
     if (window.isSecureContext === false) {
       base.push("Obs.: Muitos celulares exigem HTTPS (site seguro). Se estiver em HTTP, pode bloquear o GPS.");
     }
@@ -816,8 +816,8 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
       let nx = -ty;
       let ny = tx;
 
-      // A calçada/meio-fio deve ficar sempre voltada para o centro da pista,
-      // independentemente do sentido que o usuário desenhou (de -> até).
+      // A calÃ§ada/meio-fio deve ficar sempre voltada para o centro da pista,
+      // independentemente do sentido que o usuÃ¡rio desenhou (de -> atÃ©).
       const meioX = (de.x + ate.x) / 2;
       const meioY = (de.y + ate.y) / 2;
       const vx = (ctx.canvas.width / 2) - meioX;
@@ -1544,7 +1544,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
         detalhes: { itens: itensCroqui.length, bairro }
       });
 
-      alert("Producao de campo salva com sucesso.");
+      alert("Produção de campo salva com sucesso.");
     } catch (e) {
       console.log("Falha ao salvar producao de campo:", e);
       const msg = String(e?.message || e || "");
@@ -1609,7 +1609,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
     // Preferir o numero (ex: 072) quando existir.
     const matchNumero = texto.match(/\b\d{3}\b/);
     if (matchNumero) return matchNumero[0];
-    // Senão, corta para não estourar a margem do PDF.
+    // SenÃ£o, corta para nÃ£o estourar a margem do PDF.
     const curto = texto.replace(/\s+/g, " ").trim();
     return curto.length > 28 ? `${curto.slice(0, 28)}...` : curto;
   };
@@ -1697,7 +1697,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
         theme: "grid",
         margin: { left: areaX, right: areaX },
         tableWidth: areaW,
-        head: [["ID", "Tipo", "Lado", "Ref. inicial", "Ref. final", "Detalhes", "GPS (lat,long)", "Observacao"]],
+        head: [["ID", "Tipo", "Lado", "Ref. inicial", "Ref. final", "Detalhes", "GPS (lat,long)", "Observação"]],
         body: itensRegistro.length
           ? itensRegistro.map((item) => [
             formatarIdentificacaoVisual(item.identificacaoPonto, item.tipoItem, item.itemId),
@@ -1754,7 +1754,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
       <div style={page}>
         <div style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <h2 style={{ margin: 0, color: "#10243e" }}>Relatorio - Producao de Campo / Croqui</h2>
+            <h2 style={{ margin: 0, color: "#10243e" }}>Relatório - Produção de Campo / Croqui</h2>
           </div>
           <p style={{ margin: "8px 0 0", color: "#4a5c74" }}>
             Filtro de registros e geracao de PDF para impressao (uso administrativo).
@@ -1766,7 +1766,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
         </div>
 
         <div style={card}>
-          <h3 style={{ marginTop: 0, color: "#10243e" }}>Relatorio no sistema</h3>
+          <h3 style={{ marginTop: 0, color: "#10243e" }}>Relatório no sistema</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 10 }}>
             <input style={inputBase} type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} />
             <select style={inputBase} value={filtroObra} onChange={(e) => setFiltroObra(e.target.value)}>
@@ -1805,7 +1805,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
             <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
               <thead style={{ background: "#0b5ed7", color: "#fff" }}>
                 <tr>
-                {["Data", "Folha", "Obra", "Logradouro", "Bairro", "Apontador", "Itens", "GPS", "IDs", "Croqui", "Acoes"].map((titulo) => (
+                {["Data", "Folha", "Obra", "Logradouro", "Bairro", "Apontador", "Itens", "GPS", "IDs", "Croqui", "Ações"].map((titulo) => (
                   <th key={titulo} style={{ padding: "7px 6px", textAlign: "center" }}>{titulo}</th>
                 ))}
               </tr>
@@ -1882,7 +1882,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
     <div style={page}>
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h2 style={{ margin: 0, color: "#10243e" }}>Producao de Campo e Croqui de Rua</h2>
+          <h2 style={{ margin: 0, color: "#10243e" }}>Produção de Campo e Croqui de Rua</h2>
           </div>
         <p style={{ margin: "8px 0 0", color: "#4a5c74" }}>
           Modelo no padrao do croqui manual: rua pontilhada, faixa amarela continua e identificacao RP/TB/Meio-fio.
@@ -2030,7 +2030,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
             style={textArea}
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
-            placeholder="Observacao do ponto"
+            placeholder="Observação do ponto"
           />
         </div>
 
@@ -2110,7 +2110,7 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
             <thead style={{ background: "#0b5ed7", color: "#fff" }}>
               <tr>
-                {["ID", "Tipo", "Lado", "Ref. inicial", "Ref. final", "Detalhes", "GPS (lat,long)", "Observacao", "Acoes"].map((titulo) => (
+                {["ID", "Tipo", "Lado", "Ref. inicial", "Ref. final", "Detalhes", "GPS (lat,long)", "Observação", "Ações"].map((titulo) => (
                 <th
                   key={titulo}
                   style={{
@@ -2172,4 +2172,5 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
 }
 
 export default ProducaoCampo;
+
 

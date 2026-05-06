@@ -566,7 +566,7 @@ function EPI({ setTela, modo = "completo", embed = false }) {
         pdf.text(`Funcao: ${funcaoFicha}`, largura / 2 + 8, y);
         y += 8;
 
-        const labels = ["Qtd", "EPI", "CA", "Data\nReceb.", "Ass.\nEmpregado", "Data\nDevol.", "Ass. Responsavel\nDevolucao"];
+        const labels = ["Qtd", "EPI", "CA", "Data\nReceb.", "Ass.\nEmpregado", "Data\nDevol.", "Ass. Responsável\nDevolucao"];
         let x = margem;
         const hY = y;
         const headerH = 10;
@@ -682,7 +682,7 @@ function EPI({ setTela, modo = "completo", embed = false }) {
           </div>
         </div>
 
-        <textarea style={{ ...inputStyle, height: 80, paddingTop: 10, marginTop: 10 }} placeholder="Observacao da entrega" value={obsEntrega} onChange={(e) => setObsEntrega(e.target.value)} />
+        <textarea style={{ ...inputStyle, height: 80, paddingTop: 10, marginTop: 10 }} placeholder="Observação da entrega" value={obsEntrega} onChange={(e) => setObsEntrega(e.target.value)} />
 
         <p style={{ marginBottom: 6, fontWeight: "bold" }}>Assinatura de recebimento</p>
         <SignatureCanvas ref={sigEntregaRef} penColor="black" canvasProps={{ width: assinaturaWidth, height: 130, style: { border: "1px dashed #95a5bf", borderRadius: 8, background: "#fff" } }} />
@@ -707,7 +707,7 @@ function EPI({ setTela, modo = "completo", embed = false }) {
               <th style={{ border: "1px solid #d4dce9", padding: 8 }}>CA</th>
               <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Qtd</th>
               <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Status</th>
-              <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Acoes</th>
+              <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -758,7 +758,7 @@ function EPI({ setTela, modo = "completo", embed = false }) {
             <input style={inputStyle} value={edCa} onChange={(e) => setEdCa(upper(e.target.value))} placeholder="CA do EPI" />
             <input style={inputStyle} value={edQtd} onChange={(e) => setEdQtd(e.target.value)} type="number" min="1" placeholder="Quantidade" />
             <input style={inputStyle} value={edData} onChange={(e) => setEdData(e.target.value)} type="date" />
-            <input style={inputStyle} value={edObs} onChange={(e) => setEdObs(e.target.value)} placeholder="Observacao da entrega" />
+            <input style={inputStyle} value={edObs} onChange={(e) => setEdObs(e.target.value)} placeholder="Observação da entrega" />
           </div>
           <p style={{ marginBottom: 6, marginTop: 10, fontWeight: "bold" }}>Nova assinatura de recebimento</p>
           <SignatureCanvas ref={sigEdicaoRef} penColor="black" canvasProps={{ width: assinaturaWidth, height: 130, style: { border: "1px dashed #95a5bf", borderRadius: 8, background: "#fff" } }} />
@@ -778,7 +778,7 @@ function EPI({ setTela, modo = "completo", embed = false }) {
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
             <input style={inputStyle} type="date" value={dataBaixa} onChange={(e) => setDataBaixa(e.target.value)} />
-            <input style={inputStyle} placeholder="Observacao da devolucao" value={obsBaixa} onChange={(e) => setObsBaixa(e.target.value)} />
+            <input style={inputStyle} placeholder="Observação da devolucao" value={obsBaixa} onChange={(e) => setObsBaixa(e.target.value)} />
           </div>
           <p style={{ marginBottom: 6, marginTop: 10, fontWeight: "bold" }}>Assinatura de devolucao</p>
           <SignatureCanvas ref={sigBaixaRef} penColor="black" canvasProps={{ width: assinaturaWidth, height: 130, style: { border: "1px dashed #95a5bf", borderRadius: 8, background: "#fff" } }} />
@@ -794,4 +794,5 @@ function EPI({ setTela, modo = "completo", embed = false }) {
 }
 
 export default EPI;
+
 

@@ -157,7 +157,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
   const [filtroTipoMovInsumo, setFiltroTipoMovInsumo] = useState("TODOS");
   const [filtroNomeInsumo, setFiltroNomeInsumo] = useState("");
 
-  // Pecas: controladas por estoque/entradas e consumidas na Manutencao (itens trocados).
+  // Pecas: controladas por estoque/entradas e consumidas na Manutenção (itens trocados).
 
   const inputStyle = {
     width: "100%",
@@ -458,7 +458,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
   const obraNumero = (nomeObra) => {
     const n = String(nomeObra || "").trim();
-    const m = n.match(/^\s*(\d{1,4})\s*[-–]/);
+    const m = n.match(/^\s*(\d{1,4})\s*[-â€“]/);
     if (m?.[1]) return m[1].padStart(3, "0");
     const m2 = n.match(/\b(\d{1,4})\b/);
     if (m2?.[1]) return m2[1].padStart(3, "0");
@@ -1600,7 +1600,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <input
                       style={{ ...inputStyle, marginBottom: 0, flex: 1, background: serieTravada ? "#f3f5f8" : "#fff" }}
-                      placeholder="Numero de serie / Numero do item"
+                      placeholder="Número de serie / Número do item"
                       value={materialNumeroSerie}
                       onChange={(e) => {
                         setMaterialNumeroSerie(e.target.value);
@@ -1703,7 +1703,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
               <input
                 style={inputStyle}
-                placeholder="Numero da Nota Fiscal"
+                placeholder="Número da Nota Fiscal"
                 value={materialNota}
                 onChange={(e) => setMaterialNota(e.target.value)}
               />
@@ -1713,7 +1713,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
             <textarea
               style={{ ...inputStyle, height: 70, paddingTop: 10, marginTop: 10 }}
-              placeholder="Observacao da entrada"
+              placeholder="Observação da entrada"
               value={materialObs}
               onChange={(e) => setMaterialObs(e.target.value)}
             />
@@ -1725,12 +1725,12 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
             </div>
 
             <div style={{ marginTop: 10, color: "#5b6f8a", fontSize: 13 }}>
-              Dica: o registro de entrada nao baixa. Quem baixa e o estoque (quando houver retirada/saida/entrega).
+              Dica: o registro de entrada não baixa. Quem baixa é o estoque (quando houver retirada/saída/entrega).
             </div>
           </div>
 
           <div style={card}>
-            <h3 style={{ marginTop: 0 }}>Estoque atual (baixa nas saidas)</h3>
+            <h3 style={{ marginTop: 0 }}>Estoque atual (baixa nas saídas)</h3>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
               <button style={{ ...btn, background: "#0b5ed7", color: "#fff" }} onClick={gerarRelatorioEstoqueMateriais}>
                 Imprimir relatorio do estoque
@@ -1917,7 +1917,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
           <textarea
             style={{ ...inputStyle, height: 70, paddingTop: 10, marginTop: 10 }}
-            placeholder="Observacao da entrada de ferramenta"
+            placeholder="Observação da entrada de ferramenta"
             value={obsEntradaFerramenta}
             onChange={(e) => setObsEntradaFerramenta(e.target.value)}
           />
@@ -1956,7 +1956,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
         <textarea
           style={{ ...inputStyle, height: 80, paddingTop: 10, marginTop: 10 }}
-          placeholder="Observacao da retirada"
+          placeholder="Observação da retirada"
           value={observacao}
           onChange={(e) => setObservacao(e.target.value)}
         />
@@ -1977,7 +1977,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
       </div>
 
       <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Ferramentas pendentes de devolucao</h3>
+        <h3 style={{ marginTop: 0 }}>Ferramentas pendentes de devolução</h3>
         <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
           <button style={{ ...btn, background: "#0b5ed7", color: "#fff" }} onClick={gerarRelatorioPendentesFerramentas}>
             Imprimir relatorio de pendencias
@@ -2066,9 +2066,9 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
             <input style={inputStyle} type="date" value={dataBaixa} onChange={(e) => setDataBaixa(e.target.value)} />
-            <input style={inputStyle} placeholder="Observacao da devolucao" value={obsBaixa} onChange={(e) => setObsBaixa(e.target.value)} />
+            <input style={inputStyle} placeholder="Observação da devolução" value={obsBaixa} onChange={(e) => setObsBaixa(e.target.value)} />
           </div>
-          <p style={{ marginBottom: 6, marginTop: 10, fontWeight: "bold" }}>Assinatura de devolucao</p>
+          <p style={{ marginBottom: 6, marginTop: 10, fontWeight: "bold" }}>Assinatura de devolução</p>
           <SignatureCanvas
             ref={sigBaixaRef}
             penColor="black"
@@ -2106,7 +2106,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
             <input style={inputStyle} type="date" value={dataEntrada} onChange={(e) => setDataEntrada(e.target.value)} />
             <input style={inputStyle} placeholder="Fornecedor" value={fornecedorEntrada} onChange={(e) => setFornecedorEntrada(e.target.value)} />
           </div>
-          <textarea style={{ ...inputStyle, height: 70, paddingTop: 10, marginTop: 10 }} placeholder="Observacao da entrada" value={obsEntrada} onChange={(e) => setObsEntrada(e.target.value)} />
+          <textarea style={{ ...inputStyle, height: 70, paddingTop: 10, marginTop: 10 }} placeholder="Observação da entrada" value={obsEntrada} onChange={(e) => setObsEntrada(e.target.value)} />
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             <button style={{ ...btn, background: "#0b5ed7", color: "#fff" }} onClick={salvarEntradaInsumo}>Salvar entrada</button>
           </div>
@@ -2114,7 +2114,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
       )}
 
       <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Insumos - saida para obra</h3>
+        <h3 style={{ marginTop: 0 }}>Insumos - saída para obra</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
           <select style={inputStyle} value={insumoSaidaNome} onChange={(e) => setInsumoSaidaNome(e.target.value)}>
             <option value="">Selecione o insumo</option>
@@ -2123,20 +2123,20 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
             ))}
           </select>
           <select style={inputStyle} value={obraSaida} onChange={(e) => setObraSaida(e.target.value)}>
-            <option value="">Obra destino (numero)</option>
+            <option value="">Obra destino (número)</option>
             {obrasDaBase.map((o) => (
               <option key={o.id} value={o.nome}>{obraNumero(o.nome)}</option>
             ))}
           </select>
           <select style={inputStyle} value={funcionarioSaida} onChange={(e) => setFuncionarioSaida(e.target.value)}>
-            <option value="">Funcionario que retirou</option>
+            <option value="">Funcionário que retirou</option>
             {funcionarios.map((f, i) => (
               <option key={i} value={f.nome}>{f.nome}</option>
             ))}
           </select>
-          <input style={inputStyle} type="number" min="0" placeholder="Quantidade saida" value={qtdSaida} onChange={(e) => setQtdSaida(e.target.value)} />
+          <input style={inputStyle} type="number" min="0" placeholder="Quantidade saída" value={qtdSaida} onChange={(e) => setQtdSaida(e.target.value)} />
           <input style={inputStyle} type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} />
-          <input style={inputStyle} placeholder="Observacao da saida" value={obsSaida} onChange={(e) => setObsSaida(e.target.value)} />
+          <input style={inputStyle} placeholder="Observação da saída" value={obsSaida} onChange={(e) => setObsSaida(e.target.value)} />
         </div>
         <p style={{ marginBottom: 6, marginTop: 10, fontWeight: "bold" }}>Assinatura de retirada do insumo</p>
         <SignatureCanvas
@@ -2145,7 +2145,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
           canvasProps={{ width: assinaturaWidth, height: 130, style: { border: "1px dashed #95a5bf", borderRadius: 8, background: "#fff" } }}
         />
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-          <button style={{ ...btn, background: "#198754", color: "#fff" }} onClick={salvarSaidaInsumo}>Salvar saida</button>
+          <button style={{ ...btn, background: "#198754", color: "#fff" }} onClick={salvarSaidaInsumo}>Salvar saída</button>
           <button style={{ ...btn, background: "#6c757d", color: "#fff" }} onClick={() => sigSaidaInsumoRef.current && sigSaidaInsumoRef.current.clear()}>
             Limpar assinatura
           </button>
@@ -2192,7 +2192,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
       {abaAtiva === "INSUMOS" && !somenteSaidas && (
       <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Historico de insumos</h3>
+        <h3 style={{ marginTop: 0 }}>Histórico de insumos</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 10 }}>
           <input style={inputStyle} type="date" value={filtroDataIniInsumo} onChange={(e) => setFiltroDataIniInsumo(e.target.value)} />
           <input style={inputStyle} type="date" value={filtroDataFimInsumo} onChange={(e) => setFiltroDataFimInsumo(e.target.value)} />
@@ -2216,7 +2216,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
           <button style={{ ...btn, background: "#0b5ed7", color: "#fff" }} onClick={gerarRelatorioHistoricoInsumos}>
-            Imprimir historico filtrado
+            Imprimir histórico filtrado
           </button>
         </div>
         <div style={{ overflowX: "auto" }}>
@@ -2260,4 +2260,5 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 }
 
 export default Almoxarifado;
+
 

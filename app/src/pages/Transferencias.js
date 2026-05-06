@@ -538,7 +538,7 @@ function Transferencias() {
         "NR",
         "ITEM",
         "CODIGO",
-        "DESCRICAO",
+        "DESCRIÇÃO",
         "APLICACAO",
         "UND",
         "QTD",
@@ -621,7 +621,7 @@ function Transferencias() {
     pdf.text(boletim.placaVeiculo || "-", margem + larguraUtil * 0.60 + 32, y + 2);
     pdf.setTextColor(0, 0, 0);
 
-    // Codigo do transporte (quando existir)
+    // Código do transporte (quando existir)
     const codigo = String(boletim.codigoTransporte || "").trim();
     if (codigo) {
       pdf.setFont("helvetica", "bold");
@@ -786,7 +786,7 @@ function Transferencias() {
         "NR",
         "ITEM",
         "CODIGO",
-        "DESCRICAO",
+        "DESCRIÇÃO",
         "APLICACAO",
         "UND",
         "QTD",
@@ -886,7 +886,7 @@ function Transferencias() {
       <div style={card}>
         <h3 style={{ marginTop: 0 }}>Novo boletim</h3>
         <div style={{ marginBottom: 8, color: "#1b3e8a", fontWeight: "bold" }}>
-          Numero previsto do boletim: {proximoNumeroBoletim}
+          Número previsto do boletim: {proximoNumeroBoletim}
         </div>
 
         <input
@@ -994,7 +994,7 @@ function Transferencias() {
           />
           <input
             style={inputStyle}
-            placeholder="Codigo do transporte"
+            placeholder="Código do transporte"
             value={codigoTransporte}
             onChange={(e) => setCodigoTransporte(e.target.value)}
           />
@@ -1008,12 +1008,12 @@ function Transferencias() {
           <div style={{ display: "grid", gap: 8 }}>
             <input
               style={inputStyle}
-              placeholder="Descricao do item"
+              placeholder="Descrição do item"
               value={descricaoItem}
               onChange={(e) => setDescricaoItem(e.target.value)}
             />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <input style={inputStyle} placeholder="Codigo" value={codigoItem} onChange={(e) => setCodigoItem(e.target.value)} />
+              <input style={inputStyle} placeholder="Código" value={codigoItem} onChange={(e) => setCodigoItem(e.target.value)} />
               <input style={inputStyle} placeholder="Aplicacao" value={aplicacaoItem} onChange={(e) => setAplicacaoItem(e.target.value)} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
@@ -1023,20 +1023,20 @@ function Transferencias() {
             </div>
             <input
               style={inputStyle}
-              placeholder="Observacao do item"
+              placeholder="Observação do item"
               value={observacaoItem}
               onChange={(e) => setObservacaoItem(e.target.value)}
             />
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 0.8fr 0.8fr 1fr 2fr", gap: 8 }}>
-            <input style={inputStyle} placeholder="Descricao do item" value={descricaoItem} onChange={(e) => setDescricaoItem(e.target.value)} />
-            <input style={inputStyle} placeholder="Codigo" value={codigoItem} onChange={(e) => setCodigoItem(e.target.value)} />
+            <input style={inputStyle} placeholder="Descrição do item" value={descricaoItem} onChange={(e) => setDescricaoItem(e.target.value)} />
+            <input style={inputStyle} placeholder="Código" value={codigoItem} onChange={(e) => setCodigoItem(e.target.value)} />
             <input style={inputStyle} placeholder="Aplicacao" value={aplicacaoItem} onChange={(e) => setAplicacaoItem(e.target.value)} />
             <input style={inputStyle} placeholder="UND" value={unidadeItem} onChange={(e) => setUnidadeItem(e.target.value)} />
             <input style={inputStyle} placeholder="Qtd" value={quantidadeItem} onChange={(e) => setQuantidadeItem(e.target.value)} />
             <input style={inputStyle} placeholder="Vlr unit." value={valorUnitarioItem} onChange={(e) => setValorUnitarioItem(e.target.value)} />
-            <input style={inputStyle} placeholder="Observacao do item" value={observacaoItem} onChange={(e) => setObservacaoItem(e.target.value)} />
+            <input style={inputStyle} placeholder="Observação do item" value={observacaoItem} onChange={(e) => setObservacaoItem(e.target.value)} />
           </div>
         )}
         <button style={primaryButton} onClick={adicionarItem}>Adicionar item</button>
@@ -1102,8 +1102,8 @@ function Transferencias() {
               };
               const cols = [
                 { key: "item", label: "Item", w: "6%" },
-                { key: "desc", label: "Descricao", w: "22%" },
-                { key: "cod", label: "Codigo", w: "10%" },
+                { key: "desc", label: "Descrição", w: "22%" },
+                { key: "cod", label: "Código", w: "10%" },
                 { key: "apl", label: "Aplicacao", w: "12%" },
                 { key: "und", label: "UND", w: "6%" },
                 { key: "qtd", label: "Qtd", w: "6%" },
@@ -1164,12 +1164,12 @@ function Transferencias() {
       </div>
 
       <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Historico de boletins</h3>
+        <h3 style={{ marginTop: 0 }}>Histórico de boletins</h3>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100, tableLayout: "fixed" }}>
             <thead style={{ background: "#0b5ed7", color: "#fff" }}>
               <tr>
-                {["Data", "Nr", "Origem", "Destino", "Itens", "Valor Total", "Status", "Acoes"].map((h) => (
+                {["Data", "Nr", "Origem", "Destino", "Itens", "Valor Total", "Status", "Ações"].map((h) => (
                   <th key={h} style={{ border: "1px solid #d8e0ea", padding: 8, textAlign: "center" }}>{h}</th>
                 ))}
               </tr>
@@ -1264,7 +1264,7 @@ function Transferencias() {
 
                               <div style={{ display: "grid", gap: 4, color: "#173454", fontSize: 13 }}>
                                 <div><strong>Transportador:</strong> {String(item.transportador || "-")}</div>
-                                <div><strong>Placa:</strong> {String(item.placaVeiculo || "-")} <span style={{ opacity: 0.8 }}> | </span> <strong>Codigo:</strong> {String(item.codigoTransporte || "-")}</div>
+                                <div><strong>Placa:</strong> {String(item.placaVeiculo || "-")} <span style={{ opacity: 0.8 }}> | </span> <strong>Código:</strong> {String(item.codigoTransporte || "-")}</div>
                                 {String(item.recebidoPor || "").trim() && (
                                   <div><strong>Recebido por:</strong> {String(item.recebidoPor || "-")} {item.recebidoEm ? `(${new Date(item.recebidoEm).toLocaleString("pt-BR")})` : ""}</div>
                                 )}
@@ -1293,3 +1293,4 @@ function Transferencias() {
 }
 
 export default Transferencias;
+

@@ -120,7 +120,7 @@ function MinhaConta({ setTela }) {
                 }}
               />
               <div>
-                <div style={{ color: "#173454", fontWeight: "bold" }}>Codigo de autenticacao por E-mail</div>
+                <div style={{ color: "#173454", fontWeight: "bold" }}>Código de autenticacao por E-mail</div>
                 <div style={{ color: "#5e738e" }}>
                   Receba um codigo de acesso unico por e-mail para entrar no sistema.
                 </div>
@@ -134,4 +134,5 @@ function MinhaConta({ setTela }) {
 }
 
 export default MinhaConta;
+
 

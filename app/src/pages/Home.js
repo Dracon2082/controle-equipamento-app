@@ -158,7 +158,7 @@ function Home({ setTela, onSair }) {
   const telasAdminRelatorios = new Set(["relatorio", "relatorioAbastecimento", "relatorioTransferencias", "relatorioTransportes", "relatorioManutencao", "relatorioProducaoCampo", "relatorioDiarioObra", "historico"]);
     const telasAdminCadastros = new Set(["equipamentos", "funcionarios", "obras", "bases", "frentistas", "empresas", "configEmpresa"]);
     const telasAdminControle = new Set(["lubrificantes", "almoxarifado", "transferencias", "transportes"]);
-    const telasAdminFinanceiro = new Set(["financeiro"]);
+    const telasAdminFinanceiro = new Set(["financeiro", "boletimMedicao"]);
     const telasExclusivasUsuarioChave = new Set(["configEmpresa"]);
   const telasOperacionais = new Set(["lancamento", "diarioObra", "abastecimento", "producaoCampo", "manutencao", "materiaisSaidas", "receberTransferencia", "transportes", "receberTransporte"]);
 
@@ -510,10 +510,10 @@ function Home({ setTela, onSair }) {
     if (t === "transportes") return "Romaneio simples de carga";
     if (t === "recebertransporte") return "Recebimento de carga por QR";
     if (t === "relatorio") return "Mensal de equipamento";
-    if (t === "relatorioabastecimento") return "Relatorio de diesel";
-    if (t === "relatoriotransferencias") return "Relatorio de transferencias";
-    if (t === "relatoriotransportes") return "Relatorio de cargas e viagens";
-    if (t === "relatoriomanutencao") return "Relatorio de manutencao";
+    if (t === "relatorioabastecimento") return "Relatório de diesel";
+    if (t === "relatoriotransferencias") return "Relatório de transferencias";
+    if (t === "relatoriotransportes") return "Relatório de cargas e viagens";
+    if (t === "relatoriomanutencao") return "Relatório de manutencao";
     if (t === "relatorioproducaocampo") return "PDF do croqui e itens";
     if (t === "relatoriodiarioobra") return "RDO: relatorio de diario de obra";
     if (t === "equipamentos") return "Cadastro e controle";
@@ -523,6 +523,7 @@ function Home({ setTela, onSair }) {
     if (t === "empresas") return "Requisitantes";
     if (t === "configempresa") return "Dados da empresa";
     if (t === "financeiro") return "Planos e cobranca";
+    if (t === "boletimmedicao") return "Medicao simplificada por periodo";
     if (t === "historico") return "Auditoria do sistema";
     if (t === "lubrificantes") return "Entrada central (aba diesel/lubrificantes)";
     return "";
@@ -559,6 +560,7 @@ function Home({ setTela, onSair }) {
     if (t === "empresas") return { accent: "#495057", bg: "#f1f3f5", icon: "building" };
     if (t === "configempresa") return { accent: "#0b5ed7", bg: "#eaf2ff", icon: "settings" };
     if (t === "financeiro") return { accent: "#0ca678", bg: "#eafaf1", icon: "money" };
+    if (t === "boletimmedicao") return { accent: "#1c7ed6", bg: "#e7f5ff", icon: "clipboard" };
     if (t === "historico") return { accent: "#868e96", bg: "#f1f3f5", icon: "clock" };
     if (t === "lubrificantes") return { accent: "#198754", bg: "#eafaf1", icon: "truck" };
 
@@ -658,7 +660,7 @@ function Home({ setTela, onSair }) {
   const descricaoSecao = (titulo) => {
     const t = String(titulo || "").toLowerCase();
     if (t.includes("engenharia")) return "Croqui, RDO e documentos tecnicos";
-    if (t.includes("manutencao")) return "Historico, custos e acompanhamento";
+    if (t.includes("manutencao")) return "Histórico, custos e acompanhamento";
     if (t.includes("transporte")) return "Romaneios, transferencias e cargas";
     if (t.includes("almoxarifado")) return "Entrada central e controle de materiais";
     if (t.includes("cadastros")) return "Obras, bases, equipamentos e usuarios";
@@ -671,13 +673,13 @@ function Home({ setTela, onSair }) {
       titulo: "Engenharia",
       itens: [
         { texto: "Diario de Obra (RDO)", tela: "diarioObra" },
-        { texto: "Producao de Campo / Croqui", tela: "producaoCampo" }
+        { texto: "Produção de Campo / Croqui", tela: "producaoCampo" }
       ]
     },
     {
-      titulo: "Manutencao",
+      titulo: "Manutenção",
       itens: [
-        { texto: "Manutencao de Equipamentos", tela: "manutencao" }
+        { texto: "Manutenção de Equipamentos", tela: "manutencao" }
       ]
     },
     {
@@ -704,25 +706,25 @@ function Home({ setTela, onSair }) {
       {
         titulo: "Engenharia",
         itens: [
-         { texto: "Relatorio Producao de Campo / Croqui", tela: "relatorioProducaoCampo" },
-          { texto: "Relatorio Diario de Obra (RDO)", tela: "relatorioDiarioObra" }
+         { texto: "Relatório Produção de Campo / Croqui", tela: "relatorioProducaoCampo" },
+          { texto: "Relatório Diario de Obra (RDO)", tela: "relatorioDiarioObra" }
         ]
       },
     {
-      titulo: "Manutencao",
+      titulo: "Manutenção",
       itens: [
-        { texto: "Relatorio Mensal de Equipamento", tela: "relatorio" },
-        { texto: "Relatorio de Manutencao", tela: "relatorioManutencao" }
+        { texto: "Relatório Mensal de Equipamento", tela: "relatorio" },
+        { texto: "Relatório de Manutenção", tela: "relatorioManutencao" }
       ]
     },
     {
       titulo: "Transporte",
       itens: [
         { texto: "Romaneio de Transporte", tela: "transportes" },
-        { texto: "Relatorio de Transportes", tela: "relatorioTransportes" },
+        { texto: "Relatório de Transportes", tela: "relatorioTransportes" },
         { texto: "Boletim de Transferencia", tela: "transferencias" },
-        { texto: "Relatorio de Transferencias", tela: "relatorioTransferencias" },
-        { texto: "Relatorio de Abastecimento", tela: "relatorioAbastecimento" }
+        { texto: "Relatório de Transferencias", tela: "relatorioTransferencias" },
+        { texto: "Relatório de Abastecimento", tela: "relatorioAbastecimento" }
       ]
     },
     {
@@ -746,8 +748,9 @@ function Home({ setTela, onSair }) {
     {
       titulo: "Administrativo Financeiro",
       itens: [
-        { texto: "Configuracoes Financeiras", tela: "financeiro" },
-        { texto: "Historico", tela: "historico" }
+        { texto: "Configurações Financeiras", tela: "financeiro" },
+        { texto: "Boletim de Medição", tela: "boletimMedicao" },
+        { texto: "Histórico", tela: "historico" }
       ]
     }
   ];
@@ -962,7 +965,7 @@ function Home({ setTela, onSair }) {
             type="button"
           >
             <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <span>Manutencao</span>
+              <span>Manutenção</span>
               {alertasAbertosCount > 0 && <span style={badge}>{alertasAbertosCount}</span>}
             </span>
           </button>
@@ -1007,14 +1010,14 @@ function Home({ setTela, onSair }) {
           <div style={titleBox}>
             <div>
               <h1 style={{ ...titulo, fontSize: isMobileDevice ? 18 : titulo.fontSize, margin: isMobileDevice ? 0 : titulo.margin }}>
-                {isMobileDevice ? pageTitle : "Equipamento Gestao"}
+                {isMobileDevice ? pageTitle : "Equipamento Gestão"}
               </h1>
               <p style={subtitulo}>
                 {isMobileDevice
                   ? "Selecione o setor e abra o modulo"
                   : (modoAtivo === "operacional"
                     ? "Controle operacional de obras e equipamentos"
-                    : "Relatorios, cadastros e controles administrativos")}
+                    : "Relatórios, cadastros e controles administrativos")}
               </p>
             </div>
           </div>
@@ -1026,7 +1029,7 @@ function Home({ setTela, onSair }) {
                 onClick={() => setTela("manutencao")}
                 onKeyDown={(e) => (e.key === "Enter" ? setTela("manutencao") : null)}
                 style={alertaPill}
-                title="Abrir Manutencao para ver os alertas"
+                title="Abrir Manutenção para ver os alertas"
               >
                 <span>ALERTA MECANICA</span>
                 <span style={badge}>{alertasAbertosCount}</span>
@@ -1295,7 +1298,7 @@ function Home({ setTela, onSair }) {
               </div>
               <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.45, color: "rgba(255,255,255,0.78)" }}>
                 {setorAtivo === "painel"
-                  ? "Os modulos ficam escondidos no painel principal. Clique em Engenharia, Manutencao, Transporte, Almoxarifado, Cadastros ou Administrativo Financeiro para abrir apenas o grupo desejado."
+                  ? "Os módulos ficam escondidos no painel principal. Clique em Engenharia, Manutenção, Transporte, Almoxarifado, Cadastros ou Administrativo Financeiro para abrir apenas o grupo desejado."
                   : descricaoSecao(setorSelecionado?.titulo || "")}
               </div>
               <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1484,3 +1487,4 @@ function Home({ setTela, onSair }) {
 }
 
 export default Home;
+

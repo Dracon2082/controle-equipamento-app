@@ -1,0 +1,19 @@
+Coloque os prints reais nesta pasta:
+
+C:\Users\amare\controle-equipamento\portfolio\prints
+
+Nomes recomendados para entrar automaticamente no portfólio:
+
+01_painel.png
+- Painel principal / Home
+
+02_lancamento_diario.png
+- Lançamento diário
+
+03_transporte.png
+- Romaneio de transporte
+
+04_almoxarifado.png
+- Almoxarifado / entrada de materiais
+
+Se quiser trocar depois por outras telas, eu posso alterar os nomes e a ordem no portfólio.

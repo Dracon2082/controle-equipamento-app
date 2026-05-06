@@ -291,7 +291,7 @@ function Transportes({ setTela }) {
       pdf.text("DE TRANSPORTE", 40, 25, { align: "center" });
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(7);
-      pdf.text(String(config?.nome || "Equipamento Gestao"), 40, 31, { align: "center" });
+      pdf.text(String(config?.nome || "Equipamento Gestão"), 40, 31, { align: "center" });
       pdf.text(`Romaneio: ${item.numero || "-"}`, 40, 35, { align: "center" });
 
       let y = 46;
@@ -306,7 +306,7 @@ function Transportes({ setTela }) {
         y += Math.max(4.5, texto.length * 3.8);
       };
 
-      linha("Data/hora da saida", new Date(item.dataHoraSaida || item.criadoEm || Date.now()).toLocaleString("pt-BR"));
+      linha("Data/hora da saída", new Date(item.dataHoraSaida || item.criadoEm || Date.now()).toLocaleString("pt-BR"));
       linha("Tipo", item.tipoTransporte || "-");
       linha("Material", item.materialLabel || item.material || "-");
       linha("Quantidade", `${item.quantidade || "-"} ${item.unidade || ""}`.trim());
@@ -317,7 +317,7 @@ function Transportes({ setTela }) {
         linha(item.tipoTransporte === "SAIDA_SIMPLES" ? "Veiculo" : "Caminhao", item.caminhaoNome || "-");
         linha("Placa", item.placa || "-");
         linha("Motorista", item.motorista || "-");
-      linha("Apontador da saida", item.apontadorSaida || "-");
+      linha("Apontador da saída", item.apontadorSaida || "-");
       const statusLabel = String(item.status || "")
         .trim()
         .toUpperCase()
@@ -326,7 +326,7 @@ function Transportes({ setTela }) {
 
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(7);
-      pdf.text("Observacao:", 10, y);
+      pdf.text("Observação:", 10, y);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(7);
       const obsQuebrada = pdf.splitTextToSize(String(item.observacao || "-"), 58);
@@ -341,7 +341,7 @@ function Transportes({ setTela }) {
         pdf.text("Assinaturas", 10, y);
         y += 4;
         pdf.setFontSize(6);
-        pdf.text("Apontador da saida", 24, y + 4, { align: "center" });
+        pdf.text("Apontador da saída", 24, y + 4, { align: "center" });
         pdf.text("Motorista", 56, y + 4, { align: "center" });
         if (assinaturaSaida) {
           pdf.addImage(assinaturaSaida, "PNG", 10, y + 6, 28, 12);
@@ -359,15 +359,15 @@ function Transportes({ setTela }) {
         pdf.addImage(qrDataUrl, "PNG", 20, y + 4, 40, 40);
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(7);
-        pdf.text(`Codigo manual: ${item.numero || item.id}`, 40, y + 49, { align: "center" });
+        pdf.text(`Código manual: ${item.numero || item.id}`, 40, y + 49, { align: "center" });
       } else {
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(8);
-        pdf.text("Saida simples concluida", 40, y + 6, { align: "center" });
+        pdf.text("Saída simples concluída", 40, y + 6, { align: "center" });
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(7);
         const aviso = pdf.splitTextToSize(
-          "Conferencia realizada na origem com assinatura do apontador e do motorista. Este comprovante nao exige recebimento no destino.",
+          "Conferência realizada na origem com assinatura do apontador e do motorista. Este comprovante não exige recebimento no destino.",
           54
         );
         pdf.text(aviso, 40, y + 14, { align: "center" });
@@ -407,7 +407,7 @@ function Transportes({ setTela }) {
   const formatarLocalizacao = (local) => {
     const lat = Number(local?.lat);
     const lng = Number(local?.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "Nao informada";
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "Não informada";
     return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   };
 
@@ -507,7 +507,7 @@ function Transportes({ setTela }) {
         registroId: ref.id,
         usuario: apontadorAtual || "-",
         descricao: modoLancamento === MODO_SAIDA_SIMPLES
-          ? `Registrou saida simples ${numeroFinal} para ${String(destino || "").trim().toUpperCase()}.`
+          ? `Registrou saída simples ${numeroFinal} para ${String(destino || "").trim().toUpperCase()}.`
           : `Criou romaneio de transporte ${numeroFinal} para ${String(destino || "").trim().toUpperCase()}.`
       });
 
@@ -553,7 +553,7 @@ function Transportes({ setTela }) {
               disabled={!podeInformarMeioTransporte}
             >
               {!podeInformarMeioTransporte
-                ? "Sem permissao para lancar"
+                ? "Sem permissão para lançar"
                 : (formularioAberto && modoLancamento === MODO_ROMANEIO ? "Esconder lancamento" : "Novo romaneio")}
             </button>
             <button
@@ -565,7 +565,7 @@ function Transportes({ setTela }) {
               style={{ ...botaoSecundario, background: "#fff4e6", borderColor: "#ffd8a8", color: "#9a4d00" }}
               disabled={!podeInformarMeioTransporte}
             >
-              Saida simples
+              Saída simples
             </button>
             {podeReceberTransporte && (
               <button type="button" onClick={() => setTela("receberTransporte")} style={botaoSecundario}>
@@ -583,7 +583,7 @@ function Transportes({ setTela }) {
       <div style={card}>
         {!podeInformarMeioTransporte ? (
           <div style={{ background: "#fff3cd", border: "1px solid #ffe69c", color: "#7a5b00", borderRadius: 8, padding: 12, fontWeight: 700 }}>
-            Este usuario nao tem permissao para informar meio de transporte ou gerar romaneio.
+            Este usuário não tem permissão para informar meio de transporte ou gerar romaneio.
           </div>
         ) : (
         <>
@@ -610,7 +610,7 @@ function Transportes({ setTela }) {
           </div>
           {material === "DIVERSOS" && (
             <div style={{ gridColumn: "1 / -1" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Descricao do material</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Descrição do material</div>
               <input value={descricaoMaterial} onChange={(e) => setDescricaoMaterial(e.target.value)} style={inputStyle} placeholder="Ex.: MADEIRA, FERRAGEM, PECAS" />
             </div>
           )}
@@ -672,21 +672,21 @@ function Transportes({ setTela }) {
             <input value={motorista} onChange={(e) => setMotorista(e.target.value.toUpperCase())} style={inputStyle} placeholder="Nome do motorista" />
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Observacao</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Observação</div>
             <textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} style={areaStyle} placeholder="Opcional" />
           </div>
         </div>
 
         <div style={{ marginTop: 10, fontSize: 12, color: "#5a6b82" }}>
           {modoLancamento === MODO_SAIDA_SIMPLES
-            ? "Use saida simples para material avulso da jazida ou venda direta. A conferencia acontece na assinatura do motorista, sem recebimento no destino."
-            : "A viagem ja e o proprio romaneio. Aqui voce informa so o material, a quantidade, a unidade e os dados da carga."}
+            ? "Use saída simples para material avulso da jazida ou venda direta. A conferência acontece na assinatura do motorista, sem recebimento no destino."
+            : "A viagem já é o próprio romaneio. Aqui você informa só o material, a quantidade, a unidade e os dados da carga."}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: 14 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>
-              Assinatura do apontador da saida
+              Assinatura do apontador da saída
             </div>
             <div style={{ border: "1px solid #dbe3ef", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
               <SignatureCanvas
@@ -716,7 +716,7 @@ function Transportes({ setTela }) {
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
           <button type="button" onClick={salvar} disabled={salvando} style={{ ...botaoPrimario, opacity: salvando ? 0.7 : 1 }}>
-            {salvando ? "Salvando..." : (modoLancamento === MODO_SAIDA_SIMPLES ? "Registrar saida simples" : "Gerar romaneio")}
+            {salvando ? "Salvando..." : (modoLancamento === MODO_SAIDA_SIMPLES ? "Registrar saída simples" : "Gerar romaneio")}
           </button>
           <button type="button" onClick={limpar} style={botaoSecundario}>
             Limpar formulario
@@ -735,7 +735,7 @@ function Transportes({ setTela }) {
               <div style={{ fontSize: 22, fontWeight: 900, color: "#10243e", marginTop: 4 }}>{romaneioGerado.numero}</div>
               <div style={{ marginTop: 6, fontSize: 12, color: "#5a6b82" }}>
                 {romaneioGerado.tipoTransporte === "SAIDA_SIMPLES"
-                  ? "Saida simples concluida na conferencia do motorista. Este registro ja entra no relatorio positivo de material."
+                  ? "Saída simples concluída na conferência do motorista. Este registro já entra no relatório positivo de material."
                   : "O motorista pode levar este QR em print, PDF ou WhatsApp. No destino, use a tela de recebimento."}
               </div>
             </div>
@@ -755,7 +755,7 @@ function Transportes({ setTela }) {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
             <thead style={{ background: "#f1f3f5" }}>
               <tr>
-                {["Numero", "Material", "Qtd.", "Origem", "Destino", "Requisitante", "Locais", "Caminhao", "Motorista", "Status", "Acoes"].map((col) => (
+                {["Número", "Material", "Qtd.", "Origem", "Destino", "Requisitante", "Locais", "Caminhao", "Motorista", "Status", "Ações"].map((col) => (
                   <th key={col} style={{ border: "1px solid #e5ebf3", padding: 8, fontSize: 12, color: "#173454", textAlign: "left" }}>{col}</th>
                 ))}
               </tr>
@@ -777,10 +777,10 @@ function Transportes({ setTela }) {
                   <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.destino || "-"}</td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.requisitante || "-"}</td>
                   <td style={{ border: "1px solid #e5ebf3", padding: 8, fontSize: 12 }}>
-                    <div><strong>Saida:</strong> {formatarLocalizacao(item.localSaida)}</div>
+                    <div><strong>Saída:</strong> {formatarLocalizacao(item.localSaida)}</div>
                     {linkMapa(item.localSaida) && (
                       <div>
-                        <a href={linkMapa(item.localSaida)} target="_blank" rel="noreferrer">Mapa saida</a>
+                        <a href={linkMapa(item.localSaida)} target="_blank" rel="noreferrer">Mapa saída</a>
                       </div>
                     )}
                     <div style={{ marginTop: 4 }}><strong>Receb.:</strong> {formatarLocalizacao(item.localRecebimento)}</div>
@@ -871,3 +871,4 @@ function Transportes({ setTela }) {
 }
 
 export default Transportes;
+

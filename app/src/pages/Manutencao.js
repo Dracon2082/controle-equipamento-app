@@ -642,10 +642,10 @@ function Manutencao({ setTela, modoRelatorio = false }) {
       entidade: "MANUTENCAO",
       registroId: ref.id,
       usuario: mecanico.trim(),
-      descricao: `Manutencao ${tipoManutencao} registrada para ${equipamento}.`,
+      descricao: `Manutenção ${tipoManutencao} registrada para ${equipamento}.`,
       detalhes: { obra, totalItens }
     });
-    alert("Manutencao salva com sucesso.");
+    alert("Manutenção salva com sucesso.");
 
     setTipoManutencao("PREVENTIVA");
     setEquipamento("");
@@ -746,7 +746,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
         "Data",
         "Tipo",
         "Equipamento",
-        "Codigo",
+        "Código",
         "Placa",
         "Obra",
         "Mecanico",
@@ -832,7 +832,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
     <div style={page}>
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h2 style={{ margin: 0, color: "#10243e" }}>Manutencao Preventiva e Corretiva</h2>
+          <h2 style={{ margin: 0, color: "#10243e" }}>Manutenção Preventiva e Corretiva</h2>
           </div>
         <p style={{ margin: "8px 0 0", color: "#4a5c74" }}>
           Registro completo para mecanico: pecas, oleos, filtros, servicos executados e custo por equipamento.
@@ -860,7 +860,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 860 }}>
                 <thead style={{ background: "#dc3545", color: "#fff" }}>
                   <tr>
-                    {["Data", "Obra", "Equipamento", "Operador", "Relato", "Acoes"].map((h) => (
+                    {["Data", "Obra", "Equipamento", "Operador", "Relato", "Ações"].map((h) => (
                       <th key={h} style={{ padding: 8, border: "1px solid #f0b7b7" }}>{h}</th>
                     ))}
                   </tr>
@@ -934,7 +934,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
           <input style={inputBase} type="date" value={dataExecucao} onChange={(e) => setDataExecucao(e.target.value)} />
           <input style={inputBase} value={horimetroKm} onChange={(e) => setHorimetroKm(e.target.value)} placeholder="Horimetro / KM" />
           <input style={inputBase} type="date" value={proximaManutencao} onChange={(e) => setProximaManutencao(e.target.value)} />
-          <input style={inputBase} value={equipamentoSelecionado?.codigo || ""} readOnly placeholder="Codigo do equipamento" />
+          <input style={inputBase} value={equipamentoSelecionado?.codigo || ""} readOnly placeholder="Código do equipamento" />
           <input style={inputBase} value={equipamentoSelecionado?.placa || ""} readOnly placeholder="Placa do equipamento" />
           <input style={inputBase} value={equipamentoSelecionado?.proprietario || ""} readOnly placeholder="Empresa requisitante / dono" />
         </div>
@@ -959,7 +959,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
             style={{ ...textArea, minHeight: 70 }}
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
-            placeholder="Observacao geral"
+            placeholder="Observação geral"
           />
         </div>
       </div>
@@ -1059,7 +1059,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
             disabled={itemTipo === "PECA" || itemTipo === "FILTRO" || itemTipo === "OLEO"}
           />
 
-          <input style={inputBase} value={itemObservacao} onChange={(e) => setItemObservacao(e.target.value)} placeholder="Observacao do item" />
+          <input style={inputBase} value={itemObservacao} onChange={(e) => setItemObservacao(e.target.value)} placeholder="Observação do item" />
         </div>
 
         {(itemTipo === "PECA" && pecaSelecionada) && (
@@ -1133,7 +1133,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
       )}
 
       <div style={card}>
-        <h3 style={{ marginTop: 0, color: "#10243e" }}>Relatorio de manutencao por equipamento</h3>
+        <h3 style={{ marginTop: 0, color: "#10243e" }}>Relatório de manutencao por equipamento</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 10 }}>
           <select style={inputBase} value={filtroEquipamento} onChange={(e) => setFiltroEquipamento(e.target.value)}>
             <option value="">Todos os equipamentos</option>
@@ -1184,7 +1184,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
             <thead style={{ background: "#0b5ed7", color: "#fff" }}>
               <tr>
-                {["Data", "Tipo", "Equipamento", "Codigo", "Placa", "Obra", "Mecanico", "Total", "Itens trocados"].map((titulo) => (
+                {["Data", "Tipo", "Equipamento", "Código", "Placa", "Obra", "Mecanico", "Total", "Itens trocados"].map((titulo) => (
                   <th key={titulo} style={{ padding: "7px 6px", textAlign: "center" }}>{titulo}</th>
                 ))}
               </tr>
@@ -1221,4 +1221,5 @@ function Manutencao({ setTela, modoRelatorio = false }) {
 }
 
 export default Manutencao;
+
 

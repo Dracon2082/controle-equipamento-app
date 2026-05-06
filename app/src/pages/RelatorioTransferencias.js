@@ -327,7 +327,7 @@ function RelatorioTransferencias() {
       }
     }
 
-    // Codigo manual (fallback) para colar no campo caso a camera do navegador falhe.
+    // Código manual (fallback) para colar no campo caso a camera do navegador falhe.
     if (qrText) {
       try {
         pdf.setFontSize(7.6);
@@ -356,7 +356,7 @@ function RelatorioTransferencias() {
     const itens = Array.isArray(boletim.itens) ? boletim.itens : [];
     autoTable(pdf, {
       startY: topo + 36,
-      head: [["Item", "Codigo", "Qtd", "Vlr unit", "Vlr total", "Obs"]],
+      head: [["Item", "Código", "Qtd", "Vlr unit", "Vlr total", "Obs"]],
       body: itens.map((it) => ([
         String(it?.descricao || "-").toUpperCase(),
         String(it?.codigo || "-").toUpperCase(),
@@ -465,7 +465,7 @@ function RelatorioTransferencias() {
 
     autoTable(pdf, {
       startY: 26,
-      head: [["Linhas", "Boletins", "Valor total", "Periodo", "Origem", "Destino"]],
+      head: [["Linhas", "Boletins", "Valor total", "Período", "Origem", "Destino"]],
       body: [[
         String(resumo.totalLinhas),
         String(resumo.totalBoletins),
@@ -486,8 +486,8 @@ function RelatorioTransferencias() {
         "Nr boletim",
         "Origem",
         "Destino",
-        "Descricao item",
-        "Codigo",
+        "Descrição item",
+        "Código",
         "Qtd",
         "Vlr unit",
         "Vlr total",
@@ -541,7 +541,7 @@ function RelatorioTransferencias() {
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 10px 28px", background: "#f3f5f8" }}>
       <div style={{ ...card, marginBottom: 10 }}>
-        <h2 style={{ margin: 0, color: "#0f2440" }}>Relatorio de Boletins de Transferencia</h2>
+        <h2 style={{ margin: 0, color: "#0f2440" }}>Relatório de Boletins de Transferencia</h2>
       </div>
 
       <div style={{ ...card, marginBottom: 12 }}>
@@ -716,7 +716,7 @@ function RelatorioTransferencias() {
             <div><strong>Motivo:</strong> {String(boletimSelecionado.motivo || "-").toUpperCase()}</div>
             <div><strong>Transportador:</strong> {String(boletimSelecionado.transportador || "-").toUpperCase()}</div>
             <div><strong>Placa:</strong> {String(boletimSelecionado.placaVeiculo || "-").toUpperCase()}</div>
-            <div><strong>Codigo:</strong> {String(boletimSelecionado.codigoTransporte || "-").toUpperCase()}</div>
+            <div><strong>Código:</strong> {String(boletimSelecionado.codigoTransporte || "-").toUpperCase()}</div>
           </div>
 
           <div style={{ marginTop: 10 }}>
@@ -731,7 +731,7 @@ function RelatorioTransferencias() {
           </colgroup>
           <thead style={{ background: "#0b5ed7", color: "#fff" }}>
             <tr>
-              {["Descricao", "Codigo", "Qtd", "Vlr Unit", "Vlr Total", "Obs"].map((t) => (
+              {["Descrição", "Código", "Qtd", "Vlr Unit", "Vlr Total", "Obs"].map((t) => (
                 <th key={t} style={{ padding: 8, border: "1px solid #d8e0ea" }}>{t}</th>
               ))}
             </tr>
@@ -812,7 +812,7 @@ function RelatorioTransferencias() {
           </colgroup>
           <thead style={{ background: "#0b5ed7", color: "#fff" }}>
             <tr>
-              {["Sel.", "Data", "Nr", "Origem", "Destino", "Descricao", "Codigo", "Qtd", "Vlr Unit", "Vlr Total", "Status", "Acoes"].map((titulo) => (
+              {["Sel.", "Data", "Nr", "Origem", "Destino", "Descrição", "Código", "Qtd", "Vlr Unit", "Vlr Total", "Status", "Ações"].map((titulo) => (
                 <th key={titulo} style={thBase}>{titulo}</th>
               ))}
             </tr>
@@ -902,3 +902,4 @@ function RelatorioTransferencias() {
 }
 
 export default RelatorioTransferencias;
+

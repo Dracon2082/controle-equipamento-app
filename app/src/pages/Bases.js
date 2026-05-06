@@ -396,7 +396,7 @@ function Bases({ setTela }) {
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", minWidth: 720 }}>
             <thead style={{ background: "#0b3d91", color: "#fff" }}>
               <tr>
-                {["UF", "Cidade", "Status", "Acoes"].map((h) => (
+                {["UF", "Cidade", "Status", "Ações"].map((h) => (
                   <th key={h} style={{ border: "1px solid #d8e0ea", padding: 10, textAlign: "center" }}>{h}</th>
                 ))}
               </tr>
@@ -504,3 +504,4 @@ function Bases({ setTela }) {
 }
 
 export default Bases;
+

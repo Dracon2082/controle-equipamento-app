@@ -141,7 +141,7 @@ function RelatorioDiarioObra({ setTela }) {
 
   const parseObraNumero = (obra) => {
     const nome = String(obra?.nome || "").trim();
-    const m = nome.match(/^\s*([0-9]{1,6})\s*[-–—]\s*(.+)\s*$/);
+    const m = nome.match(/^\s*([0-9]{1,6})\s*[-â€“â€”]\s*(.+)\s*$/);
     if (m) return m[1];
     const m2 = nome.match(/^\s*([0-9]{1,6})\s+(.+)\s*$/);
     if (m2) return m2[1];
@@ -344,7 +344,7 @@ function RelatorioDiarioObra({ setTela }) {
 
     docPdf.setFont("helvetica", "bold");
     docPdf.setFontSize(10);
-    docPdf.text("OBJETO / DESCRICAO", margemX, y + 6);
+    docPdf.text("OBJETO / DESCRIÇÃO", margemX, y + 6);
     docPdf.setFont("helvetica", "normal");
     docPdf.setFontSize(9);
     const boxObjH = 18; // fixo para manter 1 pagina
@@ -432,7 +432,7 @@ function RelatorioDiarioObra({ setTela }) {
     };
 
     blocoTexto("Atividades Executadas", rdo.atividades);
-    blocoTexto("Ocorrencias / Observacoes", rdo.ocorrencias);
+    blocoTexto("Ocorrencias / Observações", rdo.ocorrencias);
     // Se estiver muito embaixo, ainda cabe (fixo). Se nao, corta.
     if (y < pageHeight - 28) blocoTexto("Acidentes", rdo.acidentes);
 
@@ -583,7 +583,7 @@ function RelatorioDiarioObra({ setTela }) {
   return (
     <div style={{ padding: 20, maxWidth: 1240, margin: "0 auto", fontFamily: "Arial" }}>
       <div style={{ ...card, marginBottom: 12, borderLeft: "5px solid #0b5ed7" }}>
-        <h2 style={{ margin: 0, color: "#10243e" }}>Relatorio Diario de Obra (RDO)</h2>
+        <h2 style={{ margin: 0, color: "#10243e" }}>Relatório Diario de Obra (RDO)</h2>
         <div style={{ marginTop: 6, color: "#4a5c74", fontWeight: 700, fontSize: 13 }}>
           Aqui aparecem os RDOs salvos, com identificacao de obra, data e quem fez.
         </div>
@@ -677,7 +677,7 @@ function RelatorioDiarioObra({ setTela }) {
           </div>
 
           <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: "#173454", marginBottom: 6 }}>Objeto / Descricao</div>
+            <div style={{ fontSize: 12, fontWeight: 900, color: "#173454", marginBottom: 6 }}>Objeto / Descrição</div>
             <textarea value={edObjeto} onChange={(e) => setEdObjeto(e.target.value)} style={textArea} placeholder="Objeto/descricao da obra (pode deixar vazio se nao usar)" />
           </div>
 
@@ -742,7 +742,7 @@ function RelatorioDiarioObra({ setTela }) {
               <textarea value={edAtividades} onChange={(e) => setEdAtividades(e.target.value)} style={textArea} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 900, color: "#173454", marginBottom: 6 }}>Ocorrencias / Observacoes</div>
+              <div style={{ fontSize: 12, fontWeight: 900, color: "#173454", marginBottom: 6 }}>Ocorrencias / Observações</div>
               <textarea value={edOcorrencias} onChange={(e) => setEdOcorrencias(e.target.value)} style={textArea} />
             </div>
             <div>
@@ -817,7 +817,7 @@ function RelatorioDiarioObra({ setTela }) {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, textAlign: "center" }}>
           <thead style={{ background: "#0b5ed7", color: "#fff" }}>
             <tr>
-              {["Sel.", "RDO", "Data", "Obra", "Logradouro", "Bairro", "Apontador", "Acoes"].map((h) => (
+              {["Sel.", "RDO", "Data", "Obra", "Logradouro", "Bairro", "Apontador", "Ações"].map((h) => (
                 <th key={h} style={{ padding: "8px 6px", textAlign: "center" }}>
                   {h}
                 </th>
@@ -879,3 +879,4 @@ function RelatorioDiarioObra({ setTela }) {
 }
 
 export default RelatorioDiarioObra;
+

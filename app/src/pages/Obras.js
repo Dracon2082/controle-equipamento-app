@@ -93,7 +93,7 @@ function Obras({ setTela }) {
   useEffect(() => {
     // Mostra a lista completa de UFs imediatamente, mesmo se o IBGE demorar ou falhar.
     // Isso evita o "bug visual" de aparecer apenas AC (por exemplo, quando o sistema
-    // ainda tem poucas bases cadastradas ou o IBGE não responde).
+    // ainda tem poucas bases cadastradas ou o IBGE nÃ£o responde).
     setEstados(UFS_BR);
 
     // Carrega bases do sistema (para validacoes/atalhos), mas SEM limitar o cadastro de obras
@@ -312,7 +312,7 @@ function Obras({ setTela }) {
               <th style={{ border: "1px solid #ccc", padding: 10 }}>Obra</th>
               <th style={{ border: "1px solid #ccc", padding: 10 }}>Estado</th>
               <th style={{ border: "1px solid #ccc", padding: 10 }}>Cidade</th>
-              <th style={{ border: "1px solid #ccc", padding: 10 }}>Acoes</th>
+              <th style={{ border: "1px solid #ccc", padding: 10 }}>Ações</th>
             </tr>
           </thead>
 
@@ -354,4 +354,5 @@ function Obras({ setTela }) {
 }
 
 export default Obras;
+
 

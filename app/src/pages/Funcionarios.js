@@ -413,7 +413,7 @@ function Funcionarios({ setTela }) {
               <th style={{ border: "1px solid #ccc", padding: 8 }}>CPF</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Data Nasc.</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Data Cadastro</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>Acoes</th>
+              <th style={{ border: "1px solid #ccc", padding: 8 }}>Ações</th>
             </tr>
           </thead>
 
@@ -510,4 +510,5 @@ function Funcionarios({ setTela }) {
 }
 
 export default Funcionarios;
+
 

@@ -181,7 +181,7 @@ function RelatorioAbastecimento({ setTela }) {
 
       setDados([]);
       setFiltrado([]);
-      alert("Historico de abastecimento zerado com sucesso.");
+      alert("Histórico de abastecimento zerado com sucesso.");
     } catch (e) {
       console.log(e);
       alert("Nao foi possivel zerar o historico agora. Tente novamente.");
@@ -268,7 +268,7 @@ function RelatorioAbastecimento({ setTela }) {
       }
     }
 
-    // Alertas diários por equipamento (quantidade, total e mistura de tipo)
+    // Alertas diÃ¡rios por equipamento (quantidade, total e mistura de tipo)
     const equipKeyDia = normalizar(item?.codigo || item?.equipamento).trim();
     const dataISO = String(item?.data || "").trim();
     if (equipKeyDia && dataISO) {
@@ -342,7 +342,7 @@ function RelatorioAbastecimento({ setTela }) {
         if (!quebrado && !quebradoAnt && unidadeAtual > 0 && unidadeAnt > 0) {
           const delta = unidadeAtual - unidadeAnt;
           if (limDelta > 0 && delta <= limDelta) {
-            motivos.push(`Leitura sem variacao (Δ=${delta.toFixed(2)})`);
+            motivos.push(`Leitura sem variacao (Î”=${delta.toFixed(2)})`);
           }
           if (delta > 0 && limTaxa > 0 && litros > 0) {
             const taxa = litros / delta; // L/unid (horimetro ou KM)
@@ -940,11 +940,11 @@ function RelatorioAbastecimento({ setTela }) {
         "Req",
         "Obra",
         "Equipamento",
-        "Codigo",
+        "Código",
         "Placa",
         "Horimetro/KM",
         "Alerta",
-        "Consumo (Diesel + Lubrificacao)",
+        "Consumo (Diesel + Lubrificação)",
         "Empresa",
         "Operador",
         "Frentista",
@@ -1034,7 +1034,7 @@ function RelatorioAbastecimento({ setTela }) {
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 10px 28px", background: "#f3f5f8" }}>
       <div style={{ ...card, marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <h2 style={{ margin: 0, color: "#0f2440" }}>Relatorio de Abastecimento</h2>
+          <h2 style={{ margin: 0, color: "#0f2440" }}>Relatório de Abastecimento</h2>
           </div>
         <p style={{ margin: "8px 0 0", color: "#4a5c74" }}>
           Controle completo de diesel, lubrificantes, operadores, assinaturas e valores.
@@ -1396,7 +1396,7 @@ function RelatorioAbastecimento({ setTela }) {
               <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
                 <thead style={{ background: "#0b5ed7", color: "#fff" }}>
                   <tr>
-                    {["Obra", "Equipamento", "Codigo", "Alertas", "Litros (alertas)", "Ultimo", "Principais motivos", "Acoes"].map((t) => (
+                    {["Obra", "Equipamento", "Código", "Alertas", "Litros (alertas)", "Ultimo", "Principais motivos", "Ações"].map((t) => (
                       <th key={t} style={{ padding: "7px 6px", textAlign: "center" }}>{t}</th>
                     ))}
                   </tr>
@@ -1478,7 +1478,7 @@ function RelatorioAbastecimento({ setTela }) {
                 "Req",
                 "Obra",
                 "Equipamento",
-                "Codigo",
+                "Código",
                 "Placa",
                 "Diesel (L)",
                 "Tipo",
@@ -1576,4 +1576,5 @@ function RelatorioAbastecimento({ setTela }) {
 }
 
 export default RelatorioAbastecimento;
+
 

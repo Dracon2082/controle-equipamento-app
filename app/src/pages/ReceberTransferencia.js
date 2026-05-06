@@ -523,7 +523,7 @@ function ReceberTransferencia({ setTela }) {
           // Mantemos a escolha de camera automatica; se ficar preto, use o codigo manual.
           setScanErro(
             "A camera abriu, mas o preview ficou preto. Isso pode acontecer em alguns celulares/navegadores. " +
-            "Tente: 1) tocar em Parar leitura e Ler QR Code de novo, 2) trocar para dados moveis (as vezes Wi‑Fi com filtro atrapalha), 3) reiniciar o Chrome, 4) desligar economia de bateria do Chrome. " +
+            "Tente: 1) tocar em Parar leitura e Ler QR Code de novo, 2) trocar para dados moveis (as vezes Wiâ€‘Fi com filtro atrapalha), 3) reiniciar o Chrome, 4) desligar economia de bateria do Chrome. " +
             "Se continuar, cole o codigo manual."
           );
         } catch {
@@ -699,14 +699,14 @@ function ReceberTransferencia({ setTela }) {
             <div><strong>Destino:</strong> {String(boletim.destino || "-").toUpperCase()}</div>
             <div><strong>Transportador:</strong> {String(boletim.transportador || "-").toUpperCase()}</div>
             <div><strong>Placa:</strong> {String(boletim.placaVeiculo || "-").toUpperCase()}</div>
-            <div><strong>Codigo:</strong> {String(boletim.codigoTransporte || "-").toUpperCase()}</div>
+            <div><strong>Código:</strong> {String(boletim.codigoTransporte || "-").toUpperCase()}</div>
           </div>
 
           <div style={{ marginTop: 10, overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
               <thead style={{ background: "#0b5ed7", color: "#fff" }}>
                 <tr>
-                  {["Descricao", "Codigo", "Qtd", "Vlr Unit", "Vlr Total", "Obs"].map((t) => (
+                  {["Descrição", "Código", "Qtd", "Vlr Unit", "Vlr Total", "Obs"].map((t) => (
                     <th key={t} style={{ padding: 8, border: "1px solid #d8e0ea" }}>{t}</th>
                   ))}
                 </tr>
@@ -727,7 +727,7 @@ function ReceberTransferencia({ setTela }) {
           </div>
 
           <div style={{ marginTop: 12 }}>
-            <div style={{ fontWeight: "bold", marginBottom: 6 }}>Observacao do recebimento (opcional)</div>
+            <div style={{ fontWeight: "bold", marginBottom: 6 }}>Observação do recebimento (opcional)</div>
             <input
               style={baseInput}
               value={obsRecebimento}
@@ -770,3 +770,4 @@ function ReceberTransferencia({ setTela }) {
 }
 
 export default ReceberTransferencia;
+

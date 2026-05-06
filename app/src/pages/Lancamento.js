@@ -181,8 +181,8 @@ function Lancamento({ setTela }) {
     return new Date(0);
   };
 
-  // Para regras de sequencia/“dia faltando”, precisamos usar a DATA DO LANCAMENTO,
-  // nao a data de criacao/atualizacao (o usuario pode lançar retroativo).
+  // Para regras de sequencia/â€œdia faltandoâ€, precisamos usar a DATA DO LANCAMENTO,
+  // nao a data de criacao/atualizacao (o usuario pode lanÃ§ar retroativo).
   const parseDataOperacao = (item) => {
     const texto = String(item?.data || "").trim();
     const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -966,7 +966,7 @@ function Lancamento({ setTela }) {
 
             <textarea
               style={{ width: "100%", minHeight: 80, padding: 10, borderRadius: 6, border: "1px solid #ccc", marginBottom: 10, boxSizing: "border-box" }}
-              placeholder="Descricao do servico"
+              placeholder="Descrição do serviço"
               value={descricao}
               onChange={(e) => setDescricao(e.target.value)}
               disabled={String(status || "").toUpperCase().startsWith("SEM OPERACAO")}
@@ -1054,7 +1054,7 @@ function Lancamento({ setTela }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 980 }}>
             <thead style={{ background: "#0b5ed7", color: "#fff" }}>
               <tr>
-                {["Data", "Obra", "Equipamento", "Operador", "Inicio", "Fim", "Status", "Descricao", "Acoes"].map((h) => (
+                {["Data", "Obra", "Equipamento", "Operador", "Inicio", "Fim", "Status", "Descrição", "Ações"].map((h) => (
                   <th key={h} style={{ padding: 8, border: "1px solid #d8e0ea" }}>{h}</th>
                 ))}
               </tr>
@@ -1103,4 +1103,5 @@ function Lancamento({ setTela }) {
 }
 
 export default Lancamento;
+
 

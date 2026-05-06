@@ -245,7 +245,7 @@ function FinanceiroCliente({ setTela }) {
             <div style={{ padding: "14px 16px", borderBottom: "1px solid #e9eef6", fontWeight: "bold", color: "#223650" }}>Minhas faturas</div>
             <div style={{ padding: 16 }}>
               <div style={{ marginBottom: 12, fontSize: 12, color: "#5b6d84" }}>
-                Observacao: as faturas sao geradas pelo Master (gestao comercial). Aqui voce apenas consulta e abre a cobranca.
+                Observação: as faturas são geradas pelo Master (gestão comercial). Aqui você apenas consulta e abre a cobrança.
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "end", marginBottom: 14, flexWrap: "wrap" }}>
                 <div>
@@ -437,4 +437,5 @@ function FinanceiroCliente({ setTela }) {
 }
 
 export default FinanceiroCliente;
+
 

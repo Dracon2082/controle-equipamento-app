@@ -143,7 +143,7 @@ function DiarioObra({ setTela }) {
   const parseObraNumeroEObjeto = (obra) => {
     const nome = String(obra?.nome || "").trim();
     // Padrao comum: "072 - EXECUCAO DE SERVICOS ..."
-    const m = nome.match(/^\s*([0-9]{1,6})\s*[-–—]\s*(.+)\s*$/);
+    const m = nome.match(/^\s*([0-9]{1,6})\s*[-â€“â€”]\s*(.+)\s*$/);
     if (m) {
       return { numero: m[1], objeto: m[2] };
     }
@@ -155,7 +155,7 @@ function DiarioObra({ setTela }) {
     return { numero: nome || String(obra?.id || "-").trim(), objeto: "" };
   };
 
-  // Auto-preencher o Objeto/Descricao com base na obra selecionada.
+  // Auto-preencher o Objeto/Descrição com base na obra selecionada.
   useEffect(() => {
     if (!obraSelecionada) return;
     const { objeto: objetoDaObra } = parseObraNumeroEObjeto(obraSelecionada);
@@ -202,7 +202,7 @@ function DiarioObra({ setTela }) {
     const payload = montarPayloadRdo();
     const faltando = [];
     if (!payload.data) faltando.push("Data");
-    if (!payload.objeto) faltando.push("Objeto/Descricao");
+    if (!payload.objeto) faltando.push("Objeto/Descrição");
     if (!payload.logradouro) faltando.push("Logradouro");
     if (!payload.bairro) faltando.push("Bairro");
     if (!String(payload.atividades || "").trim()) faltando.push("Atividades executadas");
@@ -265,7 +265,7 @@ function DiarioObra({ setTela }) {
         descricao: `RDO ${payloadFinal.numeroRdo || ""} OBRA ${payloadFinal.obraNumero || "-"} - ${payloadFinal.logradouro || "-"} - ${payloadFinal.data || "-"}`,
         usuario: payloadFinal.apontadorNome || payloadFinal.apontadorEmail || "APONTADOR"
       });
-      alert("RDO salvo. Ele vai aparecer em Relatorios > Relatorio Diario de Obra (RDO).");
+      alert("RDO salvo. Ele vai aparecer em Relatórios > Relatório Diario de Obra (RDO).");
     } catch (e) {
       console.log(e);
       alert("Nao foi possivel salvar o RDO.");
@@ -274,7 +274,7 @@ function DiarioObra({ setTela }) {
     }
   };
 
-  // PDF do RDO e gerado/baixado pelo Relatorio Diario de Obra (RDO).
+  // PDF do RDO e gerado/baixado pelo Relatório Diario de Obra (RDO).
 
   return (
     <div style={{ padding: isMobileDevice ? 10 : 20, maxWidth: 1240, margin: "0 auto", fontFamily: "Arial" }}>
@@ -323,7 +323,7 @@ function DiarioObra({ setTela }) {
 
         <div style={{ display: "grid", gridTemplateColumns: isMobileDevice ? "1fr" : "2fr 1fr", gap: 10, marginTop: 10 }}>
           <div>
-            <div style={label}>Objeto / Descricao</div>
+            <div style={label}>Objeto / Descrição</div>
             <textarea
               value={objeto}
               onChange={(e) => setObjeto(e.target.value)}
@@ -397,7 +397,7 @@ function DiarioObra({ setTela }) {
               <tr style={{ background: "#0b5ed7", color: "#fff" }}>
                 <th style={{ textAlign: "left", padding: 8 }}>Funcao</th>
                 <th style={{ width: 120, textAlign: "center", padding: 8 }}>Qtd</th>
-                <th style={{ width: 90, textAlign: "center", padding: 8 }}>Acoes</th>
+                <th style={{ width: 90, textAlign: "center", padding: 8 }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -459,7 +459,7 @@ function DiarioObra({ setTela }) {
               <tr style={{ background: "#0b5ed7", color: "#fff" }}>
                 <th style={{ textAlign: "left", padding: 8 }}>Equipamento</th>
                 <th style={{ width: 90, textAlign: "center", padding: 8 }}>Qtd</th>
-                <th style={{ width: 90, textAlign: "center", padding: 8 }}>Acoes</th>
+                <th style={{ width: 90, textAlign: "center", padding: 8 }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -520,7 +520,7 @@ function DiarioObra({ setTela }) {
       </div>
 
       <div style={{ ...card, marginBottom: 12 }}>
-        <div style={label}>Ocorrencias / Observacoes</div>
+        <div style={label}>Ocorrencias / Observações</div>
         <textarea
           value={ocorrencias}
           onChange={(e) => setOcorrencias(e.target.value)}
@@ -573,3 +573,4 @@ function DiarioObra({ setTela }) {
 }
 
 export default DiarioObra;
+

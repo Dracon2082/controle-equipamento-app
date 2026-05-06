@@ -17,6 +17,7 @@ import Historico from "./pages/Historico";
 import Abastecimento from "./pages/Abastecimento";
 import Empresas from "./pages/Empresas";
 import FinanceiroCliente from "./pages/FinanceiroCliente";
+import BoletimMedicao from "./pages/BoletimMedicao";
 import MasterClientes from "./pages/MasterClientes";
 import MasterLogin from "./pages/MasterLogin";
 import EPI from "./pages/EPI";
@@ -183,6 +184,7 @@ function ClientApp() {
     "historico",
     "empresas",
     "financeiro",
+    "boletimMedicao",
     "lubrificantes",
     "almoxarifado",
     "transferencias",
@@ -218,7 +220,8 @@ function ClientApp() {
     "transportes"
   ]);
   const telasAdminFinanceiro = new Set([
-    "financeiro"
+    "financeiro",
+    "boletimMedicao"
   ]);
 
   const obterSessao = () => {
@@ -439,7 +442,7 @@ function ClientApp() {
             {!isMobileDevice && (
               <div style={{ display: "grid", gap: 0, marginLeft: -4 }}>
                 <p style={{ ...topBarBrandText, fontSize: 20, lineHeight: 1.05 }}>Equipamentos</p>
-                <p style={topBarBrandSubText}>Gestao</p>
+                <p style={topBarBrandSubText}>Gestão</p>
               </div>
             )}
           </div>
@@ -471,6 +474,7 @@ function ClientApp() {
       {tela === "manutencao" && <Manutencao setTela={navegar} />}
       {tela === "empresas" && <Empresas setTela={navegar} />}
       {tela === "financeiro" && <FinanceiroCliente setTela={navegar} />}
+      {tela === "boletimMedicao" && <BoletimMedicao setTela={navegar} />}
       {tela === "almoxarifado" && <EntradaMateriais setTela={navegar} abaInicial="MATERIAIS" />}
       {tela === "epi" && <EPI setTela={navegar} />}
       {tela === "materiaisSaidas" && <SaidasMateriais setTela={navegar} />}
@@ -529,4 +533,5 @@ function App() {
 }
 
 export default App;
+
 

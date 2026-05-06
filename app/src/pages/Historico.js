@@ -57,12 +57,12 @@ function Historico() {
   const corrigirTextoQuebrado = (valor) => {
     const texto = String(valor || "");
     if (!texto) return "";
-    if (!/[ÃÂâ]/.test(texto)) return texto;
+    if (!/[ÃƒÃ‚Ã¢]/.test(texto)) return texto;
 
     try {
       const bytes = Uint8Array.from(Array.from(texto).map((ch) => ch.charCodeAt(0) & 0xff));
       const corrigido = new TextDecoder("utf-8").decode(bytes);
-      return /�/.test(corrigido) ? texto : corrigido;
+      return /ï¿½/.test(corrigido) ? texto : corrigido;
     } catch {
       return texto;
     }
@@ -111,7 +111,7 @@ function Historico() {
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 10px 28px", background: "#f3f5f8" }}>
       <div style={{ ...card, marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h2 style={{ margin: 0, color: "#0f2440" }}>Historico de Operacoes</h2>
+          <h2 style={{ margin: 0, color: "#0f2440" }}>Histórico de Operacoes</h2>
         </div>
         <p style={{ margin: "8px 0 0", color: "#4a5c74" }}>
           Registro imutavel de tudo que foi criado, alterado, excluido ou gerado no sistema.
@@ -168,7 +168,7 @@ function Historico() {
           </colgroup>
           <thead style={{ background: "#0b5ed7", color: "#fff" }}>
             <tr>
-              {["Data/hora", "Modulo", "Acao", "Entidade", "Registro", "Usuario", "Descricao"].map((h) => (
+              {["Data/hora", "Modulo", "Acao", "Entidade", "Registro", "Usuario", "Descrição"].map((h) => (
                 <th key={h} style={thBase}>{h}</th>
               ))}
             </tr>
@@ -205,4 +205,5 @@ function Historico() {
 }
 
 export default Historico;
+
 

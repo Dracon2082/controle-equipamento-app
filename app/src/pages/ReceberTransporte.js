@@ -310,7 +310,7 @@ function ReceberTransporte({ setTela }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Numero do romaneio</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Número do romaneio</div>
             <input value={codigoManual} onChange={(e) => setCodigoManual(e.target.value.toUpperCase())} style={inputStyle} placeholder="Ex.: RT-20260501-0830-1234" />
           </div>
           <button type="button" onClick={buscarManual} style={botaoSecundario}>
@@ -325,7 +325,7 @@ function ReceberTransporte({ setTela }) {
         <div style={card}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
             {[
-              ["Numero", romaneio.numero],
+              ["Número", romaneio.numero],
               ["Tipo", romaneio.tipoTransporte],
               ["Material", romaneio.materialLabel || romaneio.material],
               ["Quantidade", `${romaneio.quantidade || "-"} ${romaneio.unidade || ""}`],
@@ -359,7 +359,7 @@ function ReceberTransporte({ setTela }) {
           </div>
 
           <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Observacao / divergencia</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#173454", marginBottom: 6 }}>Observação / divergência</div>
             <textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} style={areaStyle} placeholder="Opcional" />
           </div>
 
@@ -388,3 +388,4 @@ function ReceberTransporte({ setTela }) {
 }
 
 export default ReceberTransporte;
+

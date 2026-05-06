@@ -375,7 +375,7 @@ function Equipamentos({ setTela }) {
     autoTable(pdf, {
       startY: 30,
       margin: { left: 14, right: 14 },
-      head: [["Categoria", "Nome", "Marca", "Codigo", "Placa", "Tanque (L)", "Data Entrada", "Proprietario"]],
+      head: [["Categoria", "Nome", "Marca", "Código", "Placa", "Tanque (L)", "Data Entrada", "Proprietario"]],
       body: tabela,
       theme: "grid",
       styles: {
@@ -460,7 +460,7 @@ function Equipamentos({ setTela }) {
 
         <input
           style={inputStyle}
-          placeholder="Codigo (opcional)"
+          placeholder="Código (opcional)"
           value={codigo}
           onChange={(e) => setCodigo(e.target.value)}
         />
@@ -524,12 +524,12 @@ function Equipamentos({ setTela }) {
                 <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center" }}>Categoria</th>
                 <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center" }}>Nome</th>
                 <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center" }}>Marca</th>
-                <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", whiteSpace: "nowrap" }}>Codigo</th>
+                <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", whiteSpace: "nowrap" }}>Código</th>
                 <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", whiteSpace: "nowrap" }}>Placa</th>
                 <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", whiteSpace: "nowrap" }}>Tanque (L)</th>
                 <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", whiteSpace: "nowrap" }}>Data Entrada</th>
                 <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center" }}>Proprietario</th>
-                <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", whiteSpace: "nowrap" }}>Acoes</th>
+                <th style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", whiteSpace: "nowrap" }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -569,4 +569,5 @@ function Equipamentos({ setTela }) {
 }
 
 export default Equipamentos;
+
 

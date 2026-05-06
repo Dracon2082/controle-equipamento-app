@@ -40,7 +40,7 @@ function RelatorioTransportes({ setTela }) {
   const formatarLocalizacao = (local) => {
     const lat = Number(local?.lat);
     const lng = Number(local?.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "Nao informada";
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "Não informada";
     return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   };
 
@@ -158,7 +158,7 @@ function RelatorioTransportes({ setTela }) {
 
     autoTable(pdf, {
       startY: 26,
-      head: [["Registros", "Em transito", "Recebidos", "Divergencias", "Saidas simples", "Periodo"]],
+      head: [["Registros", "Em transito", "Recebidos", "Divergencias", "Saidas simples", "Período"]],
       body: [[
         String(resumo.totalRegistros),
         String(resumo.emTransito),
@@ -174,7 +174,7 @@ function RelatorioTransportes({ setTela }) {
 
     autoTable(pdf, {
       startY: (pdf.lastAutoTable?.finalY || 30) + 4,
-      head: [["Data/hora", "Numero", "Material", "Qtd", "Unid.", "Origem", "Destino", "Loc. saida", "Loc. receb.", "Caminhao", "Motorista", "Status"]],
+      head: [["Data/hora", "Número", "Material", "Qtd", "Unid.", "Origem", "Destino", "Loc. saida", "Loc. receb.", "Caminhao", "Motorista", "Status"]],
       body: filtrada.map((item) => [
         dataBr(item.dataHoraSaida || item.criadoEm),
         item.numero || "-",
@@ -225,7 +225,7 @@ function RelatorioTransportes({ setTela }) {
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 10px 28px", background: "#f3f5f8" }}>
       <div style={{ ...card, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0, color: "#0f2440" }}>Relatorio de Transportes</h2>
+        <h2 style={{ margin: 0, color: "#0f2440" }}>Relatório de Transportes</h2>
         <button
           type="button"
           onClick={() => setTela("home")}
@@ -321,8 +321,8 @@ function RelatorioTransportes({ setTela }) {
         <div style={card}><strong>Registros:</strong> {resumo.totalRegistros}</div>
         <div style={card}><strong>Em transito:</strong> {resumo.emTransito}</div>
         <div style={card}><strong>Recebidos:</strong> {resumo.recebidos}</div>
-        <div style={card}><strong>Divergencias:</strong> {resumo.divergencias}</div>
-        <div style={card}><strong>Saidas simples:</strong> {resumo.saidasSimples}</div>
+        <div style={card}><strong>Divergências:</strong> {resumo.divergencias}</div>
+        <div style={card}><strong>Saídas simples:</strong> {resumo.saidasSimples}</div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>
@@ -354,7 +354,7 @@ function RelatorioTransportes({ setTela }) {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1120 }}>
             <thead style={{ background: "#5f3dc4", color: "#fff" }}>
               <tr>
-                {["Data/hora", "Numero", "Material", "Qtd", "Unid.", "Origem", "Destino", "Localizacoes", "Caminhao", "Motorista", "Status", "Recebedor"].map((titulo) => (
+                {["Data/hora", "Número", "Material", "Qtd", "Unid.", "Origem", "Destino", "Localizacoes", "Caminhao", "Motorista", "Status", "Recebedor"].map((titulo) => (
                   <th key={titulo} style={{ padding: 8, border: "1px solid #d8e0ea", textAlign: "center", fontSize: 13 }}>{titulo}</th>
                 ))}
               </tr>
@@ -377,9 +377,9 @@ function RelatorioTransportes({ setTela }) {
                   <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{item.origem || "-"}</td>
                   <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{item.destino || "-"}</td>
                   <td style={{ padding: 8, border: "1px solid #e5ebf3", fontSize: 12 }}>
-                    <div><strong>Saida:</strong> {formatarLocalizacao(item.localSaida)}</div>
+                    <div><strong>Saída:</strong> {formatarLocalizacao(item.localSaida)}</div>
                     {linkMapa(item.localSaida) && (
-                      <div><a href={linkMapa(item.localSaida)} target="_blank" rel="noreferrer">Mapa saida</a></div>
+                      <div><a href={linkMapa(item.localSaida)} target="_blank" rel="noreferrer">Mapa saída</a></div>
                     )}
                     <div style={{ marginTop: 4 }}><strong>Receb.:</strong> {formatarLocalizacao(item.localRecebimento)}</div>
                     {linkMapa(item.localRecebimento) && (
@@ -401,3 +401,4 @@ function RelatorioTransportes({ setTela }) {
 }
 
 export default RelatorioTransportes;
+

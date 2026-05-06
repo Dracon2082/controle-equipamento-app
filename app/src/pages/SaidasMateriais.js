@@ -52,7 +52,7 @@ function SaidasMateriais({ setTela }) {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? 10 : 18, background: "#f3f5f8", minHeight: "100vh" }}>
-      <h2 style={{ marginTop: 0, color: "#10243e" }}>Saidas de Materiais</h2>
+      <h2 style={{ marginTop: 0, color: "#10243e" }}>Saídas de Materiais</h2>
 
       <div style={{ ...card, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <button type="button" style={tabBtn("MATERIAIS")} onClick={() => setAba("MATERIAIS")}>
@@ -62,7 +62,7 @@ function SaidasMateriais({ setTela }) {
           EPI
         </button>
         <div style={{ marginLeft: "auto", color: "#5b6f8a", fontWeight: 700, fontSize: 13 }}>
-          {basesTexto ? `Base autorizada: ${basesTexto}` : "Operacional: somente saidas/entregas (entrada fica no administrativo)"}
+          {basesTexto ? `Base autorizada: ${basesTexto}` : "Operacional: somente saídas/entregas (entrada fica no administrativo)"}
         </div>
       </div>
 

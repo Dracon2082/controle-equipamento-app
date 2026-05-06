@@ -383,19 +383,19 @@ function Login({ setTela, authContext, onLoginSucesso }) {
                   objectFit: "contain"
                 }}
               />
-              <strong style={{ fontSize: 28, lineHeight: 1.15, marginTop: 4, textAlign: "center" }}>Equipamento Gestao</strong>
+              <strong style={{ fontSize: 28, lineHeight: 1.15, marginTop: 4, textAlign: "center" }}>Equipamento Gestão</strong>
             </div>
             <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 30, lineHeight: 1.2 }}>
-              Gerencie toda a sua operacao em um so lugar.
+              Gerencie toda a sua operação em um só lugar.
             </h2>
             <p style={{ marginTop: 0, color: "rgba(255,255,255,0.9)", fontSize: 15 }}>
-              Assinaturas digitais, identificacao rapida e localizacao por coordenadas
-              para agilizar a operacao.
+              Assinaturas digitais, identificação rápida e localização por coordenadas
+              para agilizar a operação.
             </p>
             <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
               {[
                 "Pagamentos no app com mais agilidade",
-                "Atendimento via WhatsApp com resposta rapida"
+                "Atendimento via WhatsApp com resposta rápida"
               ].map((texto) => (
                 <div
                   key={texto}
@@ -426,8 +426,8 @@ function Login({ setTela, authContext, onLoginSucesso }) {
               <path d="M103 43 C118 43, 118 27, 132 27" stroke="url(#linhaFluxo)" strokeWidth="3" fill="none" />
               <path d="M227 27 C240 27, 240 43, 252 43" stroke="url(#linhaFluxo)" strokeWidth="3" fill="none" />
               <text x="56" y="47" textAnchor="middle" fontSize="10" fill="#fff">Obra</text>
-              <text x="180" y="31" textAnchor="middle" fontSize="10" fill="#fff">Gestao</text>
-              <text x="299" y="47" textAnchor="middle" fontSize="10" fill="#fff">Relatorios</text>
+              <text x="180" y="31" textAnchor="middle" fontSize="10" fill="#fff">Gestão</text>
+              <text x="299" y="47" textAnchor="middle" fontSize="10" fill="#fff">Relatórios</text>
             </svg>
             <div style={{ fontSize: 13, fontWeight: "bold", marginTop: 2 }}>
               Menos retrabalho, mais resultado no dia a dia.
@@ -464,7 +464,7 @@ function Login({ setTela, authContext, onLoginSucesso }) {
             <strong style={{ color: "#173454", fontSize: isMobile ? 18 : 28 }}>Entre na sua conta</strong>
           </div>
           <p style={{ marginTop: 0, color: "#3e5f82", marginBottom: 18, fontSize: isMobile ? 13 : 16 }}>
-            Gestao inteligente de obras e operacoes em um so lugar.
+            Gestão inteligente de obras e operações em um só lugar.
           </p>
           <p style={{ marginTop: 0, color: "#5e738e", marginBottom: 16, fontSize: isMobile ? 13 : 18 }}>
             Acesso: <strong>{destino || "operacao geral"}</strong>
@@ -561,14 +561,14 @@ function Login({ setTela, authContext, onLoginSucesso }) {
           }}
         >
           <div style={{ background: "#fff", border: "1px solid #dbe3ef", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ color: "#5e738e", marginBottom: 4 }}>Ainda nao e cliente?</div>
+            <div style={{ color: "#5e738e", marginBottom: 4 }}>Ainda não é cliente?</div>
             <a href={SALES_WHATSAPP_URL} target="_blank" rel="noreferrer" style={{ color: "#1d61e7", fontWeight: "bold", textDecoration: "none" }}>
               Fale com Vendas (WhatsApp)
             </a>
           </div>
 
           <div style={{ background: "#fff", border: "1px solid #dbe3ef", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ color: "#5e738e", marginBottom: 4 }}>Nao consegue entrar na sua conta?</div>
+            <div style={{ color: "#5e738e", marginBottom: 4 }}>Não consegue entrar na sua conta?</div>
             <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noreferrer" style={{ color: "#1d61e7", fontWeight: "bold", textDecoration: "none" }}>
               Fale com Suporte (WhatsApp)
             </a>
@@ -580,4 +580,5 @@ function Login({ setTela, authContext, onLoginSucesso }) {
 }
 
 export default Login;
+
 
