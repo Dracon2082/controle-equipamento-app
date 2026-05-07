@@ -1122,7 +1122,6 @@ function BoletimMedicao({ setTela }) {
             <button type="button" style={botaoSecundario} onClick={() => setTela("home")}>Voltar</button>
           </div>
         </div>
-        )}
       </div>
 
       <div style={card}>
