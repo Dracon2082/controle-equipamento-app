@@ -418,6 +418,18 @@ function Transportes({ setTela }) {
     return `https://www.google.com/maps?q=${lat},${lng}`;
   };
 
+  const formatarStatusTabela = (status) => {
+    const chave = String(status || "").trim().toUpperCase();
+    const mapa = {
+      EM_TRANSITO: "Em trânsito",
+      RECEBIDO: "Recebido",
+      DIVERGENCIA: "Com divergência",
+      SAIDA_SIMPLES_CONCLUIDA: "Saída simples concluída",
+      CANCELADO: "Cancelado"
+    };
+    return mapa[chave] || String(status || "-").replace(/_/g, " ");
+  };
+
   const salvar = async () => {
     if (salvando) return;
       if (!quantidade || Number(String(quantidade).replace(",", ".")) <= 0) return alert("Informe a quantidade.");
@@ -752,11 +764,11 @@ function Transportes({ setTela }) {
           <div style={{ fontSize: 12, color: "#5a6b82" }}>{lista.length} registro(s)</div>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1180, tableLayout: "fixed" }}>
             <thead style={{ background: "#f1f3f5" }}>
               <tr>
                 {["Número", "Material", "Qtd.", "Origem", "Destino", "Requisitante", "Locais", "Caminhao", "Motorista", "Status", "Ações"].map((col) => (
-                  <th key={col} style={{ border: "1px solid #e5ebf3", padding: 8, fontSize: 12, color: "#173454", textAlign: "left" }}>{col}</th>
+                  <th key={col} style={{ border: "1px solid #e5ebf3", padding: "7px 6px", fontSize: 11, color: "#173454", textAlign: "center", verticalAlign: "middle" }}>{col}</th>
                 ))}
               </tr>
             </thead>
@@ -770,13 +782,13 @@ function Transportes({ setTela }) {
               )}
               {lista.slice(0, 20).map((item) => (
                 <tr key={item.id} style={{ background: String(item.status || "").toUpperCase() === "RECEBIDO" ? "#f3fff8" : "#fff" }}>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8, fontWeight: 800 }}>{item.numero || "-"}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.materialLabel || item.material || "-"}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{`${item.quantidade || "-"} ${item.unidade || ""}`}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.origem || "-"}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.destino || "-"}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.requisitante || "-"}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8, fontSize: 12 }}>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", fontWeight: 800, textAlign: "center", verticalAlign: "middle", fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{item.numero || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle", fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{item.materialLabel || item.material || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle", fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{`${item.quantidade || "-"} ${item.unidade || ""}`}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle", fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{item.origem || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle", fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{item.destino || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle", fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{item.requisitante || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", fontSize: 11, textAlign: "center", verticalAlign: "middle", lineHeight: 1.2, wordBreak: "break-word" }}>
                     <div><strong>Saída:</strong> {formatarLocalizacao(item.localSaida)}</div>
                     {linkMapa(item.localSaida) && (
                       <div>
@@ -790,10 +802,26 @@ function Transportes({ setTela }) {
                       </div>
                     )}
                   </td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.caminhaoNome || "-"}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.motorista || "-"}</td>
-                  <td style={{ border: "1px solid #e5ebf3", padding: 8, fontWeight: 800 }}>{item.status || "-"}</td>
-                    <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle", fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{item.caminhaoNome || item.veiculo || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle", fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{item.motorista || "-"}</td>
+                  <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle" }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "5px 8px",
+                        borderRadius: 999,
+                        background: "#f4f0ff",
+                        color: "#5f3dc4",
+                        fontWeight: 800,
+                        fontSize: 10,
+                        lineHeight: 1.15,
+                        maxWidth: 120
+                      }}
+                    >
+                      {formatarStatusTabela(item.status)}
+                    </span>
+                  </td>
+                    <td style={{ border: "1px solid #e5ebf3", padding: "8px 6px", textAlign: "center", verticalAlign: "middle" }}>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "relative" }}>
                         {item.qrPayload && (
                           <button
@@ -812,7 +840,7 @@ function Transportes({ setTela }) {
                             type="button"
                             onClick={() => setMenuComprovanteAbertoId((prev) => (prev === item.id ? "" : item.id))}
                             disabled={gerandoPdfId === item.id}
-                            style={{ ...botaoSecundario, opacity: gerandoPdfId === item.id ? 0.7 : 1 }}
+                            style={{ ...botaoSecundario, opacity: gerandoPdfId === item.id ? 0.7 : 1, padding: "8px 12px", fontSize: 12 }}
                           >
                             {gerandoPdfId === item.id ? "Gerando..." : "Comprovante"}
                           </button>

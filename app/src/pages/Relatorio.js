@@ -10,6 +10,7 @@ import { belongsToTenant, getConfigDocId, getTenantId } from "../utils/tenant";
 
 function Relatorio({ setTela }) {
   const tenantId = getTenantId();
+  const [requisitanteFiltro, setRequisitanteFiltro] = useState("");
   const [equipamento, setEquipamento] = useState("");
   const [mes, setMes] = useState("");
   const [empresaSistema, setEmpresaSistema] = useState(null);
@@ -168,6 +169,14 @@ function Relatorio({ setTela }) {
       currency: "BRL"
     });
 
+  const montarRotuloEquipamento = (eq) => {
+    const nome = String(eq?.nome || "").trim() || "EQUIPAMENTO";
+    const codigo = String(eq?.codigo || eq?.equipamentoCodigo || eq?.numeroFrota || "").trim().toUpperCase();
+    const placa = String(eq?.placa || "").trim().toUpperCase();
+    const complemento = codigo || placa;
+    return complemento ? `${nome} - ${complemento}` : nome;
+  };
+
   const formatarMesAno = (valorMes) => {
     if (!valorMes || !String(valorMes).includes("-")) return "-";
     const [ano, mesNumero] = String(valorMes).split("-");
@@ -228,6 +237,15 @@ function Relatorio({ setTela }) {
   };
 
   const carregarMovimento = async () => {
+    const equipamentoSelecionado = equipamentos.find((e) => (e.id || "") === equipamento);
+    const nomeEquipamentoSelecionado = equipamentoSelecionado?.nome || "";
+
+    if (!nomeEquipamentoSelecionado) {
+      setLancamentos([]);
+      setAbastecimentos([]);
+      return;
+    }
+
     const [snapLanc, snapAbast] = await Promise.all([
       getDocs(collection(db, "lancamentos")),
       getDocs(collection(db, "abastecimentos"))
@@ -238,7 +256,7 @@ function Relatorio({ setTela }) {
       .filter((item) => belongsToTenant(item, tenantId))
       .filter(
         (item) =>
-          normalizarEquipamento(item.equipamento) === normalizarEquipamento(equipamento) &&
+          normalizarEquipamento(item.equipamento) === normalizarEquipamento(nomeEquipamentoSelecionado) &&
           pertenceAoMes(item.data, mes)
       );
 
@@ -247,7 +265,7 @@ function Relatorio({ setTela }) {
       .filter((item) => belongsToTenant(item, tenantId))
       .filter(
         (item) =>
-          normalizarEquipamento(item.equipamento) === normalizarEquipamento(equipamento) &&
+          normalizarEquipamento(item.equipamento) === normalizarEquipamento(nomeEquipamentoSelecionado) &&
           pertenceAoMes(item.data, mes)
       );
 
@@ -267,18 +285,44 @@ function Relatorio({ setTela }) {
   };
 
   const equipamentoObj = useMemo(
-    () => equipamentos.find((e) => e.nome === equipamento),
+    () => equipamentos.find((e) => (e.id || "") === equipamento),
     [equipamentos, equipamento]
   );
 
+  const requisitantesDisponiveis = useMemo(() => {
+    const mapa = new Map();
+    equipamentos.forEach((eq) => {
+      const nome = String(eq?.proprietario || eq?.empresa || eq?.nomeEmpresa || "").trim();
+      if (!nome) return;
+      const chave = normalizarEquipamento(nome);
+      if (!mapa.has(chave)) mapa.set(chave, nome);
+    });
+    return Array.from(mapa.values()).sort((a, b) => String(a).localeCompare(String(b)));
+  }, [equipamentos]);
+
+  const equipamentosFiltrados = useMemo(() => {
+    if (!requisitanteFiltro) return equipamentos;
+    return equipamentos.filter((eq) => {
+      const nome = String(eq?.proprietario || eq?.empresa || eq?.nomeEmpresa || "").trim();
+      return normalizarEquipamento(nome) === normalizarEquipamento(requisitanteFiltro);
+    });
+  }, [equipamentos, requisitanteFiltro]);
+
   const requisitanteEquipamento = useMemo(
     () =>
+      requisitanteFiltro ||
       equipamentoObj?.proprietario ||
       equipamentoObj?.empresa ||
       equipamentoObj?.nomeEmpresa ||
       "-",
-    [equipamentoObj]
+    [equipamentoObj, requisitanteFiltro]
   );
+
+  useEffect(() => {
+    if (!equipamento) return;
+    const existeNoFiltro = equipamentosFiltrados.some((eq) => (eq.id || "") === equipamento);
+    if (!existeNoFiltro) setEquipamento("");
+  }, [equipamento, equipamentosFiltrados]);
 
   const operadorCabecalho = useMemo(() => {
     const nomePrimeiroLanc = lancamentos[0]?.operador;
@@ -529,7 +573,7 @@ function Relatorio({ setTela }) {
       body: [
         [
           "Equipamento",
-          equipamento || "-",
+          montarRotuloEquipamento(equipamentoObj) || "-",
           "Placa",
           equipamentoObj?.placa || "-"
         ],
@@ -763,14 +807,14 @@ function Relatorio({ setTela }) {
       pdf.setTextColor(0, 0, 0);
     }
 
-    pdf.save(`relatorio_mensal_equipamento_${mes}_${equipamento}.pdf`);
+    pdf.save(`relatorio_mensal_equipamento_${mes}_${normalizarEquipamento(montarRotuloEquipamento(equipamentoObj)).replace(/\s+/g, "_")}.pdf`);
     registrarHistorico({
       modulo: "RELATORIO",
       acao: "GEROU_PDF",
       entidade: "RELATORIO_MENSAL_EQUIPAMENTO",
       registroId: `${mes}-${equipamento}`,
       usuario: primeiroNome(operadorCabecalho?.nome || "-"),
-      descricao: `Gerou PDF mensal do equipamento ${equipamento} (${mes}).`
+      descricao: `Gerou PDF mensal do equipamento ${montarRotuloEquipamento(equipamentoObj)} (${mes}).`
     });
   };
 
@@ -799,12 +843,23 @@ function Relatorio({ setTela }) {
           }}
         >
           <div>
+            <label style={{ fontSize: 12, color: "#5a6b82" }}>Requisitante</label>
+            <select style={inputBase} value={requisitanteFiltro} onChange={(e) => setRequisitanteFiltro(e.target.value)}>
+              <option value="">Selecione o requisitante</option>
+              {requisitantesDisponiveis.map((req) => (
+                <option key={req} value={req}>
+                  {req}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label style={{ fontSize: 12, color: "#5a6b82" }}>Equipamento</label>
             <select style={inputBase} value={equipamento} onChange={(e) => setEquipamento(e.target.value)}>
               <option value="">Selecione o equipamento</option>
-              {equipamentos.map((eq) => (
-                <option key={eq.id || eq.nome} value={eq.nome}>
-                  {eq.nome}
+              {equipamentosFiltrados.map((eq) => (
+                <option key={eq.id || eq.nome} value={eq.id || ""}>
+                  {montarRotuloEquipamento(eq)}
                 </option>
               ))}
             </select>

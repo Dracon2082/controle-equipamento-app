@@ -51,6 +51,18 @@ function RelatorioTransportes({ setTela }) {
     return `https://www.google.com/maps?q=${lat},${lng}`;
   };
 
+  const formatarStatus = (status) => {
+    const chave = String(status || "").trim().toUpperCase();
+    const mapa = {
+      EM_TRANSITO: "Em trânsito",
+      RECEBIDO: "Recebido",
+      DIVERGENCIA: "Com divergência",
+      SAIDA_SIMPLES_CONCLUIDA: "Saída simples concluída",
+      CANCELADO: "Cancelado"
+    };
+    return mapa[chave] || String(status || "-").replace(/_/g, " ");
+  };
+
   const carregar = async () => {
     const [snap, snapCfg] = await Promise.all([
       getDocs(collection(db, COLECAO)),
@@ -73,7 +85,7 @@ function RelatorioTransportes({ setTela }) {
     [lista]
   );
   const opcoesCaminhao = useMemo(
-    () => Array.from(new Set(lista.map((item) => String(item.caminhaoNome || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    () => Array.from(new Set(lista.map((item) => String(item.caminhaoNome || item.veiculo || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     [lista]
   );
   const opcoesMotorista = useMemo(
@@ -98,7 +110,7 @@ function RelatorioTransportes({ setTela }) {
       if (dtIni && (!d || d < dtIni)) return false;
       if (dtFim && (!d || d > dtFim)) return false;
       if (filtroMaterial && String(item.materialLabel || item.material || "").trim() !== filtroMaterial) return false;
-      if (filtroCaminhao && String(item.caminhaoNome || "").trim() !== filtroCaminhao) return false;
+      if (filtroCaminhao && String(item.caminhaoNome || item.veiculo || "").trim() !== filtroCaminhao) return false;
       if (filtroMotorista && String(item.motorista || "").trim() !== filtroMotorista) return false;
       if (filtroOrigem && String(item.origem || "").trim() !== filtroOrigem) return false;
       if (filtroDestino && String(item.destino || "").trim() !== filtroDestino) return false;
@@ -113,7 +125,7 @@ function RelatorioTransportes({ setTela }) {
 
     filtrada.forEach((item) => {
       const mat = String(item.materialLabel || item.material || "-").trim() || "-";
-      const cam = String(item.caminhaoNome || "-").trim() || "-";
+      const cam = String(item.caminhaoNome || item.veiculo || "-").trim() || "-";
       const qtd = Number(item.quantidade || 0);
 
       if (!porMaterial[mat]) porMaterial[mat] = { viagens: 0, quantidade: 0, unidade: item.unidade || "" };
@@ -351,11 +363,11 @@ function RelatorioTransportes({ setTela }) {
       <div style={card}>
         <h3 style={{ marginTop: 0, color: "#10243e" }}>Detalhamento</h3>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1120 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980, tableLayout: "fixed" }}>
             <thead style={{ background: "#5f3dc4", color: "#fff" }}>
               <tr>
                 {["Data/hora", "Número", "Material", "Qtd", "Unid.", "Origem", "Destino", "Localizacoes", "Caminhao", "Motorista", "Status", "Recebedor"].map((titulo) => (
-                  <th key={titulo} style={{ padding: 8, border: "1px solid #d8e0ea", textAlign: "center", fontSize: 13 }}>{titulo}</th>
+                  <th key={titulo} style={{ padding: "7px 5px", border: "1px solid #d8e0ea", textAlign: "center", fontSize: 11, verticalAlign: "middle" }}>{titulo}</th>
                 ))}
               </tr>
             </thead>
@@ -369,14 +381,14 @@ function RelatorioTransportes({ setTela }) {
               )}
               {filtrada.map((item, idx) => (
                 <tr key={item.id} style={{ background: idx % 2 === 0 ? "#faf8ff" : "#fff" }}>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{dataBr(item.dataHoraSaida || item.criadoEm)}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3", fontWeight: 800 }}>{item.numero || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{item.materialLabel || item.material || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3", textAlign: "center" }}>{item.quantidade || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3", textAlign: "center" }}>{item.unidade || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{item.origem || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{item.destino || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3", fontSize: 12 }}>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11, lineHeight: 1.2, wordBreak: "break-word" }}>{dataBr(item.dataHoraSaida || item.criadoEm)}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontWeight: 800, fontSize: 12, lineHeight: 1.2, wordBreak: "break-word" }}>{item.numero || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11, lineHeight: 1.2, wordBreak: "break-word" }}>{item.materialLabel || item.material || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11 }}>{item.quantidade || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11 }}>{item.unidade || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11, lineHeight: 1.2, wordBreak: "break-word" }}>{item.origem || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11, lineHeight: 1.2, wordBreak: "break-word" }}>{item.destino || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", fontSize: 10, textAlign: "center", verticalAlign: "middle", lineHeight: 1.2, wordBreak: "break-word" }}>
                     <div><strong>Saída:</strong> {formatarLocalizacao(item.localSaida)}</div>
                     {linkMapa(item.localSaida) && (
                       <div><a href={linkMapa(item.localSaida)} target="_blank" rel="noreferrer">Mapa saída</a></div>
@@ -386,10 +398,14 @@ function RelatorioTransportes({ setTela }) {
                       <div><a href={linkMapa(item.localRecebimento)} target="_blank" rel="noreferrer">Mapa receb.</a></div>
                     )}
                   </td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{item.caminhaoNome || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{item.motorista || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3", fontWeight: 800 }}>{item.status || "-"}</td>
-                  <td style={{ padding: 8, border: "1px solid #e5ebf3" }}>{item.recebedor || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11, lineHeight: 1.2, wordBreak: "break-word" }}>{item.caminhaoNome || item.veiculo || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11, lineHeight: 1.2, wordBreak: "break-word" }}>{item.motorista || "-"}</td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle" }}>
+                    <span style={{ display: "inline-block", padding: "5px 8px", borderRadius: 999, background: "#f4f0ff", color: "#5f3dc4", fontWeight: 800, fontSize: 10, lineHeight: 1.15, maxWidth: 120 }}>
+                      {formatarStatus(item.status)}
+                    </span>
+                  </td>
+                  <td style={{ padding: "8px 6px", border: "1px solid #e5ebf3", textAlign: "center", verticalAlign: "middle", fontSize: 11, lineHeight: 1.2, wordBreak: "break-word" }}>{item.recebedor || "-"}</td>
                 </tr>
               ))}
             </tbody>

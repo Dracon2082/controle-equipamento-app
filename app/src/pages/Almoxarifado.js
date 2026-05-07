@@ -106,6 +106,11 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
   const [materialPrecoUnit, setMaterialPrecoUnit] = useState("");
   const [materialData, setMaterialData] = useState(new Date().toISOString().split("T")[0]);
   const [materialFornecedor, setMaterialFornecedor] = useState("");
+  const [materialValorFrete, setMaterialValorFrete] = useState("");
+  const [materialTransportador, setMaterialTransportador] = useState("");
+  const [materialVeiculoFrete, setMaterialVeiculoFrete] = useState("");
+  const [materialPlacaFrete, setMaterialPlacaFrete] = useState("");
+  const [materialMotoristaFrete, setMaterialMotoristaFrete] = useState("");
   const [materialObs, setMaterialObs] = useState("");
   const [materialNumeroSerie, setMaterialNumeroSerie] = useState("");
   const [nomeTravado, setNomeTravado] = useState(false);
@@ -481,6 +486,8 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     const notaFiscal = String(materialNota || "").trim();
     const precoUnitario = parseDecimalInput(materialPrecoUnit);
     const totalEntrada = (Number(qtd || 0) || 0) * (Number(precoUnitario || 0) || 0);
+    const valorFrete = parseDecimalInput(materialValorFrete);
+    const totalGeralEntrada = totalEntrada + (Number(valorFrete || 0) || 0);
 
     if (!categoria || !nome || qtd <= 0) {
       return alert("Preencha categoria, material e quantidade.");
@@ -692,8 +699,14 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
           notaFiscal,
           precoUnitario,
           totalEntrada,
+          valorFrete,
+          totalGeralEntrada,
           dataEntrada: materialData,
           fornecedor,
+          transportador: normalizarNome(materialTransportador),
+          veiculoFrete: normalizarNome(materialVeiculoFrete),
+          placaFrete: String(materialPlacaFrete || "").trim().toUpperCase(),
+          motoristaFrete: normalizarNome(materialMotoristaFrete),
           observacao,
           baseCidade: base.baseCidade,
           baseEstado: base.baseEstado,
@@ -724,6 +737,11 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     setMaterialNota("");
     setMaterialPrecoUnit("");
     setMaterialFornecedor("");
+    setMaterialValorFrete("");
+    setMaterialTransportador("");
+    setMaterialVeiculoFrete("");
+    setMaterialPlacaFrete("");
+    setMaterialMotoristaFrete("");
     setMaterialObs("");
     setMaterialNumeroSerie("");
     setNomeTravado(false);
@@ -1223,6 +1241,11 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     return qtdNum * precoNum;
   }, [materialQtd, materialPrecoUnit]);
 
+  const totalGeralEntradaPreview = useMemo(() => {
+    const freteNum = parseDecimalInput(materialValorFrete);
+    return Number(totalEntradaPreview || 0) + (Number(freteNum || 0) || 0);
+  }, [totalEntradaPreview, materialValorFrete]);
+
   const entradasFiltradas = useMemo(() => {
     const nota = String(filtroNotaEntrada || "").trim().toUpperCase();
     const ini = String(filtroDataIniEntrada || "").trim();
@@ -1277,25 +1300,114 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     const moeda = (v) =>
       `R$ ${Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-    gerarPdfTabela(
-      "RELATORIO - ENTRADAS DE MATERIAIS",
-      ["Data", "Nota Fiscal", "Categoria", "Material", "N Serie/Item", "CA", "Qtd", "Unid", "Unitario", "Total", "Fornecedor", "Entrada por"],
-      entradasFiltradas.map((r) => [
-        formatarDataBR(r.dataEntrada),
-        r.notaFiscal || "-",
-        r.categoria || "-",
-        r.nome || "-",
-        r.numeroSerie || r.equipamentoCodigo || "-",
-        r.caEpi || "-",
-        Number(r.quantidade || 0),
-        r.unidade || "UN",
-        moeda(r.precoUnitario || 0),
-        moeda(r.totalEntrada || 0),
-        r.fornecedor || "-",
-        String(r.criadoPor || r.criado_por || r.usuario || "-").toUpperCase()
-      ]),
-      "relatorio_entradas_materiais.pdf"
-    );
+    const pdf = new jsPDF("landscape");
+    const largura = pdf.internal.pageSize.getWidth();
+    const altura = pdf.internal.pageSize.getHeight();
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+
+    const logo = String(logoDataUrl || configEmpresa?.logoBase64 || "").trim();
+    if (logo && logo.startsWith("data:")) {
+      try {
+        pdf.addImage(logo, formatoImagem(logo), 12, 8, 18, 12);
+      } catch {
+        // segue sem logo
+      }
+    }
+
+    pdf.text("RELATÓRIO - ENTRADAS DE MATERIAIS", largura / 2, 14, { align: "center" });
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    const usuario =
+      String(sessaoOperacional?.nome || localStorage.getItem("usuarioLogado") || "USUARIO").trim().toUpperCase();
+    pdf.text(`Gerado por: ${usuario}`, largura / 2, 19, { align: "center" });
+    pdf.text(`Emitido em: ${new Date().toLocaleString("pt-BR")}`, largura / 2, 23, { align: "center" });
+
+    autoTable(pdf, {
+      startY: 26,
+      margin: { left: 8, right: 8 },
+      head: [[
+        "Data",
+        "NF",
+        "Cat.",
+        "Material",
+        "N Série/Item",
+        "CA",
+        "Qtd",
+        "Un.",
+        "Unit.",
+        "Total Nota",
+        "Frete",
+        "Total Geral",
+        "Transportador",
+        "Veículo",
+        "Placa",
+        "Motorista",
+        "Fornecedor",
+        "Entrada por"
+      ]],
+      body: entradasFiltradas.length
+        ? entradasFiltradas.map((r) => [
+            formatarDataBR(r.dataEntrada),
+            r.notaFiscal || "-",
+            r.categoria || "-",
+            r.nome || "-",
+            r.numeroSerie || r.equipamentoCodigo || "-",
+            r.caEpi || "-",
+            Number(r.quantidade || 0),
+            r.unidade || "UN",
+            moeda(r.precoUnitario || 0),
+            moeda(r.totalEntrada || 0),
+            moeda(r.valorFrete || 0),
+            moeda(r.totalGeralEntrada || ((Number(r.totalEntrada || 0) || 0) + (Number(r.valorFrete || 0) || 0))),
+            r.transportador || "-",
+            r.veiculoFrete || "-",
+            r.placaFrete || "-",
+            r.motoristaFrete || "-",
+            r.fornecedor || "-",
+            String(r.criadoPor || r.criado_por || r.usuario || "-").toUpperCase()
+          ])
+        : [["Sem registros para o filtro informado."]],
+      theme: "grid",
+      styles: {
+        fontSize: 6.6,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        overflow: "linebreak"
+      },
+      headStyles: {
+        fillColor: [11, 61, 145],
+        textColor: 255,
+        halign: "center",
+        fontSize: 6.5
+      },
+      columnStyles: {
+        0: { cellWidth: 18 },
+        1: { cellWidth: 14 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 8 },
+        6: { cellWidth: 10 },
+        7: { cellWidth: 10 },
+        8: { cellWidth: 16 },
+        9: { cellWidth: 18 },
+        10: { cellWidth: 15 },
+        11: { cellWidth: 18 },
+        12: { cellWidth: 24 },
+        13: { cellWidth: 14 },
+        14: { cellWidth: 18 },
+        15: { cellWidth: 18 },
+        16: { cellWidth: 20 },
+        17: { cellWidth: 18 }
+      }
+    });
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(60);
+    pdf.text("Equipamento Gestao", 8, altura - 8);
+    pdf.save("relatorio_entradas_materiais.pdf");
   };
 
   const funcionariosNoHistoricoInsumo = useMemo(() => {
@@ -1699,6 +1811,30 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
                 </div>
               </div>
 
+              <input
+                style={inputStyle}
+                placeholder="Valor do frete (R$)"
+                value={materialValorFrete}
+                onChange={(e) => setMaterialValorFrete(e.target.value)}
+              />
+
+              <div style={{
+                background: "#eefaf3",
+                border: "1px solid #cfe8d8",
+                borderRadius: 8,
+                padding: "10px 12px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                minHeight: 42,
+                boxSizing: "border-box"
+              }}>
+                <div style={{ fontWeight: "bold", color: "#10243e" }}>Total geral</div>
+                <div style={{ fontWeight: "bold", color: "#198754", whiteSpace: "nowrap" }}>
+                  {`R$ ${Number(totalGeralEntradaPreview || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </div>
+              </div>
+
               <input style={inputStyle} type="date" value={materialData} onChange={(e) => setMaterialData(e.target.value)} />
 
               <input
@@ -1709,6 +1845,10 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
               />
 
               <input style={inputStyle} placeholder="Fornecedor (opcional)" value={materialFornecedor} onChange={(e) => setMaterialFornecedor(e.target.value)} />
+              <input style={inputStyle} placeholder="Transportador / proprietario" value={materialTransportador} onChange={(e) => setMaterialTransportador(e.target.value)} />
+              <input style={inputStyle} placeholder="Veiculo" value={materialVeiculoFrete} onChange={(e) => setMaterialVeiculoFrete(e.target.value)} />
+              <input style={inputStyle} placeholder="Placa" value={materialPlacaFrete} onChange={(e) => setMaterialPlacaFrete(e.target.value)} />
+              <input style={inputStyle} placeholder="Motorista" value={materialMotoristaFrete} onChange={(e) => setMaterialMotoristaFrete(e.target.value)} />
             </div>
 
             <textarea
@@ -1819,63 +1959,79 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
                 Limpar filtro
               </button>
             </div>
-            <div style={{ overflowX: isMobile ? "auto" : "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
               <table
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
                   tableLayout: "fixed",
-                  minWidth: isMobile ? 1400 : "unset"
+                  minWidth: 1950
                 }}
               >
                 <thead>
                   <tr style={{ background: "#0b3d91", color: "#fff" }}>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Data</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Nota Fiscal</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Categoria</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Material</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>N Serie/Item</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>CA</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Qtd</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Unid</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Preco Unit.</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Total</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Fornecedor</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Entrada por</th>
-                    <th style={{ border: "1px solid #d4dce9", padding: 8 }}>Obs</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 90, textAlign: "center" }}>Data</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 110, textAlign: "center" }}>Nota Fiscal</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 120, textAlign: "center" }}>Categoria</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 230, textAlign: "center" }}>Material</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 120, textAlign: "center" }}>N Serie/Item</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 80, textAlign: "center" }}>CA</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 70, textAlign: "center" }}>Qtd</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 70, textAlign: "center" }}>Unid</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 110, textAlign: "center" }}>Preco Unit.</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 120, textAlign: "center" }}>Total Nota</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 100, textAlign: "center" }}>Frete</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 130, textAlign: "center" }}>Total Geral</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 210, textAlign: "center" }}>Transportador</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 160, textAlign: "center" }}>Veiculo</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 100, textAlign: "center" }}>Placa</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 160, textAlign: "center" }}>Motorista</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 180, textAlign: "center" }}>Fornecedor</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 150, textAlign: "center" }}>Entrada por</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 160, textAlign: "center" }}>Obs</th>
                   </tr>
                 </thead>
                 <tbody>
                   {entradasFiltradas.length === 0 && (
                     <tr>
-                      <td colSpan={13} style={{ border: "1px solid #d4dce9", padding: 10, textAlign: "center" }}>
+                      <td colSpan={18} style={{ border: "1px solid #d4dce9", padding: 10, textAlign: "center" }}>
                         Sem registros de entrada.
                       </td>
                     </tr>
                   )}
                   {entradasFiltradas.map((r) => (
                     <tr key={r.id}>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8 }}>{formatarDataBR(r.dataEntrada)}</td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, overflow: "hidden", textOverflow: "ellipsis" }}>{r.notaFiscal || "-"}</td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis" }}>{r.categoria || "-"}</td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, overflow: "hidden", textOverflow: "ellipsis" }}>{r.nome || "-"}</td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {r.numeroSerie || r.equipamentoCodigo || "-"}
-                      </td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8 }}>{r.caEpi || "-"}</td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center" }}>{Number(r.quantidade || 0)}</td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center" }}>{r.unidade || "UN"}</td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "right", whiteSpace: "nowrap", fontWeight: "bold" }}>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25 }}>{formatarDataBR(r.dataEntrada)}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.notaFiscal || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis" }}>{r.categoria || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.nome || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {r.numeroSerie || r.equipamentoCodigo || "-"}
+                        </td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25 }}>{r.caEpi || "-"}</td>
+                      <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25 }}>{Number(r.quantidade || 0)}</td>
+                      <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25 }}>{r.unidade || "UN"}</td>
+                      <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, whiteSpace: "nowrap", fontWeight: "bold" }}>
                         {`R$ ${Number(r.precoUnitario || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "right", whiteSpace: "nowrap", fontWeight: "bold" }}>
-                        {`R$ ${Number(r.totalEntrada || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      </td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, overflow: "hidden", textOverflow: "ellipsis" }}>{r.fornecedor || "-"}</td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, fontWeight: "bold" }}>
-                        {String(r.criadoPor || r.criado_por || r.usuario || "-").toUpperCase()}
-                      </td>
-                      <td style={{ border: "1px solid #d4dce9", padding: 8, overflow: "hidden", textOverflow: "ellipsis" }}>{r.observacao || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, whiteSpace: "nowrap", fontWeight: "bold" }}>
+                          {`R$ ${Number(r.totalEntrada || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, whiteSpace: "nowrap", fontWeight: "bold" }}>
+                          {`R$ ${Number(r.valorFrete || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, whiteSpace: "nowrap", fontWeight: "bold", color: "#198754" }}>
+                          {`R$ ${Number(r.totalGeralEntrada || ((Number(r.totalEntrada || 0) || 0) + (Number(r.valorFrete || 0) || 0))).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.transportador || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.veiculoFrete || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.placaFrete || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.motoristaFrete || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.fornecedor || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, fontWeight: "bold" }}>
+                          {String(r.criadoPor || r.criado_por || r.usuario || "-").toUpperCase()}
+                        </td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.observacao || "-"}</td>
                     </tr>
                   ))}
                 </tbody>

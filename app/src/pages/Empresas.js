@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { db } from "../firebase";
 import { useState, useEffect } from "react";
-import { collection, addDoc, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { registrarHistorico } from "../utils/historico";
 import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
 
@@ -67,6 +67,7 @@ function Empresas({ setTela }) {
   const [telefone, setTelefone] = useState("");
   const [dataCadastro, setDataCadastro] = useState(hojeBR());
   const [lista, setLista] = useState([]);
+  const [editandoId, setEditandoId] = useState("");
 
   const inputStyle = {
     width: "100%",
@@ -110,6 +111,12 @@ function Empresas({ setTela }) {
     cursor: "pointer"
   };
 
+  const actionMenuButton = {
+    ...secondaryButton,
+    padding: "6px 12px",
+    borderRadius: 6
+  };
+
   const buscar = async () => {
     const snap = await getDocs(collection(db, "empresas"));
 
@@ -133,6 +140,17 @@ function Empresas({ setTela }) {
     setDocumento("");
     setTelefone("");
     setDataCadastro(hojeBR());
+    setEditandoId("");
+  };
+
+  const carregarParaEdicao = (item) => {
+    setEditandoId(item.id || "");
+    setNome(String(item.nome || ""));
+    setTipoDocumento(String(item.tipoDocumento || "CNPJ"));
+    setDocumento(formatarDocumento(item.documento || item.cnpj || item.cpf || "", item.tipoDocumento || "CNPJ"));
+    setTelefone(formatarTelefone(item.telefone || ""));
+    setDataCadastro(item.dataCadastro || hojeBR());
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const salvar = async () => {
@@ -145,30 +163,47 @@ function Empresas({ setTela }) {
     if (tipoDocumento === "CNPJ" && docNumero.length !== 14) return alert("CNPJ invalido!");
 
     const nomeNormalizado = normalizarTexto(nome);
-    const existeNome = lista.find((item) => normalizarTexto(item.nome) === nomeNormalizado);
+    const existeNome = lista.find((item) => item.id !== editandoId && normalizarTexto(item.nome) === nomeNormalizado);
     if (existeNome) return alert("Empresa ja cadastrada!");
 
     const existeDocumento = lista.find(
-      (item) => soDigitos(item.documento || item.cnpj || item.cpf) === docNumero
+      (item) => item.id !== editandoId && soDigitos(item.documento || item.cnpj || item.cpf) === docNumero
     );
     if (existeDocumento) return alert(`${tipoDocumento} ja cadastrado!`);
 
-    const ref = await addDoc(collection(db, "empresas"), withTenant({
-      nome: nomeNormalizado,
-      tipoDocumento,
-      documento: docNumero,
-      telefone: soDigitos(telefone),
-      dataCadastro
-    }, tenantId));
-    await registrarHistorico({
-      modulo: "EMPRESAS",
-      acao: "CRIOU",
-      entidade: "EMPRESA_REQUISITANTE",
-      registroId: ref.id,
-      descricao: `Cadastrou empresa ${nomeNormalizado}.`
-    });
-
-    alert("Empresa salva com sucesso!");
+    if (editandoId) {
+      await updateDoc(doc(db, "empresas", editandoId), {
+        nome: nomeNormalizado,
+        tipoDocumento,
+        documento: docNumero,
+        telefone: soDigitos(telefone),
+        dataCadastro
+      });
+      await registrarHistorico({
+        modulo: "EMPRESAS",
+        acao: "EDITOU",
+        entidade: "EMPRESA_REQUISITANTE",
+        registroId: editandoId,
+        descricao: `Editou empresa ${nomeNormalizado}.`
+      });
+      alert("Empresa atualizada com sucesso!");
+    } else {
+      const ref = await addDoc(collection(db, "empresas"), withTenant({
+        nome: nomeNormalizado,
+        tipoDocumento,
+        documento: docNumero,
+        telefone: soDigitos(telefone),
+        dataCadastro
+      }, tenantId));
+      await registrarHistorico({
+        modulo: "EMPRESAS",
+        acao: "CRIOU",
+        entidade: "EMPRESA_REQUISITANTE",
+        registroId: ref.id,
+        descricao: `Cadastrou empresa ${nomeNormalizado}.`
+      });
+      alert("Empresa salva com sucesso!");
+    }
     limparFormulario();
     buscar();
   };
@@ -201,7 +236,7 @@ function Empresas({ setTela }) {
       </h2>
 
       <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Cadastro da Empresa</h3>
+        <h3 style={{ marginTop: 0 }}>{editandoId ? "Editar Empresa" : "Cadastro da Empresa"}</h3>
 
         <input
           style={inputStyle}
@@ -247,8 +282,8 @@ function Empresas({ setTela }) {
         />
 
         <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-          <button style={primaryButton} onClick={salvar}>SALVAR</button>
-          <button style={secondaryButton} onClick={limparFormulario}>LIMPAR</button>
+          <button style={primaryButton} onClick={salvar}>{editandoId ? "ATUALIZAR" : "SALVAR"}</button>
+          <button style={secondaryButton} onClick={limparFormulario}>{editandoId ? "CANCELAR" : "LIMPAR"}</button>
           </div>
       </div>
 
@@ -260,7 +295,7 @@ function Empresas({ setTela }) {
           borderCollapse: "collapse",
           background: "#fff",
           borderRadius: 8,
-          overflow: "hidden"
+          overflow: "visible"
         }}>
           <thead style={{ background: "#0b3d91", color: "#fff" }}>
             <tr>
@@ -297,8 +332,32 @@ function Empresas({ setTela }) {
                 <td style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", whiteSpace: "nowrap" }}>
                   {item.dataCadastro || "-"}
                 </td>
-                <td style={{ border: "1px solid #ccc", padding: 8, textAlign: "center" }}>
-                  <button style={dangerButton} onClick={() => excluir(item.id)}>Excluir</button>
+                <td style={{ border: "1px solid #ccc", padding: 8, textAlign: "center", verticalAlign: "top" }}>
+                  <details style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <summary style={{ ...actionMenuButton, listStyle: "none", userSelect: "none" }}>
+                      Abrir
+                    </summary>
+                    <div style={{
+                      minWidth: 120,
+                      background: "#fff",
+                      border: "1px solid #d6dbe5",
+                      borderRadius: 8,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                      padding: 8,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      zIndex: 20
+                    }}>
+                      <button
+                        style={{ ...secondaryButton, padding: "6px 10px", borderRadius: 6 }}
+                        onClick={() => carregarParaEdicao(item)}
+                      >
+                        Editar
+                      </button>
+                      <button style={dangerButton} onClick={() => excluir(item.id)}>Excluir</button>
+                    </div>
+                  </details>
                 </td>
               </tr>
             ))}
