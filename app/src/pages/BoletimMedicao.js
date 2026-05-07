@@ -91,6 +91,7 @@ function BoletimMedicao({ setTela }) {
   const [salvando, setSalvando] = useState(false);
   const [gerandoPdfId, setGerandoPdfId] = useState("");
   const [menuAbertoId, setMenuAbertoId] = useState("");
+  const [grupoAbertoId, setGrupoAbertoId] = useState("");
 
   const [numero, setNumero] = useState("");
   const [obraId, setObraId] = useState("");
@@ -341,6 +342,45 @@ function BoletimMedicao({ setTela }) {
   const acumuladoLiquidoAnterior = useMemo(() => Number(resumoAnterior.valorLiquido || 0), [resumoAnterior]);
 
   const acumuladoLiquidoAtual = acumuladoLiquidoAnterior + valorLiquido;
+
+  const gruposBoletins = useMemo(() => {
+    const mapa = new Map();
+
+    lista.forEach((item) => {
+      const grupoId = `${String(item.empresaRequisitanteId || item.empresaRequisitanteNome || "-")}__${String(item.obraId || item.obraNome || "-")}`;
+      if (!mapa.has(grupoId)) {
+        mapa.set(grupoId, {
+          id: grupoId,
+          empresaNome: item.empresaRequisitanteNome || "-",
+          obraNome: item.obraNome || "-",
+          itens: []
+        });
+      }
+      mapa.get(grupoId).itens.push(item);
+    });
+
+    return Array.from(mapa.values())
+      .map((grupo) => {
+        const itensOrdenados = [...grupo.itens].sort((a, b) => {
+          const seqA = Number(a.numeroSequencialEmpresa || extrairSequencialBoletim(a.numero) || 0);
+          const seqB = Number(b.numeroSequencialEmpresa || extrairSequencialBoletim(b.numero) || 0);
+          return seqB - seqA;
+        });
+        const ultima = itensOrdenados[0];
+        return {
+          ...grupo,
+          itens: itensOrdenados,
+          quantidadeMedicoes: itensOrdenados.length,
+          ultimaMedicao: ultima,
+          valorAcumulado: Number(ultima?.acumuladoLiquidoAtual ?? ultima?.valorLiquido ?? 0)
+        };
+      })
+      .sort((a, b) => {
+        const seqA = Number(a.ultimaMedicao?.numeroSequencialEmpresa || extrairSequencialBoletim(a.ultimaMedicao?.numero) || 0);
+        const seqB = Number(b.ultimaMedicao?.numeroSequencialEmpresa || extrairSequencialBoletim(b.ultimaMedicao?.numero) || 0);
+        return seqB - seqA;
+      });
+  }, [lista]);
 
   const obterResumoAnteriorBoletim = (boletimAtual) => {
     const empresaRef = String(boletimAtual?.empresaRequisitanteId || "");
@@ -1082,6 +1122,7 @@ function BoletimMedicao({ setTela }) {
             <button type="button" style={botaoSecundario} onClick={() => setTela("home")}>Voltar</button>
           </div>
         </div>
+        )}
       </div>
 
       <div style={card}>
@@ -1317,8 +1358,139 @@ function BoletimMedicao({ setTela }) {
 
       <div style={card}>
         <h3 style={{ marginTop: 0, color: "#173454" }}>Boletins cadastrados</h3>
+        <div style={{ overflowX: "auto", marginBottom: 12 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1080 }}>
+            <thead style={{ background: "#0b5ed7", color: "#fff" }}>
+              <tr>
+                {["Obra", "Requisitante", "Medições", "Última medição", "Valor acumulado", "Ações"].map((titulo) => (
+                  <th key={`grupo-${titulo}`} style={{ border: "1px solid #d8e0ea", padding: 10, textAlign: "left", whiteSpace: "nowrap" }}>
+                    {titulo}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {gruposBoletins.flatMap((grupo, index) => {
+                const linhaGrupo = (
+                  <tr key={grupo.id} style={{ background: index % 2 === 0 ? "#f8fbff" : "#fff" }}>
+                    <td style={{ border: "1px solid #e5ebf3", padding: 10, fontWeight: 700 }}>{grupo.obraNome || "-"}</td>
+                    <td style={{ border: "1px solid #e5ebf3", padding: 10 }}>{grupo.empresaNome || "-"}</td>
+                    <td style={{ border: "1px solid #e5ebf3", padding: 10, whiteSpace: "nowrap" }}>{grupo.quantidadeMedicoes} medição(ões)</td>
+                    <td style={{ border: "1px solid #e5ebf3", padding: 10, whiteSpace: "nowrap", fontWeight: 700 }}>
+                      {grupo.ultimaMedicao?.numero || "-"}
+                    </td>
+                    <td style={{ border: "1px solid #e5ebf3", padding: 10, whiteSpace: "nowrap", fontWeight: 800 }}>
+                      R$ {numeroParaMoeda(grupo.valorAcumulado)}
+                    </td>
+                    <td style={{ border: "1px solid #e5ebf3", padding: 10 }}>
+                      <button
+                        type="button"
+                        style={botaoSecundario}
+                        onClick={() => {
+                          setMenuAbertoId("");
+                          setGrupoAbertoId((atual) => (atual === grupo.id ? "" : grupo.id));
+                        }}
+                      >
+                        {grupoAbertoId === grupo.id ? "Fechar" : "Abrir"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+
+                const linhaDetalhes = grupoAbertoId === grupo.id ? (
+                  <tr key={`${grupo.id}-detalhes`}>
+                    <td colSpan={6} style={{ border: "1px solid #e5ebf3", padding: 12, background: "#fdfefe" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead style={{ background: "#eef4ff", color: "#173454" }}>
+                          <tr>
+                            {["Número", "Período", "Tipo", "Valor líquido", "Ações"].map((titulo) => (
+                              <th
+                                key={`${grupo.id}-${titulo}`}
+                                style={{ border: "1px solid #d8e0ea", padding: 8, textAlign: "left", whiteSpace: "nowrap" }}
+                              >
+                                {titulo}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {grupo.itens.map((item, itemIndex) => (
+                            <tr key={item.id} style={{ background: itemIndex % 2 === 0 ? "#fff" : "#f8fbff" }}>
+                              <td style={{ border: "1px solid #e5ebf3", padding: 8, fontWeight: 700 }}>{item.numero || "-"}</td>
+                              <td style={{ border: "1px solid #e5ebf3", padding: 8, whiteSpace: "nowrap" }}>
+                                {`${formatarDataBR(item.periodoInicial)} a ${formatarDataBR(item.periodoFinal)}`}
+                              </td>
+                              <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>{item.tipo || "-"}</td>
+                              <td style={{ border: "1px solid #e5ebf3", padding: 8, whiteSpace: "nowrap", fontWeight: 800 }}>
+                                R$ {numeroParaMoeda(item.valorLiquido)}
+                              </td>
+                              <td style={{ border: "1px solid #e5ebf3", padding: 8 }}>
+                                <div style={{ position: "relative", display: "inline-block" }}>
+                                  <button
+                                    type="button"
+                                    style={botaoSecundario}
+                                    onClick={() => setMenuAbertoId((atual) => (atual === item.id ? "" : item.id))}
+                                  >
+                                    Abrir
+                                  </button>
+                                  {menuAbertoId === item.id && (
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        top: "calc(100% + 6px)",
+                                        right: 0,
+                                        minWidth: 150,
+                                        background: "#fff",
+                                        border: "1px solid #dfe6f2",
+                                        borderRadius: 10,
+                                        boxShadow: "0 8px 24px rgba(15, 23, 42, 0.14)",
+                                        padding: 8,
+                                        display: "grid",
+                                        gap: 6,
+                                        zIndex: 10
+                                      }}
+                                    >
+                                      <button type="button" style={botaoSecundario} onClick={() => carregarParaEdicao(item)}>
+                                        Editar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        style={{ ...botaoSecundario, opacity: gerandoPdfId === item.id ? 0.7 : 1 }}
+                                        onClick={() => gerarPdf(item)}
+                                        disabled={gerandoPdfId === item.id}
+                                      >
+                                        {gerandoPdfId === item.id ? "Gerando..." : "PDF"}
+                                      </button>
+                                      <button type="button" style={botaoPerigo} onClick={() => excluir(item)}>
+                                        Excluir
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                ) : null;
+
+                return linhaDetalhes ? [linhaGrupo, linhaDetalhes] : [linhaGrupo];
+              })}
+              {!gruposBoletins.length && (
+                <tr>
+                  <td colSpan={6} style={{ padding: 12, textAlign: "center", color: "#6c757d", border: "1px solid #e5ebf3" }}>
+                    Nenhum boletim cadastrado ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {false && (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1080 }}>
             <thead style={{ background: "#0b5ed7", color: "#fff" }}>
               <tr>
                 {["Número", "Obra", "Requisitante", "Período", "Tipo", "Valor líquido", "Ações"].map((titulo) => (
@@ -1403,6 +1575,7 @@ function BoletimMedicao({ setTela }) {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   );
