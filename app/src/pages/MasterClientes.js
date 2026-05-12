@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
-import { getTenantId, setTenantId, withTenant } from "../utils/tenant";
+import { getConfigDocId, getTenantId, setTenantId, withTenant } from "../utils/tenant";
 import { alterarSenhaMaster, masterLogout } from "../utils/masterAuth";
 import { garantirUsuarioAuth } from "../utils/authUsers";
 import { getContatoComercialConfig, salvarContatoComercialConfig } from "../utils/contactConfig";
@@ -159,15 +159,87 @@ const ASSINATURA_SIMULADA =
 const confirmarTexto = (valorDigitado, esperado) =>
   String(valorDigitado || "").trim().toUpperCase() === String(esperado || "").trim().toUpperCase();
 
+const soDigitos = (valor) => String(valor || "").replace(/\D/g, "");
+
+const upper = (valor) => String(valor || "").trim().toUpperCase();
+
+const formatarCep = (valor) => {
+  const numeros = soDigitos(valor).slice(0, 8);
+  if (numeros.length <= 5) return numeros;
+  return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
+};
+
+const montarEnderecoCompleto = ({ logradouro, numero, bairro, cidade, uf, cep }) => {
+  const partes = [];
+  const rua = String(logradouro || "").trim();
+  const num = String(numero || "").trim();
+  const bairroTexto = String(bairro || "").trim();
+  const cidadeTexto = String(cidade || "").trim();
+  const ufTexto = String(uf || "").trim();
+  const cepTexto = formatarCep(cep);
+
+  if (rua) partes.push(num ? `${rua}, ${num}` : rua);
+  if (bairroTexto) partes.push(bairroTexto);
+  if (cidadeTexto || ufTexto) partes.push(`${cidadeTexto}${cidadeTexto && ufTexto ? "/" : ""}${ufTexto}`.trim());
+  if (cepTexto) partes.push(`CEP ${cepTexto}`);
+
+  return partes.join(" - ");
+};
+
+const extrairDadosCnpjApi = (dados) => {
+  if (!dados || typeof dados !== "object") return null;
+
+  if (dados?.estabelecimento) {
+    const est = dados.estabelecimento || {};
+    const ie = Array.isArray(est.inscricoes_estaduais) ? est.inscricoes_estaduais[0]?.inscricao_estadual || "" : "";
+    const telefone = `${est.ddd1 || ""}${est.telefone1 || ""}` || `${est.ddd2 || ""}${est.telefone2 || ""}`;
+    return {
+      razaoSocial: dados?.razao_social || "",
+      nomeFantasia: est?.nome_fantasia || "",
+      inscricaoEstadual: ie,
+      logradouro: est?.logradouro || "",
+      numero: est?.numero || "",
+      bairro: est?.bairro || "",
+      cep: est?.cep || "",
+      cidade: est?.cidade?.nome || "",
+      uf: est?.estado?.sigla || "",
+      email: est?.email || "",
+      telefone
+    };
+  }
+
+  return {
+    razaoSocial: dados?.razao_social || dados?.nome_empresarial || dados?.legal_name || "",
+    nomeFantasia: dados?.nome_fantasia || dados?.trade_name || "",
+    inscricaoEstadual: dados?.inscricao_estadual || "",
+    logradouro: dados?.logradouro || dados?.street || "",
+    numero: dados?.numero || dados?.number || "",
+    bairro: dados?.bairro || dados?.neighborhood || "",
+    cep: dados?.cep || dados?.zip_code || "",
+    cidade: dados?.municipio || dados?.cidade || dados?.city || "",
+    uf: dados?.uf || dados?.state || "",
+    email: dados?.email || "",
+    telefone: dados?.ddd_telefone_1 || dados?.phone || ""
+  };
+};
+
 function MasterClientes({ setTela }) {
   const [razaoSocial, setRazaoSocial] = useState("");
   const [nomeFantasia, setNomeFantasia] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [inscricaoEstadual, setInscricaoEstadual] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [logradouro, setLogradouro] = useState("");
+  const [numero, setNumero] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [cep, setCep] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [uf, setUf] = useState("");
   const [enderecoCobranca, setEnderecoCobranca] = useState("");
   const [telefone, setTelefone] = useState("");
   const [emailContato, setEmailContato] = useState("");
+  const [consultandoCnpj, setConsultandoCnpj] = useState(false);
+  const [mensagemConsultaCnpj, setMensagemConsultaCnpj] = useState("");
   const [planoId, setPlanoId] = useState("PLANO_1");
   const [cicloPlanoMeses, setCicloPlanoMeses] = useState(1);
   const [valorMensal, setValorMensal] = useState(349);
@@ -186,6 +258,7 @@ function MasterClientes({ setTela }) {
   const [valorPlanoEdicao, setValorPlanoEdicao] = useState("");
   const [acoesAbertoId, setAcoesAbertoId] = useState("");
   const acoesMenuRef = useRef(null);
+  const ultimoCnpjConsultadoRef = useRef("");
   const [acoesMenuPos, setAcoesMenuPos] = useState(null); // { top, left, width }
   const [acoesAnchorRect, setAcoesAnchorRect] = useState(null); // DOMRect
 
@@ -441,6 +514,73 @@ function MasterClientes({ setTela }) {
     setLista(dados);
   };
 
+  const aplicarDadosCnpj = (dados) => {
+    if (!dados) return false;
+
+    setRazaoSocial((atual) => atual || dados.razaoSocial || "");
+    setNomeFantasia((atual) => atual || dados.nomeFantasia || "");
+    setInscricaoEstadual((atual) => atual || dados.inscricaoEstadual || "");
+    setLogradouro((atual) => atual || dados.logradouro || "");
+    setNumero((atual) => atual || dados.numero || "");
+    setBairro((atual) => atual || dados.bairro || "");
+    setCep((atual) => atual || formatarCep(dados.cep));
+    setCidade((atual) => atual || dados.cidade || "");
+    setUf((atual) => atual || upper(dados.uf));
+    setEmailContato((atual) => atual || String(dados.email || "").toLowerCase());
+    setTelefone((atual) => atual || formatarTelefone(dados.telefone));
+    return true;
+  };
+
+  const consultarCnpj = async (forcar = false) => {
+    const cnpjNumero = soDigitos(cnpj);
+    if (cnpjNumero.length !== 14) {
+      setMensagemConsultaCnpj("Digite um CNPJ completo com 14 numeros.");
+      setConsultandoCnpj(false);
+      return false;
+    }
+
+    if (!forcar && ultimoCnpjConsultadoRef.current === cnpjNumero) {
+      return true;
+    }
+
+    ultimoCnpjConsultadoRef.current = cnpjNumero;
+    setConsultandoCnpj(true);
+    setMensagemConsultaCnpj("Buscando dados do CNPJ...");
+
+    const endpoints = [
+      `https://brasilapi.com.br/api/cnpj/v1/${cnpjNumero}`,
+      `https://publica.cnpj.ws/cnpj/${cnpjNumero}`
+    ];
+
+    try {
+      for (const url of endpoints) {
+        try {
+          const resposta = await fetch(url);
+          if (!resposta.ok) continue;
+          const payload = await resposta.json();
+          const dados = extrairDadosCnpjApi(payload);
+          const achouAlgo =
+            dados?.razaoSocial || dados?.nomeFantasia || dados?.logradouro || dados?.bairro || dados?.cidade || dados?.uf || dados?.cep;
+          if (!achouAlgo) continue;
+          aplicarDadosCnpj(dados);
+          setMensagemConsultaCnpj("Dados do CNPJ carregados. Revise e complemente se precisar.");
+          setConsultandoCnpj(false);
+          return true;
+        } catch {
+          // Tenta a proxima API publica.
+        }
+      }
+
+      setMensagemConsultaCnpj("Nao consegui buscar esse CNPJ agora. Voce pode preencher manualmente e tentar novamente.");
+      setConsultandoCnpj(false);
+      return false;
+    } catch {
+      setMensagemConsultaCnpj("Nao consegui buscar esse CNPJ agora. Voce pode preencher manualmente e tentar novamente.");
+      setConsultandoCnpj(false);
+      return false;
+    }
+  };
+
   useEffect(() => {
     carregar();
     if (!senhaTemporaria) setSenhaTemporaria(gerarSenha());
@@ -449,13 +589,51 @@ function MasterClientes({ setTela }) {
     setWhatsSuporte(contato.suporteWhatsappUrl || "");
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    setEndereco(upper(montarEnderecoCompleto({ logradouro, numero, bairro, cidade, uf, cep })));
+  }, [logradouro, numero, bairro, cidade, uf, cep]);
+
+  useEffect(() => {
+    const cnpjNumero = soDigitos(cnpj);
+
+    if (cnpjNumero.length !== 14) {
+      ultimoCnpjConsultadoRef.current = "";
+      setConsultandoCnpj(false);
+      if (mensagemConsultaCnpj) {
+        setMensagemConsultaCnpj("");
+      }
+      return;
+    }
+
+    if (ultimoCnpjConsultadoRef.current === cnpjNumero) return;
+
+    consultarCnpj();
+  }, [cnpj]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const salvar = async () => {
-    const cnpjNumero = String(cnpj || "").replace(/\D/g, "");
-    const razao = String(razaoSocial || "").trim().toUpperCase();
-    const fantasia = String(nomeFantasia || "").trim().toUpperCase();
+    const cnpjNumero = soDigitos(cnpj);
+    const razao = upper(razaoSocial);
+    const fantasia = upper(nomeFantasia);
     const email = String(emailContato || "").trim().toLowerCase();
     const emailAdmin = String(emailGestor || emailContato || "").trim().toLowerCase();
-    const nomeAdmin = String(nomeGestor || "").trim().toUpperCase();
+    const nomeAdmin = upper(nomeGestor);
+    const logradouroTexto = upper(logradouro);
+    const numeroTexto = upper(numero);
+    const bairroTexto = upper(bairro);
+    const cepTexto = formatarCep(cep);
+    const cidadeTexto = upper(cidade);
+    const ufTexto = upper(uf);
+    const enderecoMontado = upper(
+      montarEnderecoCompleto({
+        logradouro: logradouroTexto,
+        numero: numeroTexto,
+        bairro: bairroTexto,
+        cidade: cidadeTexto,
+        uf: ufTexto,
+        cep: cepTexto
+      })
+    );
+    const enderecoFinal = upper(endereco) || enderecoMontado;
 
     if (!razao) return alert("Informe a razao social.");
     if (cnpjNumero.length !== 14) return alert("CNPJ invalido.");
@@ -479,10 +657,16 @@ function MasterClientes({ setTela }) {
       razaoSocial: razao,
       nomeFantasia: fantasia,
       cnpj: cnpjNumero,
-      inscricaoEstadual: String(inscricaoEstadual || "").trim().toUpperCase(),
-      endereco: String(endereco || "").trim().toUpperCase(),
-      enderecoCobranca: String(enderecoCobranca || "").trim().toUpperCase(),
-      telefone: String(telefone || "").replace(/\D/g, ""),
+      inscricaoEstadual: upper(inscricaoEstadual),
+      endereco: enderecoFinal,
+      logradouro: logradouroTexto,
+      numero: numeroTexto,
+      bairro: bairroTexto,
+      cep: cepTexto,
+      cidade: cidadeTexto,
+      uf: ufTexto,
+      enderecoCobranca: upper(enderecoCobranca),
+      telefone: soDigitos(telefone),
       emailContato: email,
       planoId,
       planoNome: planoSelecionado?.nome || planoId,
@@ -509,6 +693,24 @@ function MasterClientes({ setTela }) {
         senhaTemporaria
       }
     });
+
+    await setDoc(doc(db, "configuracoes", getConfigDocId(tenantId)), {
+      tenantId,
+      nome: razao,
+      nomeFantasia: fantasia,
+      cnpj: cnpjNumero,
+      telefone: soDigitos(telefone),
+      endereco: enderecoFinal,
+      logradouro: logradouroTexto,
+      numero: numeroTexto,
+      bairro: bairroTexto,
+      cep: cepTexto,
+      cidade: cidadeTexto,
+      estado: ufTexto,
+      uf: ufTexto,
+      inscricaoEstadual: upper(inscricaoEstadual),
+      emailContato: email
+    }, { merge: true });
 
     const snapFrentistas = await getDocs(collection(db, "frentistas"));
     const jaExisteAcesso = snapFrentistas.docs.some((docItem) => {
@@ -560,9 +762,18 @@ function MasterClientes({ setTela }) {
     setCnpj("");
     setInscricaoEstadual("");
     setEndereco("");
+    setLogradouro("");
+    setNumero("");
+    setBairro("");
+    setCep("");
+    setCidade("");
+    setUf("");
     setEnderecoCobranca("");
     setTelefone("");
     setEmailContato("");
+    setMensagemConsultaCnpj("");
+    setConsultandoCnpj(false);
+    ultimoCnpjConsultadoRef.current = "";
     setPlanoId("PLANO_1");
     setCicloPlanoMeses(1);
     setValorMensal(349);
@@ -2576,9 +2787,36 @@ function MasterClientes({ setTela }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
           <input style={inputStyle} placeholder="Razao social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} />
           <input style={inputStyle} placeholder="Nome fantasia" value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} />
-          <input style={inputStyle} placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(formatarCnpj(e.target.value))} />
+          <div style={{ display: "flex", gap: 8, gridColumn: "span 2", alignItems: "stretch" }}>
+            <input
+              style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+              placeholder="CNPJ"
+              value={cnpj}
+              onChange={(e) => setCnpj(formatarCnpj(e.target.value))}
+              onBlur={() => consultarCnpj(true)}
+            />
+            <button
+              type="button"
+              style={{ ...primaryButton, minWidth: 140, height: 42, alignSelf: "flex-start", opacity: consultandoCnpj ? 0.7 : 1 }}
+              onClick={() => consultarCnpj(true)}
+              disabled={consultandoCnpj}
+            >
+              {consultandoCnpj ? "BUSCANDO..." : "BUSCAR CNPJ"}
+            </button>
+          </div>
           <input style={inputStyle} placeholder="Inscricao estadual" value={inscricaoEstadual} onChange={(e) => setInscricaoEstadual(e.target.value)} />
-          <input style={inputStyle} placeholder="Endereco da empresa" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+          <input style={inputStyle} placeholder="Logradouro" value={logradouro} onChange={(e) => setLogradouro(e.target.value)} />
+          <input style={inputStyle} placeholder="Numero" value={numero} onChange={(e) => setNumero(e.target.value)} />
+          <input style={inputStyle} placeholder="Bairro" value={bairro} onChange={(e) => setBairro(e.target.value)} />
+          <input style={inputStyle} placeholder="CEP" value={cep} onChange={(e) => setCep(formatarCep(e.target.value))} />
+          <input style={inputStyle} placeholder="Cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+          <input style={inputStyle} placeholder="UF" value={uf} maxLength={2} onChange={(e) => setUf(upper(e.target.value).slice(0, 2))} />
+          <input
+            style={inputStyle}
+            placeholder="Endereco completo (montado automaticamente)"
+            value={endereco}
+            readOnly
+          />
           <input style={inputStyle} placeholder="Endereco de cobranca" value={enderecoCobranca} onChange={(e) => setEnderecoCobranca(e.target.value)} />
           <input style={inputStyle} placeholder="Telefone" value={telefone} onChange={(e) => setTelefone(formatarTelefone(e.target.value))} />
           <input style={inputStyle} placeholder="E-mail da empresa" value={emailContato} onChange={(e) => setEmailContato(e.target.value)} />
@@ -2630,6 +2868,11 @@ function MasterClientes({ setTela }) {
             ))}
           </select>
         </div>
+        {!!mensagemConsultaCnpj && (
+          <div style={{ marginTop: 2, marginBottom: 10, fontSize: 12, color: consultandoCnpj ? "#0b5ed7" : "#43556d" }}>
+            {mensagemConsultaCnpj}
+          </div>
+        )}
         {(() => {
           const planoAtual = PLANOS.find((p) => p.id === planoId);
           if (!planoAtual) return null;
