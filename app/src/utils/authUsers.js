@@ -21,7 +21,7 @@ export async function garantirUsuarioAuth(email, senha) {
   const emailNormalizado = String(email || "").trim().toLowerCase();
   const senhaNormalizada = String(senha || "");
   if (!emailNormalizado || !emailNormalizado.includes("@") || senhaNormalizada.length < 6) {
-    return { ok: false, erro: "Dados insuficientes para criar usuario no Auth." };
+    return { ok: false, erro: "Dados insuficientes para criar usuário no Auth." };
   }
 
   try {
@@ -39,14 +39,14 @@ export async function garantirUsuarioAuth(email, senha) {
   } catch (error) {
     const codigo = String(error?.code || "");
     if (codigo.includes("email-already-in-use")) return { ok: true, existente: true };
-    return { ok: false, erro: "Nao foi possivel provisionar usuario no Auth." };
+    return { ok: false, erro: "Não foi possível provisionar usuário no Auth." };
   }
 }
 
 export async function solicitarResetSenhaPorEmail(email) {
   const emailNormalizado = String(email || "").trim().toLowerCase();
   if (!emailNormalizado || !emailNormalizado.includes("@")) {
-    return { ok: false, erro: "Informe um e-mail valido." };
+    return { ok: false, erro: "Informe um e-mail válido." };
   }
 
   try {
@@ -67,12 +67,12 @@ export async function solicitarResetSenhaPorEmail(email) {
   } catch (error) {
     const codigo = String(error?.code || "");
     if (codigo.includes("user-not-found")) {
-      return { ok: false, erro: "E-mail nao encontrado para redefinicao." };
+      return { ok: false, erro: "E-mail não encontrado para redefinição." };
     }
     if (codigo.includes("too-many-requests")) {
       return { ok: false, erro: "Muitas tentativas. Tente novamente em alguns minutos." };
     }
-    return { ok: false, erro: "Falha ao enviar e-mail de redefinicao." };
+    return { ok: false, erro: "Falha ao enviar e-mail de redefinição." };
   }
 }
 

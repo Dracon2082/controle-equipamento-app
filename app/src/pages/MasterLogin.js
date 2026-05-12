@@ -13,7 +13,7 @@ function MasterLogin({ setTela }) {
 
     const resultado = await masterLogin(email, senha);
     if (!resultado.ok) {
-      alert(resultado.erro || "Credenciais administrativas invalidas.");
+      alert(resultado.erro || "Credenciais administrativas inválidas.");
       return;
     }
 
@@ -23,15 +23,15 @@ function MasterLogin({ setTela }) {
 
   const recuperar = async () => {
     if (!email) {
-      alert("Informe seu e-mail para receber o link de recuperacao.");
+      alert("Informe seu e-mail para receber o link de recuperação.");
       return;
     }
     const r = await enviarResetSenhaMaster(email);
     if (!r.ok) {
-      alert(r.erro || "Nao foi possivel enviar a recuperacao.");
+      alert(r.erro || "Não foi possível enviar a recuperação.");
       return;
     }
-    alert("Enviamos um link de recuperacao para seu e-mail. Verifique a caixa de entrada e o spam.");
+    alert("Enviamos um link de recuperação para seu e-mail. Verifique a caixa de entrada e o spam.");
   };
 
   return (
@@ -39,7 +39,7 @@ function MasterLogin({ setTela }) {
       <div style={{ background: "#fff", borderRadius: 8, padding: 20, border: "1px solid #dbe3ef" }}>
         <h2 style={{ marginTop: 0 }}>Acesso Administrativo</h2>
         <p style={{ marginTop: 0, color: "#55657c" }}>
-          Esta area e exclusiva do proprietario do sistema.
+          Esta área é exclusiva do proprietário do sistema.
         </p>
 
         <input

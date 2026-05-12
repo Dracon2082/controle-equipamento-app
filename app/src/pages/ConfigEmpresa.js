@@ -105,12 +105,12 @@ function ConfigEmpresa({ setTela }) {
       <input style={input} placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} />
       <input
         style={input}
-        placeholder="Inscricao Estadual"
+        placeholder="Inscrição Estadual"
         value={inscricaoEstadual}
         onChange={(e) => setInscricaoEstadual(e.target.value)}
       />
       <input style={input} placeholder="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
-      <input style={input} placeholder="Endereco" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+      <input style={input} placeholder="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
 
       <select
         style={input}

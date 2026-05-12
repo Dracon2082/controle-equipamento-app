@@ -14,12 +14,12 @@ const MASTER_SESSION_KEY = "sessaoMaster";
 const normalizarErroLogin = (error) => {
   const codigo = String(error?.code || "");
   if (codigo.includes("invalid-credential") || codigo.includes("wrong-password") || codigo.includes("user-not-found")) {
-    return "E-mail ou senha invalido.";
+    return "E-mail ou senha inválido.";
   }
   if (codigo.includes("too-many-requests")) {
     return "Muitas tentativas. Tente novamente em alguns minutos.";
   }
-  return "Falha no login administrativo. Verifique sua conexao.";
+  return "Falha no login administrativo. Verifique sua conexão.";
 };
 
 export async function masterLogin(email, senha) {
@@ -33,7 +33,7 @@ export async function masterLogin(email, senha) {
     const snapPermissao = await getDoc(doc(db, "master_admins", uid));
     if (!snapPermissao.exists() || snapPermissao.data()?.ativo !== true) {
       await signOut(auth);
-      return { ok: false, erro: "Usuario sem permissao master." };
+      return { ok: false, erro: "Usuário sem permissão master." };
     }
 
     localStorage.setItem(
@@ -68,14 +68,14 @@ export async function enviarResetSenhaMaster(email) {
     return { ok: true };
   } catch (error) {
     const codigo = String(error?.code || "");
-    if (codigo.includes("user-not-found")) return { ok: false, erro: "E-mail nao encontrado." };
-    return { ok: false, erro: "Nao foi possivel enviar o e-mail de recuperacao. Verifique sua conexao." };
+    if (codigo.includes("user-not-found")) return { ok: false, erro: "E-mail não encontrado." };
+    return { ok: false, erro: "Não foi possível enviar o e-mail de recuperação. Verifique sua conexão." };
   }
 }
 
 export async function alterarSenhaMaster({ senhaAtual, novaSenha }) {
   const user = auth.currentUser;
-  if (!user?.email) return { ok: false, erro: "Voce precisa estar logado para alterar a senha." };
+  if (!user?.email) return { ok: false, erro: "Você precisa estar logado para alterar a senha." };
   if (!senhaAtual || !novaSenha) return { ok: false, erro: "Informe a senha atual e a nova senha." };
 
   try {
@@ -86,12 +86,12 @@ export async function alterarSenhaMaster({ senhaAtual, novaSenha }) {
   } catch (error) {
     const codigo = String(error?.code || "");
     if (codigo.includes("wrong-password") || codigo.includes("invalid-credential")) {
-      return { ok: false, erro: "Senha atual invalida." };
+      return { ok: false, erro: "Senha atual inválida." };
     }
     if (codigo.includes("weak-password")) {
       return { ok: false, erro: "Senha fraca. Use uma senha mais forte." };
     }
-    return { ok: false, erro: "Nao foi possivel alterar a senha agora. Tente novamente." };
+    return { ok: false, erro: "Não foi possível alterar a senha agora. Tente novamente." };
   }
 }
 

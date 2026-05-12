@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+﻿/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import {
@@ -93,7 +93,7 @@ function Obras({ setTela }) {
   useEffect(() => {
     // Mostra a lista completa de UFs imediatamente, mesmo se o IBGE demorar ou falhar.
     // Isso evita o "bug visual" de aparecer apenas AC (por exemplo, quando o sistema
-    // ainda tem poucas bases cadastradas ou o IBGE nÃ£o responde).
+    // ainda tem poucas bases cadastradas ou o IBGE nÃƒÂ£o responde).
     setEstados(UFS_BR);
 
     // Carrega bases do sistema (para validacoes/atalhos), mas SEM limitar o cadastro de obras
@@ -196,7 +196,7 @@ function Obras({ setTela }) {
     );
 
     if (existe) {
-      alert("Essa obra ja existe nessa cidade!");
+      alert("Essa obra já existe nessa cidade!");
       return;
     }
 
@@ -298,7 +298,7 @@ function Obras({ setTela }) {
       </div>
 
       <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Relacao de Obras Cadastradas</h3>
+        <h3 style={{ marginTop: 0 }}>Relação de Obras Cadastradas</h3>
 
         <table style={{
           width: "100%",
@@ -354,5 +354,6 @@ function Obras({ setTela }) {
 }
 
 export default Obras;
+
 
 

@@ -138,20 +138,20 @@ function Empresas({ setTela }) {
   const salvar = async () => {
     if (!nome) return alert("Digite o nome da empresa!");
     if (!documento) return alert(`Digite o ${tipoDocumento}!`);
-    if (!dataValidaBR(dataCadastro)) return alert("Data invalida! Use dd/mm/aaaa.");
+    if (!dataValidaBR(dataCadastro)) return alert("Data inválida! Use dd/mm/aaaa.");
 
     const docNumero = soDigitos(documento);
-    if (tipoDocumento === "CPF" && docNumero.length !== 11) return alert("CPF invalido!");
-    if (tipoDocumento === "CNPJ" && docNumero.length !== 14) return alert("CNPJ invalido!");
+    if (tipoDocumento === "CPF" && docNumero.length !== 11) return alert("CPF inválido!");
+    if (tipoDocumento === "CNPJ" && docNumero.length !== 14) return alert("CNPJ inválido!");
 
     const nomeNormalizado = normalizarTexto(nome);
     const existeNome = lista.find((item) => normalizarTexto(item.nome) === nomeNormalizado);
-    if (existeNome) return alert("Empresa ja cadastrada!");
+    if (existeNome) return alert("Empresa já cadastrada!");
 
     const existeDocumento = lista.find(
       (item) => soDigitos(item.documento || item.cnpj || item.cpf) === docNumero
     );
-    if (existeDocumento) return alert(`${tipoDocumento} ja cadastrado!`);
+    if (existeDocumento) return alert(`${tipoDocumento} já cadastrado!`);
 
     const ref = await addDoc(collection(db, "empresas"), withTenant({
       nome: nomeNormalizado,

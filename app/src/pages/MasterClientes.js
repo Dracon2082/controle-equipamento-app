@@ -571,11 +571,11 @@ function MasterClientes({ setTela }) {
         }
       }
 
-      setMensagemConsultaCnpj("Nao consegui buscar esse CNPJ agora. Voce pode preencher manualmente e tentar novamente.");
+      setMensagemConsultaCnpj("Não consegui buscar esse CNPJ agora. Você pode preencher manualmente e tentar novamente.");
       setConsultandoCnpj(false);
       return false;
     } catch {
-      setMensagemConsultaCnpj("Nao consegui buscar esse CNPJ agora. Voce pode preencher manualmente e tentar novamente.");
+      setMensagemConsultaCnpj("Não consegui buscar esse CNPJ agora. Você pode preencher manualmente e tentar novamente.");
       setConsultandoCnpj(false);
       return false;
     }
@@ -636,14 +636,14 @@ function MasterClientes({ setTela }) {
     const enderecoFinal = upper(endereco) || enderecoMontado;
 
     if (!razao) return alert("Informe a razao social.");
-    if (cnpjNumero.length !== 14) return alert("CNPJ invalido.");
+    if (cnpjNumero.length !== 14) return alert("CNPJ inválido.");
     if (!email) return alert("Informe o e-mail de contato da empresa.");
     if (!emailAdmin) return alert("Informe o e-mail do gestor para o primeiro acesso.");
     if (!nomeAdmin) return alert("Informe o nome do gestor.");
-    if (!senhaTemporaria || senhaTemporaria.length < 6) return alert("Informe uma senha temporaria valida.");
+    if (!senhaTemporaria || senhaTemporaria.length < 6) return alert("Informe uma senha temporária válida.");
 
     const existe = lista.find((item) => String(item.cnpj || "").replace(/\D/g, "") === cnpjNumero);
-    if (existe) return alert("Esse CNPJ ja esta cadastrado no painel master.");
+    if (existe) return alert("Esse CNPJ já está cadastrado no painel master.");
 
     const tenantId = cnpjNumero;
     const planoSelecionado = PLANOS.find((p) => p.id === planoId);
@@ -797,7 +797,7 @@ function MasterClientes({ setTela }) {
     const razao = String(item?.razaoSocial || "").trim() || "cliente";
     const confirmar = window.prompt(`Para ativar/reiniciar TESTE 10 DIAS para ${razao}, digite: TESTE`);
     if (!confirmarTexto(confirmar, "TESTE")) {
-      alert("Operacao cancelada.");
+      alert("Operação cancelada.");
       return;
     }
 
@@ -988,7 +988,7 @@ function MasterClientes({ setTela }) {
   const abrirWhatsAppCobranca = (cliente, fatura) => {
     const tel = String(cliente?.telefone || "").replace(/\D/g, "");
     if (!tel) {
-      alert("Telefone do cliente nao cadastrado.");
+      alert("Telefone do cliente não cadastrado.");
       return;
     }
     const msg = montarMensagemCobranca(cliente, fatura);
@@ -999,7 +999,7 @@ function MasterClientes({ setTela }) {
   const abrirEmailCobranca = (cliente, fatura) => {
     const email = String(cliente?.emailEmpresa || cliente?.emailContato || cliente?.email || "").trim();
     if (!email) {
-      alert("E-mail do cliente nao cadastrado.");
+      alert("E-mail do cliente não cadastrado.");
       return;
     }
     const assunto = `Fatura ${String(fatura?.refMes || "").trim() || ""}`.trim();
@@ -1016,13 +1016,13 @@ function MasterClientes({ setTela }) {
 
     const refMesOk = normalizarRefMes(finRefMes);
     if (!refMesOk) {
-      alert("Mes de referencia invalido. Use YYYY-MM (ex: 2026-04).");
+      alert("Mês de referência inválido. Use YYYY-MM (ex: 2026-04).");
       return;
     }
 
     const valor = Number(String(finValorFatura || "").replace(",", "."));
     if (!Number.isFinite(valor) || valor < 0) {
-      alert("Valor invalido.");
+      alert("Valor inválido.");
       return;
     }
 
@@ -1035,14 +1035,14 @@ function MasterClientes({ setTela }) {
     const dia = Number(String(finDiaVenc || "").replace(/\D/g, ""));
     const vencISO = calcularVencimentoISO(refMesOk, dia);
     if (!vencISO) {
-      alert("Dia do vencimento invalido (use 1 a 28).");
+      alert("Dia do vencimento inválido (use 1 a 28).");
       return;
     }
 
     const link = String(finLinkPagamento || "").trim();
     const pix = String(finPixChave || "").trim();
     if (!link && !pix) {
-      const ok = window.confirm("Voce nao informou link nem PIX. Deseja criar a fatura mesmo assim?");
+      const ok = window.confirm("Você não informou link nem PIX. Deseja criar a fatura mesmo assim?");
       if (!ok) return;
     }
 
@@ -1094,7 +1094,7 @@ function MasterClientes({ setTela }) {
   const salvarDiaVencimento = async (item) => {
     const dia = Number(String(finDiaVenc || "").replace(/\D/g, ""));
     if (!Number.isFinite(dia) || dia < 1 || dia > 28) {
-      alert("Dia do vencimento invalido. Use 1 a 28.");
+      alert("Dia do vencimento inválido. Use 1 a 28.");
       return;
     }
     try {
@@ -1211,10 +1211,10 @@ function MasterClientes({ setTela }) {
   const exportarDadosTenantZip = async (clienteItem) => {
     if (exportando) return;
     const tenant = String(clienteItem?.tenantId || "").trim().toLowerCase();
-    if (!tenant) return alert("Cliente sem tenantId. Nao e possivel exportar.");
+    if (!tenant) return alert("Cliente sem tenantId. Não é possível exportar.");
 
     if (exportDataIni && exportDataFim && exportDataIni > exportDataFim) {
-      alert("Data inicial nao pode ser maior que a data final.");
+      alert("Data inicial não pode ser maior que a data final.");
       return;
     }
 
@@ -1293,7 +1293,7 @@ function MasterClientes({ setTela }) {
         exportDataIni || exportDataFim ? `${exportDataIni || "inicio"}_${exportDataFim || "fim"}` : "tudo";
       const zipBlob = await zip.generateAsync({ type: "blob" });
       baixarBlob(zipBlob, `export_${tenant}_${nomePeriodo}.zip`);
-      alert("Exportacao gerada. O download deve iniciar automaticamente.");
+      alert("Exportação gerada. O download deve iniciar automaticamente.");
       setExportAbertoId("");
     } catch (e) {
       console.log(e);
@@ -1338,7 +1338,7 @@ function MasterClientes({ setTela }) {
   const resetarTenantAtual = async () => {
     const tenant = String(tenantAtual || "").trim();
     if (!tenant) {
-      alert("Tenant atual invalido.");
+      alert("Tenant atual inválido.");
       return;
     }
 
@@ -1395,7 +1395,7 @@ function MasterClientes({ setTela }) {
       }
       alert(`Reset do tenant ${tenant} concluido com sucesso.`);
     } catch {
-      alert("Falha no reset do tenant. Verifique permissao/conexao e tente novamente.");
+      alert("Falha no reset do tenant. Verifique permissão/conexão e tente novamente.");
     }
   };
 
@@ -1436,7 +1436,7 @@ function MasterClientes({ setTela }) {
       }
       alert("Reset geral da base master concluido com sucesso.");
     } catch {
-      alert("Falha no reset geral. Verifique permissao/conexao e tente novamente.");
+      alert("Falha no reset geral. Verifique permissão/conexão e tente novamente.");
     }
   };
 
@@ -1457,7 +1457,7 @@ function MasterClientes({ setTela }) {
   const gerarSimuladoOperacional = async () => {
     const tenant = String(tenantAtual || "").trim();
     if (!tenant) {
-      alert("Tenant atual invalido.");
+      alert("Tenant atual inválido.");
       return;
     }
 
@@ -2665,7 +2665,7 @@ function MasterClientes({ setTela }) {
 
   const usarCliente = (item) => {
     if (item.status !== "ATIVO" && item.status !== "TESTE") {
-      alert("Esse cliente nao esta liberado para uso.");
+      alert("Esse cliente não está liberado para uso.");
       return;
     }
     const tenant = setTenantId(item.tenantId || String(item.cnpj || "").replace(/\D/g, ""));
@@ -2688,15 +2688,15 @@ function MasterClientes({ setTela }) {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 20, background: "#f5f7fa", minHeight: "100vh" }}>
-      <h2 style={{ textAlign: "center", marginBottom: 14 }}>Painel Master - Gestao Comercial e Clientes</h2>
+      <h2 style={{ textAlign: "center", marginBottom: 14 }}>Painel Master - Gestão Comercial e Clientes</h2>
       <div style={{ ...card, marginBottom: 12, background: "#e9f2ff", border: "1px solid #bfd7ff" }}>
         <strong>Tenant atual em uso:</strong> {tenantAtual}
       </div>
 
       <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Seguranca do Master</h3>
+        <h3 style={{ marginTop: 0 }}>Segurança do Master</h3>
         <p style={{ marginTop: 0, color: "#5c6f88" }}>
-          Aqui voce altera a senha do login Master (e-mail/senha). Para recuperar sem estar logado, use "Esqueci a senha" na tela de login.
+          Aqui você altera a senha do login Master (e-mail/senha). Para recuperar sem estar logado, use "Esqueci a senha" na tela de login.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
           <input
@@ -2729,12 +2729,12 @@ function MasterClientes({ setTela }) {
               return;
             }
             if (novaSenhaMaster !== novaSenhaMaster2) {
-              alert("A confirmacao da nova senha nao confere.");
+              alert("A confirmação da nova senha não confere.");
               return;
             }
             const r = await alterarSenhaMaster({ senhaAtual: senhaAtualMaster, novaSenha: novaSenhaMaster });
             if (!r.ok) {
-              alert(r.erro || "Nao foi possivel alterar a senha.");
+              alert(r.erro || "Não foi possível alterar a senha.");
               return;
             }
             alert("Senha do Master alterada com sucesso.");
@@ -2785,7 +2785,7 @@ function MasterClientes({ setTela }) {
       <div style={card}>
         <h3 style={{ marginTop: 0 }}>Cadastro completo da empresa cliente</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
-          <input style={inputStyle} placeholder="Razao social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} />
+          <input style={inputStyle} placeholder="Razão social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} />
           <input style={inputStyle} placeholder="Nome fantasia" value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} />
           <div style={{ display: "flex", gap: 8, gridColumn: "span 2", alignItems: "stretch" }}>
             <input
@@ -2804,20 +2804,20 @@ function MasterClientes({ setTela }) {
               {consultandoCnpj ? "BUSCANDO..." : "BUSCAR CNPJ"}
             </button>
           </div>
-          <input style={inputStyle} placeholder="Inscricao estadual" value={inscricaoEstadual} onChange={(e) => setInscricaoEstadual(e.target.value)} />
+          <input style={inputStyle} placeholder="Inscrição estadual" value={inscricaoEstadual} onChange={(e) => setInscricaoEstadual(e.target.value)} />
           <input style={inputStyle} placeholder="Logradouro" value={logradouro} onChange={(e) => setLogradouro(e.target.value)} />
-          <input style={inputStyle} placeholder="Numero" value={numero} onChange={(e) => setNumero(e.target.value)} />
+          <input style={inputStyle} placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} />
           <input style={inputStyle} placeholder="Bairro" value={bairro} onChange={(e) => setBairro(e.target.value)} />
           <input style={inputStyle} placeholder="CEP" value={cep} onChange={(e) => setCep(formatarCep(e.target.value))} />
           <input style={inputStyle} placeholder="Cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} />
           <input style={inputStyle} placeholder="UF" value={uf} maxLength={2} onChange={(e) => setUf(upper(e.target.value).slice(0, 2))} />
           <input
             style={inputStyle}
-            placeholder="Endereco completo (montado automaticamente)"
+            placeholder="Endereço completo (montado automaticamente)"
             value={endereco}
             readOnly
           />
-          <input style={inputStyle} placeholder="Endereco de cobranca" value={enderecoCobranca} onChange={(e) => setEnderecoCobranca(e.target.value)} />
+          <input style={inputStyle} placeholder="Endereço de cobrança" value={enderecoCobranca} onChange={(e) => setEnderecoCobranca(e.target.value)} />
           <input style={inputStyle} placeholder="Telefone" value={telefone} onChange={(e) => setTelefone(formatarTelefone(e.target.value))} />
           <input style={inputStyle} placeholder="E-mail da empresa" value={emailContato} onChange={(e) => setEmailContato(e.target.value)} />
 
@@ -2899,11 +2899,11 @@ function MasterClientes({ setTela }) {
 
         {mostrarFerramentasPerigosas && (
           <>
-            <h3 style={{ marginTop: 12 }}>Acesso inicial do cliente (simulacao)</h3>
+            <h3 style={{ marginTop: 12 }}>Acesso inicial do cliente (simulação)</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               <input style={inputStyle} placeholder="Nome do gestor" value={nomeGestor} onChange={(e) => setNomeGestor(e.target.value)} />
               <input style={inputStyle} placeholder="E-mail do gestor" value={emailGestor} onChange={(e) => setEmailGestor(e.target.value)} />
-              <input style={inputStyle} placeholder="Senha temporaria" value={senhaTemporaria} onChange={(e) => setSenhaTemporaria(e.target.value)} />
+              <input style={inputStyle} placeholder="Senha temporária" value={senhaTemporaria} onChange={(e) => setSenhaTemporaria(e.target.value)} />
             </div>
           </>
         )}
@@ -2957,13 +2957,13 @@ function MasterClientes({ setTela }) {
         <table style={{ width: "100%", minWidth: 1080, borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", tableLayout: "fixed" }}>
           <thead style={{ background: "#0b3d91", color: "#fff" }}>
             <tr>
-              <th style={{ border: "1px solid #ccc", padding: 8, width: "17%" }}>Razao Social</th>
+              <th style={{ border: "1px solid #ccc", padding: 8, width: "17%" }}>Razão Social</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "14%" }}>CNPJ</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "21%" }}>Plano</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "9%" }}>Pagamento</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "9%" }}>Status</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "15%" }}>Acesso Inicial</th>
-              <th style={{ border: "1px solid #ccc", padding: 8, width: "15%" }}>Acoes</th>
+              <th style={{ border: "1px solid #ccc", padding: 8, width: "15%" }}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -3134,7 +3134,7 @@ function MasterClientes({ setTela }) {
                             setAcoesAbertoId(next);
                           }}
                         >
-                          Acoes
+                          Ações
                         </button>
                       </div>
                     );
@@ -3380,7 +3380,7 @@ function MasterClientes({ setTela }) {
               </div>
 
               <div style={{ marginTop: 10, fontSize: 12, color: "#5a6b82" }}>
-                Observacao: o ZIP vem com um CSV por colecao do sistema. Se voce marcar “Incluir midias/base64”, o arquivo pode ficar bem grande.
+                Observação: o ZIP vem com um CSV por coleção do sistema. Se você marcar “Incluir mídias/base64”, o arquivo pode ficar bem grande.
               </div>
             </div>
           </div>
@@ -3697,7 +3697,7 @@ function MasterClientes({ setTela }) {
               </div>
 
               <div style={{ marginTop: 10, fontSize: 12, color: "#5a6b82" }}>
-                Observacao: mesmo se voce nao marcar INADIMPLENTE, o app calcula inadimplencia automaticamente pelo vencimento e “pago ate”.
+                Observação: mesmo se você não marcar INADIMPLENTE, o app calcula inadimplência automaticamente pelo vencimento e “pago até”.
               </div>
             </div>
           </div>

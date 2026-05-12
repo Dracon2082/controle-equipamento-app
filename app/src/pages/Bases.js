@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+﻿/* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
@@ -218,7 +218,7 @@ function Bases({ setTela }) {
 
     const chave = chaveBase(cid, uf);
     const jaExiste = bases.find((b) => b.chave === chave && b.id !== editandoId);
-    if (jaExiste) return alert("Essa base ja esta cadastrada (cidade/UF).");
+    if (jaExiste) return alert("Essa base já está cadastrada (cidade/UF).");
 
     if (editandoId) {
       await updateDoc(doc(db, "bases_operacionais", editandoId), withTenant({
@@ -317,7 +317,7 @@ function Bases({ setTela }) {
         <h3 style={{ marginTop: 0 }}>Nova base</h3>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
           <div style={{ color: "#51637c", fontWeight: 700, fontSize: 13 }}>
-            Selecione a UF e a cidade (IBGE). Se nao carregar, ative o modo manual.
+            Selecione a UF e a cidade (IBGE). Se não carregar, ative o modo manual.
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#173454", fontWeight: 900 }}>
             <input type="checkbox" checked={modoManual} onChange={(e) => setModoManual(e.target.checked)} />
@@ -504,4 +504,5 @@ function Bases({ setTela }) {
 }
 
 export default Bases;
+
 
