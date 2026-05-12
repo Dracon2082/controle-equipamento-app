@@ -154,8 +154,8 @@ function Frentista({ setTela }) {
     cursor: "pointer"
   };
 
-  const thStyle = { border: "1px solid #ccc", padding: 6, whiteSpace: "nowrap", textAlign: "center", fontSize: 13 };
-  const tdStyle = { border: "1px solid #ccc", padding: 6, verticalAlign: "top", wordBreak: "break-word", overflowWrap: "anywhere", fontSize: 12, lineHeight: 1.35 };
+  const thStyle = { border: "1px solid #ccc", padding: "6px 5px", whiteSpace: "normal", textAlign: "center", fontSize: 12, lineHeight: 1.15 };
+  const tdStyle = { border: "1px solid #ccc", padding: "6px 5px", verticalAlign: "middle", wordBreak: "break-word", overflowWrap: "anywhere", fontSize: 11, lineHeight: 1.2, textAlign: "center" };
   const tdNoWrap = { ...tdStyle, whiteSpace: "nowrap" };
   const tdAcoes = { ...tdStyle, textAlign: "center", whiteSpace: "nowrap" };
 
@@ -680,18 +680,18 @@ function Frentista({ setTela }) {
           }}
         />
 
-        <div style={{ width: "100%", overflowX: "auto" }}>
-          <table style={{ width: "100%", minWidth: 1180, borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", tableLayout: "auto" }}>
+        <div style={{ width: "100%" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", tableLayout: "fixed" }}>
             <thead style={{ background: "#0b3d91", color: "#fff" }}>
               <tr>
-                <th style={{ ...thStyle, width: "16%" }}>Nome</th>
-                <th style={{ ...thStyle, width: "18%" }}>E-mail</th>
+                <th style={{ ...thStyle, width: "14%" }}>Nome</th>
+                <th style={{ ...thStyle, width: "16%" }}>E-mail</th>
                 <th style={{ ...thStyle, width: "10%" }}>CPF/Login</th>
-                <th style={{ ...thStyle, width: "11%" }}>Senha inicial</th>
-                <th style={{ ...thStyle, width: "13%" }}>Perfil / Funcao</th>
-                <th style={{ ...thStyle, width: "16%" }}>Permissoes</th>
-                <th style={{ ...thStyle, width: "10%" }}>Bases</th>
-                <th style={{ ...thStyle, width: "6%" }}>Ações</th>
+                <th style={{ ...thStyle, width: "10%" }}>Senha inicial</th>
+                <th style={{ ...thStyle, width: "12%" }}>Perfil / Funcao</th>
+                <th style={{ ...thStyle, width: "14%" }}>Permissoes</th>
+                <th style={{ ...thStyle, width: "14%" }}>Bases</th>
+                <th style={{ ...thStyle, width: "10%" }}>Acoes</th>
               </tr>
             </thead>
             <tbody>
@@ -705,7 +705,7 @@ function Frentista({ setTela }) {
             {lista.map((item, index) => (
               <tr key={item.id} style={{ background: index % 2 === 0 ? "#f2f2f2" : "#fff" }}>
                 <td style={tdStyle}>{item.nome || "-"}</td>
-                <td style={{ ...tdNoWrap, textAlign: "left" }}>{item.email || "-"}</td>
+                <td style={{ ...tdStyle, textAlign: "left" }}>{item.email || "-"}</td>
                 <td style={{ ...tdNoWrap, textAlign: "center" }}>{formatarCpf(item.cpf || "") || "-"}</td>
                 <td style={{ ...tdNoWrap, fontFamily: "monospace", textAlign: "center" }}>{item.senhaInicial || item.senha || "-"}</td>
                 <td style={tdStyle}>
