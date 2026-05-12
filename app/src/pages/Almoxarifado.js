@@ -315,7 +315,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     // Footer simples
     pdf.setFontSize(8);
     pdf.setTextColor(60);
-    pdf.text("Equipamento Gestao", 12, altura - 8);
+    pdf.text("Equipamento Gestão", 12, altura - 8);
     pdf.save(nomeArquivo);
   };
 
@@ -1406,7 +1406,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
     pdf.setFontSize(8);
     pdf.setTextColor(60);
-    pdf.text("Equipamento Gestao", 8, altura - 8);
+    pdf.text("Equipamento Gestão", 8, altura - 8);
     pdf.save("relatorio_entradas_materiais.pdf");
   };
 

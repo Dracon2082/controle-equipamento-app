@@ -702,9 +702,9 @@ function Home({ setTela, onSair }) {
       ]
     },
     {
-      titulo: "Manutencao",
+      titulo: "Manutenção",
       itens: [
-        { texto: "Manutencao de Equipamentos", tela: "manutencao" }
+        { texto: "Manutenção de Equipamentos", tela: "manutencao" }
       ]
     },
     {
@@ -736,10 +736,10 @@ function Home({ setTela, onSair }) {
       ]
     },
     {
-      titulo: "Manutencao",
+      titulo: "Manutenção",
       itens: [
         { texto: "Relatorio Mensal de Equipamento", tela: "relatorio" },
-        { texto: "Relatorio de Manutencao", tela: "relatorioManutencao" }
+        { texto: "Relatório de Manutenção", tela: "relatorioManutencao" }
       ]
     },
     {
@@ -827,11 +827,11 @@ function Home({ setTela, onSair }) {
   const setorSelecionado = secoes.find((secao) => chaveSecao(secao.titulo) === setorAtivo) || null;
   const totalModulosLiberados = secoes.reduce((acc, secao) => acc + secao.itens.length, 0);
   const saudacaoPainel = modoAtivo === "operacional"
-    ? "Operacao pronta para o dia"
-    : "Visao administrativa organizada";
+    ? "Operação pronta para o dia"
+    : "Visão administrativa organizada";
   const textoPainel = modoAtivo === "operacional"
-    ? "Acesse os modulos mais usados com menos poluicao visual e mais foco no que precisa rodar hoje."
-    : "Cadastros, relatorios e controles apresentados de forma mais clara, com cara de produto entregue.";
+    ? "Acesse os módulos mais usados com menos poluição visual e mais foco no que precisa rodar hoje."
+    : "Cadastros, relatórios e controles apresentados de forma mais clara, com cara de produto entregue.";
   const chipStatus = testeBloqueado
     ? { texto: "Teste expirado", bg: "#fff0f6", color: "#c2255c", border: "#fcc2d7" }
     : inadimplente
@@ -842,15 +842,15 @@ function Home({ setTela, onSair }) {
       titulo: "Modo ativo",
       valor: modoAtivo === "operacional" ? "Operacional" : "Administrativo",
       detalhe: modoAtivo === "operacional"
-        ? "Rotinas de campo e lancamentos do dia"
-        : "Cadastros, relatorios e controle gerencial",
+        ? "Rotinas de campo e lançamentos do dia"
+        : "Cadastros, relatórios e controle gerencial",
       accent: "#0b5ed7",
       bg: "linear-gradient(135deg, #eaf2ff 0%, #f7fbff 100%)"
     },
     {
       titulo: "Setores liberados",
       valor: String(secoes.length).padStart(2, "0"),
-      detalhe: "Areas disponiveis para este usuario",
+      detalhe: "Áreas disponíveis para este usuário",
       accent: "#5f3dc4",
       bg: "linear-gradient(135deg, #f3f0ff 0%, #fbf9ff 100%)"
     },
@@ -865,10 +865,10 @@ function Home({ setTela, onSair }) {
       titulo: testeBloqueado ? "Status do plano" : (!testeBloqueado && inadimplente ? "Status financeiro" : "Alertas ativos"),
       valor: testeBloqueado ? "Teste expirado" : (!testeBloqueado && inadimplente ? "Inadimplente" : `${alertasAbertosCount}`),
       detalhe: testeBloqueado
-        ? "Regularize para liberar operacoes e cadastros"
+        ? "Regularize para liberar operações e cadastros"
         : (!testeBloqueado && inadimplente
-          ? "Financeiro aberto para regularizacao"
-          : "Alertas abertos de manutencao"),
+          ? "Financeiro aberto para regularização"
+          : "Alertas abertos de manutenção"),
       accent: testeBloqueado ? "#d6336c" : (!testeBloqueado && inadimplente ? "#fd7e14" : "#dc3545"),
       bg: testeBloqueado
         ? "linear-gradient(135deg, #fff0f6 0%, #fff8fb 100%)"
@@ -1035,14 +1035,14 @@ function Home({ setTela, onSair }) {
           <div style={titleBox}>
             <div>
               <h1 style={{ ...titulo, fontSize: isMobileDevice ? 18 : titulo.fontSize, margin: isMobileDevice ? 0 : titulo.margin }}>
-                {isMobileDevice ? pageTitle : "Equipamento Gestao"}
+                {isMobileDevice ? pageTitle : "Equipamento Gestão"}
               </h1>
               <p style={subtitulo}>
                 {isMobileDevice
-                  ? "Selecione o setor e abra o modulo"
+                  ? "Selecione o setor e abra o módulo"
                   : (modoAtivo === "operacional"
                     ? "Controle operacional de obras e equipamentos"
-                    : "Relatorios, cadastros e controles administrativos")}
+                    : "Relatórios, cadastros e controles administrativos")}
               </p>
             </div>
           </div>
@@ -1054,7 +1054,7 @@ function Home({ setTela, onSair }) {
                 onClick={() => setTela("manutencao")}
                 onKeyDown={(e) => (e.key === "Enter" ? setTela("manutencao") : null)}
                 style={alertaPill}
-                title="Abrir Manutencao para ver os alertas"
+                title="Abrir Manutenção para ver os alertas"
               >
                 <span>ALERTA MECANICA</span>
                 <span style={badge}>{alertasAbertosCount}</span>
@@ -1113,7 +1113,7 @@ function Home({ setTela, onSair }) {
                 tabIndex={0}
                 onClick={() => setTela("financeiro")}
                 onKeyDown={(e) => (e.key === "Enter" ? setTela("financeiro") : null)}
-                title="Acesso parcial: regularize o pagamento para liberar operacoes."
+                title="Acesso parcial: regularize o pagamento para liberar operações."
               >
                 <span>INADIMPLENTE</span>
                 <span style={{ fontWeight: 800, color: "#5d3600" }}>
@@ -1236,7 +1236,7 @@ function Home({ setTela, onSair }) {
               fontWeight: 800
             }}
           >
-            Visao fixa: Painel Administrativo
+            Visão fixa: Painel Administrativo
           </div>
         )}
 
@@ -1316,14 +1316,14 @@ function Home({ setTela, onSair }) {
               }}
             >
               <div style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.72)", marginBottom: 10 }}>
-                Navegacao por setor
+                Navegação por setor
               </div>
               <div style={{ fontSize: 17, fontWeight: 900, lineHeight: 1.1 }}>
                 {setorAtivo === "painel" ? "Selecione um setor na lateral" : (setorSelecionado?.titulo || "Setor selecionado")}
               </div>
               <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.45, color: "rgba(255,255,255,0.78)" }}>
                 {setorAtivo === "painel"
-                  ? "Os modulos ficam escondidos no painel principal. Clique em Engenharia, Manutencao, Transporte, Almoxarifado, Cadastros ou Administrativo Financeiro para abrir apenas o grupo desejado."
+                  ? "Os módulos ficam escondidos no painel principal. Clique em Engenharia, Manutenção, Transporte, Almoxarifado, Cadastros ou Administrativo Financeiro para abrir apenas o grupo desejado."
                   : descricaoSecao(setorSelecionado?.titulo || "")}
               </div>
               <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1401,8 +1401,8 @@ function Home({ setTela, onSair }) {
             <div style={{ fontSize: 18, fontWeight: 900, color: "#173454" }}>Painel limpo</div>
             <div style={{ marginTop: 8, color: "#5d6f86", lineHeight: 1.6, maxWidth: 860 }}>
               {isMobileDevice
-                ? "Escolha um setor na faixa azul acima para abrir os modulos."
-                : "Os modulos agora aparecem somente quando voce escolhe um setor na lateral. Assim o painel principal fica menos poluido e cada area abre apenas o conteudo que interessa naquele momento."}
+                ? "Escolha um setor na faixa azul acima para abrir os módulos."
+                : "Os módulos agora aparecem somente quando você escolhe um setor na lateral. Assim o painel principal fica menos poluído e cada área abre apenas o conteúdo que interessa naquele momento."}
             </div>
           </section>
         )}
