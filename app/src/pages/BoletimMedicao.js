@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import { db } from "../firebase";
@@ -1112,10 +1112,8 @@ function BoletimMedicao({ setTela }) {
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div>
-            <h2 style={{ margin: 0, color: "#10243e" }}>Boletim de Medição</h2>
-            <p style={{ margin: "8px 0 0", color: "#566b86" }}>
-              Medição simplificada para locação, transporte, refeições, materiais e serviços diversos.
-            </p>
+            <h2 style={{ margin: 0, color: "#10243e" }}>{"Boletim de Medi\u00e7\u00e3o"}</h2>
+            <p style={{ margin: "8px 0 0", color: "#566b86" }}>{"Medi\u00e7\u00e3o simplificada para loca\u00e7\u00e3o, transporte, refei\u00e7\u00f5es, materiais e servi\u00e7os diversos."}</p>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" style={botaoSecundario} onClick={limpar}>Novo boletim</button>
@@ -1128,7 +1126,7 @@ function BoletimMedicao({ setTela }) {
         <h3 style={{ marginTop: 0, color: "#173454" }}>{editandoId ? "Editar boletim" : "Dados do boletim"}</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Número da medição (auto por empresa)</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"N\u00famero da medi\u00e7\u00e3o (auto por empresa)"}</div>
               <input style={inputStyle} value={numero} disabled placeholder={`BM-${new Date().getFullYear()}-001`} />
             </div>
           <div>
@@ -1156,11 +1154,11 @@ function BoletimMedicao({ setTela }) {
             </select>
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Período inicial</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"Per\u00edodo inicial"}</div>
             <input style={inputStyle} type="date" value={periodoInicial} onChange={(e) => setPeriodoInicial(e.target.value)} />
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Período final</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"Per\u00edodo final"}</div>
             <input style={inputStyle} type="date" value={periodoFinal} onChange={(e) => setPeriodoFinal(e.target.value)} />
           </div>
           <div>
@@ -1176,25 +1174,25 @@ function BoletimMedicao({ setTela }) {
         <div style={{ marginTop: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Dados para pagamento</div>
           <div style={{ fontSize: 11, color: "#6a7f97", marginBottom: 6 }}>
-            Preenchimento unico por empresa, com opcao de ajuste quando precisar.
+            {"Preenchimento \u00fanico por empresa, com op\u00e7\u00e3o de ajuste quando precisar."}
           </div>
           <textarea
             style={{ ...areaStyle, height: 64 }}
             value={dadosPagamento}
             onChange={(e) => setDadosPagamento(e.target.value)}
-            placeholder="Razao social, documento, contato, chave PIX, banco, agencia ou outra informacao de pagamento."
+            placeholder={"Raz\u00e3o social, documento, contato, chave PIX, banco, ag\u00eancia ou outra informa\u00e7\u00e3o de pagamento."}
           />
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Observação geral</div>
-          <textarea style={areaStyle} value={observacaoGeral} onChange={(e) => setObservacaoGeral(e.target.value)} placeholder="Observações do boletim, medição, faturamento ou conferência." />
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"Observa\u00e7\u00e3o geral"}</div>
+          <textarea style={areaStyle} value={observacaoGeral} onChange={(e) => setObservacaoGeral(e.target.value)} placeholder={"Observa\u00e7\u00f5es do boletim, medi\u00e7\u00e3o, faturamento ou confer\u00eancia."} />
         </div>
       </div>
 
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <h3 style={{ margin: 0, color: "#173454" }}>Itens da medição</h3>
+          <h3 style={{ margin: 0, color: "#173454" }}>{"Itens da medi\u00e7\u00e3o"}</h3>
           <button type="button" style={botaoSecundario} onClick={adicionarItem}>Adicionar item</button>
         </div>
 
@@ -1233,17 +1231,17 @@ function BoletimMedicao({ setTela }) {
                   <input style={inputStyle} value={item.quantidade} onChange={(e) => atualizarItem(item.uid, "quantidade", formatarNumeroInput(e.target.value))} placeholder="0,00" />
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Valor unitario</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"Valor unit\u00e1rio"}</div>
                   <input style={inputStyle} value={item.valorUnitario} onChange={(e) => atualizarItem(item.uid, "valorUnitario", formatarNumeroInput(e.target.value))} placeholder="0,00" />
                 </div>
               </div>
               <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Descrição do serviço</div>
-                <input style={inputStyle} value={item.descricao} onChange={(e) => atualizarItem(item.uid, "descricao", e.target.value)} placeholder="Ex.: Frete de material petreo para obra..." />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"Descri\u00e7\u00e3o do servi\u00e7o"}</div>
+                <input style={inputStyle} value={item.descricao} onChange={(e) => atualizarItem(item.uid, "descricao", e.target.value)} placeholder={"Ex.: Frete de material p\u00e9treo para obra..."} />
               </div>
               <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 220px", gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Observação</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"Observa\u00e7\u00e3o"}</div>
                   <textarea style={{ ...areaStyle, height: 64 }} value={item.observacao} onChange={(e) => atualizarItem(item.uid, "observacao", e.target.value)} placeholder="Opcional" />
                 </div>
                 <div style={{ border: "1px solid #d9e5ff", borderRadius: 10, background: "#eef4ff", padding: 14, display: "grid", alignContent: "center" }}>
@@ -1253,8 +1251,8 @@ function BoletimMedicao({ setTela }) {
                   </div>
                     <div style={{ marginTop: 10, display: "grid", gap: 4, fontSize: 12, color: "#173454" }}>
                       <div><strong>Quantidade:</strong> {numeroParaMoeda(item.quantidadeNum).replace(",00", "")}</div>
-                      <div><strong>Valor periodo:</strong> R$ {numeroParaMoeda(item.valorTotal)}</div>
-                      <div><strong>Histórico do item:</strong> {numeroParaMoeda(item.acumuladoAtual).replace(",00", "")} {item.unidade}</div>
+                      <div><strong>Valor per\u00edodo:</strong> R$ {numeroParaMoeda(item.valorTotal)}</div>
+                      <div><strong>Hist\u00f3rico do item:</strong> {numeroParaMoeda(item.acumuladoAtual).replace(",00", "")} {item.unidade}</div>
                     </div>
                   </div>
                 </div>
@@ -1264,14 +1262,14 @@ function BoletimMedicao({ setTela }) {
       </div>
 
       <div style={card}>
-        <h3 style={{ marginTop: 0, color: "#173454" }}>Fechamento da medição</h3>
+        <h3 style={{ marginTop: 0, color: "#173454" }}>{"Fechamento da medi\u00e7\u00e3o"}</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginBottom: 14 }}>
           <div style={{ border: "1px solid #d9e5ff", borderRadius: 10, background: "#fbfdff", padding: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#5f7290", marginBottom: 6 }}>Valor da medição</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#5f7290", marginBottom: 6 }}>{"Valor da medi\u00e7\u00e3o"}</div>
             <div style={{ fontSize: 24, fontWeight: 900, color: "#173454" }}>R$ {numeroParaMoeda(subtotal)}</div>
           </div>
           <div style={{ border: "1px solid #d9e5ff", borderRadius: 10, background: "#fbfdff", padding: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#5f7290", marginBottom: 6 }}>Descontos do periodo</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#5f7290", marginBottom: 6 }}>{"Descontos do per\u00edodo"}</div>
             <div style={{ fontSize: 24, fontWeight: 900, color: "#8b1e1e" }}>R$ {numeroParaMoeda(descontosNum)}</div>
           </div>
           <div style={{ border: "1px solid #d9e5ff", borderRadius: 10, background: "#fbfdff", padding: 14 }}>
@@ -1279,7 +1277,7 @@ function BoletimMedicao({ setTela }) {
             <div style={{ fontSize: 24, fontWeight: 900, color: "#173454" }}>R$ {numeroParaMoeda(acumuladoLiquidoAnterior)}</div>
           </div>
           <div style={{ border: "1px solid #d9e5ff", borderRadius: 10, background: "#eef4ff", padding: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#5f7290", marginBottom: 6 }}>Total liquido a receber</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#5f7290", marginBottom: 6 }}>{"Total l\u00edquido a receber"}</div>
             <div style={{ fontSize: 28, fontWeight: 900, color: "#0b5ed7" }}>R$ {numeroParaMoeda(valorLiquido)}</div>
             <div style={{ marginTop: 6, fontSize: 12, color: "#173454" }}>
               Acumulado atual: <strong>R$ {numeroParaMoeda(acumuladoLiquidoAtual)}</strong>
@@ -1293,7 +1291,7 @@ function BoletimMedicao({ setTela }) {
             <input style={inputStyle} value={reajustamento} onChange={(e) => setReajustamento(formatarNumeroInput(e.target.value))} placeholder="0,00" />
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Retencao cont.</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"Reten\u00e7\u00e3o cont."}</div>
             <input style={inputStyle} value={retencaoCont} onChange={(e) => setRetencaoCont(formatarNumeroInput(e.target.value))} placeholder="0,00" />
           </div>
           <div>
@@ -1312,17 +1310,17 @@ function BoletimMedicao({ setTela }) {
 
         <div style={{ marginTop: 14, border: "1px solid #e5ebf3", borderRadius: 10, padding: 12, background: "#fbfdff" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-            <strong style={{ color: "#173454" }}>Memória de cálculo dos descontos</strong>
+            <strong style={{ color: "#173454" }}>{"Mem\u00f3ria de c\u00e1lculo dos descontos"}</strong>
             <button type="button" style={botaoSecundario} onClick={adicionarDesconto}>Adicionar desconto</button>
           </div>
           <div style={{ fontSize: 11, color: "#6a7f97", marginBottom: 10 }}>
-            Descreva claramente o motivo de cada desconto para o boletim ficar explicativo no PDF e na cobrança.
+            {"Descreva claramente o motivo de cada desconto para o boletim ficar explicativo no PDF e na cobran\u00e7a."}
           </div>
           <div style={{ display: "grid", gap: 10 }}>
             {descontoItensCalculados.map((item) => (
               <div key={item.uid} style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 10, alignItems: "end" }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>Descrição</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#31455f", marginBottom: 4 }}>{"Descri\u00e7\u00e3o"}</div>
                   <input
                     style={inputStyle}
                     value={item.descricao}
@@ -1361,7 +1359,7 @@ function BoletimMedicao({ setTela }) {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1080 }}>
             <thead style={{ background: "#0b5ed7", color: "#fff" }}>
               <tr>
-                {["Obra", "Requisitante", "Medições", "Última medição", "Valor acumulado", "Ações"].map((titulo) => (
+                {["Obra", "Requisitante", "Medi\u00e7\u00f5es", "\u00daltima medi\u00e7\u00e3o", "Valor acumulado", "A\u00e7\u00f5es"].map((titulo) => (
                   <th key={`grupo-${titulo}`} style={{ border: "1px solid #d8e0ea", padding: 10, textAlign: "left", whiteSpace: "nowrap" }}>
                     {titulo}
                   </th>
@@ -1581,4 +1579,6 @@ function BoletimMedicao({ setTela }) {
 }
 
 export default BoletimMedicao;
+
+
 

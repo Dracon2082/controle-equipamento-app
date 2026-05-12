@@ -40,7 +40,7 @@ function Login({ setTela, authContext, onLoginSucesso }) {
   const telasAdminRelatorios = new Set(["relatorio", "relatorioAbastecimento", "relatorioTransferencias", "relatorioManutencao", "historico"]);
   const telasAdminCadastros = new Set(["configEmpresa", "equipamentos", "funcionarios", "frentistas", "obras", "empresas"]);
   const telasAdminControle = new Set(["lubrificantes", "transferencias", "almoxarifado"]);
-  const telasAdminFinanceiro = new Set(["financeiro"]);
+  const telasAdminFinanceiro = new Set(["financeiro", "memorandoInterno"]);
   const telasExclusivasUsuarioChave = new Set(["configEmpresa"]);
 
   const permissoesLegacyPorFuncao = (funcaoTexto) => {

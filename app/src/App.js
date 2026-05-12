@@ -18,6 +18,7 @@ import Abastecimento from "./pages/Abastecimento";
 import Empresas from "./pages/Empresas";
 import FinanceiroCliente from "./pages/FinanceiroCliente";
 import BoletimMedicao from "./pages/BoletimMedicao";
+import MemorandoInterno from "./pages/MemorandoInterno";
 import MasterClientes from "./pages/MasterClientes";
 import MasterLogin from "./pages/MasterLogin";
 import EPI from "./pages/EPI";
@@ -185,6 +186,7 @@ function ClientApp() {
     "empresas",
     "financeiro",
     "boletimMedicao",
+    "memorandoInterno",
     "lubrificantes",
     "almoxarifado",
     "transferencias",
@@ -221,7 +223,8 @@ function ClientApp() {
   ]);
   const telasAdminFinanceiro = new Set([
     "financeiro",
-    "boletimMedicao"
+    "boletimMedicao",
+    "memorandoInterno"
   ]);
 
   const obterSessao = () => {
@@ -475,6 +478,7 @@ function ClientApp() {
       {tela === "empresas" && <Empresas setTela={navegar} />}
       {tela === "financeiro" && <FinanceiroCliente setTela={navegar} />}
       {tela === "boletimMedicao" && <BoletimMedicao setTela={navegar} />}
+      {tela === "memorandoInterno" && <MemorandoInterno setTela={navegar} />}
       {tela === "almoxarifado" && <EntradaMateriais setTela={navegar} abaInicial="MATERIAIS" />}
       {tela === "epi" && <EPI setTela={navegar} />}
       {tela === "materiaisSaidas" && <SaidasMateriais setTela={navegar} />}

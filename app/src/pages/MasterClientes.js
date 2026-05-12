@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { getTenantId, setTenantId, withTenant } from "../utils/tenant";
@@ -16,7 +16,7 @@ const PLANOS = [
     valor: 349,
     limiteGestores: 1,
     limiteAdmins: 7,
-    limiteOperadores: 30
+    limiteOperadores: 50
   },
   {
     id: "PLANO_2",
@@ -24,7 +24,7 @@ const PLANOS = [
     valor: 499,
     limiteGestores: 1,
     limiteAdmins: 10,
-    limiteOperadores: 50
+    limiteOperadores: 80
   },
   {
     id: "PLANO_600",
@@ -33,7 +33,7 @@ const PLANOS = [
     valor: 699,
     limiteGestores: 1,
     limiteAdmins: 15,
-    limiteOperadores: 80
+    limiteOperadores: 120
   },
   {
     id: "PLANO_4",
@@ -44,6 +44,9 @@ const PLANOS = [
     limiteOperadores: null
   }
 ];
+
+const VALOR_ADMIN_EXTRA = 20;
+const VALOR_OPERADOR_EXTRA = 5;
 
 const CICLOS_PLANOS = [
   { meses: 1, nome: "Mensal", descontoPct: 0 },
@@ -96,6 +99,11 @@ const calcularPrecoPlano = (valorBase, meses) => {
 
 const formatarMoedaBR = (valor) =>
   Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+
+const descreverPlano = (plano) =>
+  `1 Gestor, ${plano.limiteAdmins} ADM, ${
+    plano.limiteOperadores === null ? "Operadores ilimitados" : `${plano.limiteOperadores} Operadores`
+  }`;
 
 const COLECOES_OPERACIONAIS = [
   "abastecimentos",
@@ -412,6 +420,8 @@ function MasterClientes({ setTela }) {
       valorMensalBase: calc.valorBase,
       valorMensalEquivalente: calc.equivalenteMensal,
       valorMensal: Number(valorPlanoEdicao || calc.total || planoSelecionado.valor || 0),
+      valorAdminExtra: VALOR_ADMIN_EXTRA,
+      valorOperadorExtra: VALOR_OPERADOR_EXTRA,
       maxUsuariosNoPlano,
       limiteGestoresPlano,
       limiteAdminsPlano,
@@ -481,6 +491,8 @@ function MasterClientes({ setTela }) {
       valorMensalBase: calc.valorBase,
       valorMensalEquivalente: calc.equivalenteMensal,
       valorMensal: Number(valorMensal || calc.total || 0),
+      valorAdminExtra: VALOR_ADMIN_EXTRA,
+      valorOperadorExtra: VALOR_OPERADOR_EXTRA,
       maxUsuariosNoPlano,
       limiteGestoresPlano,
       limiteAdminsPlano,
@@ -1761,7 +1773,7 @@ function MasterClientes({ setTela }) {
       );
     }
 
-    // ManutenÃ§Ã£o de equipamento.
+    // Manutenção de equipamento.
     await addDoc(
       collection(db, "manutencoes"),
       withTenant(
@@ -1775,7 +1787,7 @@ function MasterClientes({ setTela }) {
           mecanico,
           dataExecucao: formatarDataISO(agora),
           horimetroKm: "1016.2",
-          problemaRelatado: "SIMULADO - REVISAO PERÃODO",
+          problemaRelatado: "SIMULADO - REVISAO PERÍODO",
           servicosExecutados: "TROCA DE FILTRO E VERIFICACAO GERAL",
           proximaManutencao: formatarDataISO(new Date(agora.getTime() + 1000 * 60 * 60 * 24 * 30)),
           observacao: "SIMULADO PARA TESTE DE RELATORIO",
@@ -2442,7 +2454,7 @@ function MasterClientes({ setTela }) {
 
   const usarCliente = (item) => {
     if (item.status !== "ATIVO" && item.status !== "TESTE") {
-      alert("Esse cliente nÃ£o estÃ¡ liberado para uso.");
+      alert("Esse cliente nao esta liberado para uso.");
       return;
     }
     const tenant = setTenantId(item.tenantId || String(item.cnpj || "").replace(/\D/g, ""));
@@ -2465,15 +2477,15 @@ function MasterClientes({ setTela }) {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 20, background: "#f5f7fa", minHeight: "100vh" }}>
-      <h2 style={{ textAlign: "center", marginBottom: 14 }}>Painel Master - GestÃ£o Comercial e Clientes</h2>
+      <h2 style={{ textAlign: "center", marginBottom: 14 }}>Painel Master - Gestao Comercial e Clientes</h2>
       <div style={{ ...card, marginBottom: 12, background: "#e9f2ff", border: "1px solid #bfd7ff" }}>
         <strong>Tenant atual em uso:</strong> {tenantAtual}
       </div>
 
       <div style={card}>
-        <h3 style={{ marginTop: 0 }}>SeguranÃ§a do Master</h3>
+        <h3 style={{ marginTop: 0 }}>Seguranca do Master</h3>
         <p style={{ marginTop: 0, color: "#5c6f88" }}>
-          Aqui vocÃª altera a senha do login Master (e-mail/senha). Para recuperar sem estar logado, use "Esqueci a senha" na tela de login.
+          Aqui voce altera a senha do login Master (e-mail/senha). Para recuperar sem estar logado, use "Esqueci a senha" na tela de login.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
           <input
@@ -2506,12 +2518,12 @@ function MasterClientes({ setTela }) {
               return;
             }
             if (novaSenhaMaster !== novaSenhaMaster2) {
-              alert("A confirmaÃ§Ã£o da nova senha nÃ£o confere.");
+              alert("A confirmacao da nova senha nao confere.");
               return;
             }
             const r = await alterarSenhaMaster({ senhaAtual: senhaAtualMaster, novaSenha: novaSenhaMaster });
             if (!r.ok) {
-              alert(r.erro || "NÃ£o foi possÃ­vel alterar a senha.");
+              alert(r.erro || "Nao foi possivel alterar a senha.");
               return;
             }
             alert("Senha do Master alterada com sucesso.");
@@ -2532,13 +2544,13 @@ function MasterClientes({ setTela }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8 }}>
           <input
             style={inputStyle}
-            placeholder="WhatsApp Vendas (nÃºmero ou link)"
+            placeholder="WhatsApp Vendas (numero ou link)"
             value={whatsVendas}
             onChange={(e) => setWhatsVendas(e.target.value)}
           />
           <input
             style={inputStyle}
-            placeholder="WhatsApp Suporte (nÃºmero ou link)"
+            placeholder="WhatsApp Suporte (numero ou link)"
             value={whatsSuporte}
             onChange={(e) => setWhatsSuporte(e.target.value)}
           />
@@ -2562,12 +2574,12 @@ function MasterClientes({ setTela }) {
       <div style={card}>
         <h3 style={{ marginTop: 0 }}>Cadastro completo da empresa cliente</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
-          <input style={inputStyle} placeholder="RazÃ£o social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} />
+          <input style={inputStyle} placeholder="Razao social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} />
           <input style={inputStyle} placeholder="Nome fantasia" value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} />
           <input style={inputStyle} placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(formatarCnpj(e.target.value))} />
-          <input style={inputStyle} placeholder="InscriÃ§Ã£o estadual" value={inscricaoEstadual} onChange={(e) => setInscricaoEstadual(e.target.value)} />
-          <input style={inputStyle} placeholder="EndereÃ§o da empresa" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
-          <input style={inputStyle} placeholder="EndereÃ§o de cobranÃ§a" value={enderecoCobranca} onChange={(e) => setEnderecoCobranca(e.target.value)} />
+          <input style={inputStyle} placeholder="Inscricao estadual" value={inscricaoEstadual} onChange={(e) => setInscricaoEstadual(e.target.value)} />
+          <input style={inputStyle} placeholder="Endereco da empresa" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+          <input style={inputStyle} placeholder="Endereco de cobranca" value={enderecoCobranca} onChange={(e) => setEnderecoCobranca(e.target.value)} />
           <input style={inputStyle} placeholder="Telefone" value={telefone} onChange={(e) => setTelefone(formatarTelefone(e.target.value))} />
           <input style={inputStyle} placeholder="E-mail da empresa" value={emailContato} onChange={(e) => setEmailContato(e.target.value)} />
 
@@ -2582,7 +2594,7 @@ function MasterClientes({ setTela }) {
           >
             {PLANOS.map((plano) => (
               <option key={plano.id} value={plano.id}>
-                {`${plano.nome} - R$ ${plano.valor}/mÃªs | 1 Gestor, ${plano.limiteAdmins} ADM, ${plano.limiteOperadores === null ? "Operadores ilimitados" : `${plano.limiteOperadores} Operadores`}`}
+                {`${plano.nome} - R$ ${plano.valor}/mes | ${descreverPlano(plano)}`}
               </option>
             ))}
           </select>
@@ -2623,26 +2635,32 @@ function MasterClientes({ setTela }) {
           if (!planoAtual) return null;
           const calc = calcularPrecoPlano(planoAtual.valor, cicloPlanoMeses);
           return (
-            <div style={{ marginTop: 4, fontSize: 13, color: "#43556d" }}>
-              {calc.cicloMeses === 1 ? (
-                <span>Mensal sem desconto: <strong>R$ {formatarMoedaBR(calc.total)}</strong></span>
-              ) : (
-                <span>
-                  Pacote {calc.cicloMeses} meses: <strong>R$ {formatarMoedaBR(calc.total)}</strong>{" "}
-                  ({calc.descontoPct}% off | equivale a R$ {formatarMoedaBR(calc.equivalenteMensal)}/mÃªs)
-                </span>
-              )}
-            </div>
+            <>
+              <div style={{ marginTop: 4, fontSize: 13, color: "#43556d" }}>
+                {calc.cicloMeses === 1 ? (
+                  <span>Mensal sem desconto: <strong>R$ {formatarMoedaBR(calc.total)}</strong></span>
+                ) : (
+                  <span>
+                    Pacote {calc.cicloMeses} meses: <strong>R$ {formatarMoedaBR(calc.total)}</strong>{" "}
+                    ({calc.descontoPct}% off | equivale a R$ {formatarMoedaBR(calc.equivalenteMensal)}/mes)
+                  </span>
+                )}
+              </div>
+              <div style={{ marginTop: 4, fontSize: 12, color: "#5a6b82" }}>
+                Excedentes: <strong>ADM extra R$ {formatarMoedaBR(VALOR_ADMIN_EXTRA)}/mes</strong> e{" "}
+                <strong>Operador extra R$ {formatarMoedaBR(VALOR_OPERADOR_EXTRA)}/mes</strong>.
+              </div>
+            </>
           );
         })()}
 
         {mostrarFerramentasPerigosas && (
           <>
-            <h3 style={{ marginTop: 12 }}>Acesso inicial do cliente (simulaÃ§Ã£o)</h3>
+            <h3 style={{ marginTop: 12 }}>Acesso inicial do cliente (simulacao)</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               <input style={inputStyle} placeholder="Nome do gestor" value={nomeGestor} onChange={(e) => setNomeGestor(e.target.value)} />
               <input style={inputStyle} placeholder="E-mail do gestor" value={emailGestor} onChange={(e) => setEmailGestor(e.target.value)} />
-              <input style={inputStyle} placeholder="Senha temporÃ¡ria" value={senhaTemporaria} onChange={(e) => setSenhaTemporaria(e.target.value)} />
+              <input style={inputStyle} placeholder="Senha temporaria" value={senhaTemporaria} onChange={(e) => setSenhaTemporaria(e.target.value)} />
             </div>
           </>
         )}
@@ -2696,13 +2714,13 @@ function MasterClientes({ setTela }) {
         <table style={{ width: "100%", minWidth: 1080, borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", tableLayout: "fixed" }}>
           <thead style={{ background: "#0b3d91", color: "#fff" }}>
             <tr>
-              <th style={{ border: "1px solid #ccc", padding: 8, width: "17%" }}>RazÃ£o Social</th>
+              <th style={{ border: "1px solid #ccc", padding: 8, width: "17%" }}>Razao Social</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "14%" }}>CNPJ</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "21%" }}>Plano</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "9%" }}>Pagamento</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "9%" }}>Status</th>
               <th style={{ border: "1px solid #ccc", padding: 8, width: "15%" }}>Acesso Inicial</th>
-              <th style={{ border: "1px solid #ccc", padding: 8, width: "15%" }}>AÃ§Ãµes</th>
+              <th style={{ border: "1px solid #ccc", padding: 8, width: "15%" }}>Acoes</th>
             </tr>
           </thead>
           <tbody>
@@ -2779,24 +2797,31 @@ function MasterClientes({ setTela }) {
                       {item.planoNome || item.planoId} <br />
                       <strong>
                         {ciclo.meses === 1
-                          ? `R$ ${Number(item.valorMensal || 0).toLocaleString("pt-BR")}/mês`
+                          ? `R$ ${Number(item.valorMensal || 0).toLocaleString("pt-BR")}/mes`
                           : `R$ ${valorCobrado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / ${ciclo.nome}`}
                       </strong>
                       {ciclo.meses > 1 && (
                         <>
                           <br />
                           <span style={{ fontSize: 12 }}>
-                            {ciclo.descontoPct}% off | equivale a R$ {equivalente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês
+                            {ciclo.descontoPct}% off | equivale a R$ {equivalente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mes
                           </span>
                         </>
                       )}
                       <br />
                       <span style={{ fontSize: 12 }}>
-                        1 Gestor, {Number(item.limiteAdminsPlano || 0)} ADM, {
-                          item.limiteOperadoresPlano === null || Number(item.limiteOperadoresPlano) <= 0
-                            ? "Operadores ilimitados"
-                            : `${Number(item.limiteOperadoresPlano)} Operadores`
-                        }
+                        {descreverPlano({
+                          limiteAdmins: Number(item.limiteAdminsPlano || 0),
+                          limiteOperadores:
+                            item.limiteOperadoresPlano === null || Number(item.limiteOperadoresPlano) <= 0
+                              ? null
+                              : Number(item.limiteOperadoresPlano)
+                        })}
+                      </span>
+                      <br />
+                      <span style={{ fontSize: 12 }}>
+                        ADM extra: R$ {formatarMoedaBR(item?.valorAdminExtra || VALOR_ADMIN_EXTRA)}/mes | Operador extra: R${" "}
+                        {formatarMoedaBR(item?.valorOperadorExtra || VALOR_OPERADOR_EXTRA)}/mes
                       </span>
                           </>
                         );
@@ -2866,7 +2891,7 @@ function MasterClientes({ setTela }) {
                             setAcoesAbertoId(next);
                           }}
                         >
-                          AÃ§Ãµes
+                          Acoes
                         </button>
                       </div>
                     );
@@ -3112,7 +3137,7 @@ function MasterClientes({ setTela }) {
               </div>
 
               <div style={{ marginTop: 10, fontSize: 12, color: "#5a6b82" }}>
-                Observação: o ZIP vem com um CSV por coleção do sistema. Se você marcar “Incluir mídias/base64”, o arquivo pode ficar bem grande.
+                Observacao: o ZIP vem com um CSV por colecao do sistema. Se voce marcar “Incluir midias/base64”, o arquivo pode ficar bem grande.
               </div>
             </div>
           </div>
@@ -3207,18 +3232,22 @@ function MasterClientes({ setTela }) {
                       <div style={{ fontSize: 16, fontWeight: 900, color: "#10243e" }}>{nomePlano}</div>
                       <div style={{ fontSize: 12, color: "#5a6b82" }}>
                         {ciclo.meses === 1 ? (
-                          <>Valor do plano: <strong>R$ {valorPlanoTxt}/mês</strong></>
+                          <>Valor do plano: <strong>R$ {valorPlanoTxt}/mes</strong></>
                         ) : (
                           <>Pacote {ciclo.nome}: <strong>R$ {valorPlanoTxt}</strong></>
                         )}
                       </div>
                       {ciclo.meses > 1 && (
                         <div style={{ fontSize: 12, color: "#5a6b82" }}>
-                          Desconto: <strong>{ciclo.descontoPct}%</strong> | Equivalente mensal: <strong>R$ {formatarMoedaBR(valorEquivalente)}/mês</strong>
+                          Desconto: <strong>{ciclo.descontoPct}%</strong> | Equivalente mensal: <strong>R$ {formatarMoedaBR(valorEquivalente)}/mes</strong>
                         </div>
                       )}
                       <div style={{ fontSize: 12, color: "#5a6b82" }}>
                         Vencimento: <strong>dia {Number.isFinite(diaAtual) ? diaAtual : 10}</strong>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#5a6b82" }}>
+                        Excedentes: <strong>ADM extra R$ {formatarMoedaBR(item?.valorAdminExtra || VALOR_ADMIN_EXTRA)}/mes</strong> e{" "}
+                        <strong>Operador extra R$ {formatarMoedaBR(item?.valorOperadorExtra || VALOR_OPERADOR_EXTRA)}/mes</strong>
                       </div>
                     </div>
                   );
@@ -3425,7 +3454,7 @@ function MasterClientes({ setTela }) {
               </div>
 
               <div style={{ marginTop: 10, fontSize: 12, color: "#5a6b82" }}>
-                Observação: mesmo se você não marcar INADIMPLENTE, o app calcula inadimplência automaticamente pelo vencimento e “pago até”.
+                Observacao: mesmo se voce nao marcar INADIMPLENTE, o app calcula inadimplencia automaticamente pelo vencimento e “pago ate”.
               </div>
             </div>
           </div>
