@@ -5,6 +5,12 @@ import { BrowserQRCodeReader } from "@zxing/browser";
 import { collection, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { registrarHistorico } from "../utils/historico";
+import {
+  atualizarRecebimentoTransportePendente,
+  listarRecebimentosTransportePendentes,
+  removerRecebimentoTransportePendente,
+  salvarRecebimentoTransportePendente
+} from "../utils/offlineReceberTransporte";
 import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
 
 const COLECAO = "romaneiosTransporte";
@@ -37,6 +43,10 @@ function ReceberTransporte({ setTela }) {
   const [situacao, setSituacao] = useState("RECEBIDO_TOTAL");
   const [observacao, setObservacao] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [pendenciasOffline, setPendenciasOffline] = useState([]);
+  const [sincronizandoPendencias, setSincronizandoPendencias] = useState(false);
+  const [mensagemSincronizacao, setMensagemSincronizacao] = useState("");
 
   const inputStyle = {
     width: "100%",
@@ -100,6 +110,27 @@ function ReceberTransporte({ setTela }) {
 
   useEffect(() => () => pararScan(), []);
 
+  useEffect(() => {
+    const aoFicarOnline = () => setIsOnline(true);
+    const aoFicarOffline = () => setIsOnline(false);
+    window.addEventListener("online", aoFicarOnline);
+    window.addEventListener("offline", aoFicarOffline);
+    return () => {
+      window.removeEventListener("online", aoFicarOnline);
+      window.removeEventListener("offline", aoFicarOffline);
+    };
+  }, []);
+
+  const atualizarPendencias = async () => {
+    const itens = await listarRecebimentosTransportePendentes(tenantId);
+    setPendenciasOffline(itens);
+    return itens;
+  };
+
+  useEffect(() => {
+    atualizarPendencias();
+  }, [tenantId]);
+
   const parsePayload = (texto) => {
     const raw = String(texto || "").trim();
     if (!raw) return null;
@@ -120,6 +151,25 @@ function ReceberTransporte({ setTela }) {
     }
     if (String(parsed.tenant || "").trim() !== String(tenantId || "").trim()) {
       setErroScan("Este QR nao pertence a esta empresa.");
+      return;
+    }
+    if (!navigator.onLine) {
+      setRomaneio({
+        id: parsed.id,
+        numero: "ROMANEIO EM MODO OFFLINE",
+        tipoTransporte: "PENDENTE DE VALIDACAO",
+        materialLabel: "Dados completos serao validados na sincronizacao",
+        quantidade: "-",
+        unidade: "",
+        origem: "-",
+        destino: "-",
+        obra: "-",
+        caminhaoNome: "-",
+        motorista: "-",
+        status: "PENDENTE"
+      });
+      setCodigoManual(parsed.id);
+      setMensagemSincronizacao("QR lido offline. O recebimento ficara salvo no celular e sera validado na sincronizacao.");
       return;
     }
     const snap = await getDoc(doc(db, COLECAO, parsed.id));
@@ -143,6 +193,10 @@ function ReceberTransporte({ setTela }) {
   const buscarManual = async () => {
     const alvo = String(codigoManual || "").trim().toUpperCase();
     if (!alvo) return alert("Informe o numero do romaneio.");
+    if (!navigator.onLine) {
+      alert("Sem internet, a busca manual nao consegue localizar o romaneio. No offline use a leitura do QR.");
+      return;
+    }
     setErroScan("");
     setRomaneio(null);
     const snap = await getDocs(collection(db, COLECAO));
@@ -221,6 +275,84 @@ function ReceberTransporte({ setTela }) {
       );
     });
 
+  const persistirRecebimentoRemoto = async (payload) => {
+    const localRecebimento = await obterLocalizacao();
+    await updateDoc(
+      doc(db, COLECAO, payload.romaneioId),
+      withTenant(
+        {
+          status: payload.situacao === "RECEBIDO_TOTAL" ? "RECEBIDO" : "DIVERGENCIA",
+          recebidoStatus: payload.situacao,
+          observacaoRecebimento: String(payload.observacao || "").trim().toUpperCase(),
+          assinaturaRecebimento: payload.assinatura,
+          recebedor: payload.recebedor || "RECEBEDOR",
+          dataHoraRecebimento: new Date().toISOString(),
+          localRecebimento
+        },
+        tenantId
+      )
+    );
+
+    await registrarHistorico({
+      modulo: "TRANSPORTE",
+      acao: "RECEBEU",
+      entidade: "ROMANEIO_TRANSPORTE",
+      registroId: payload.romaneioId,
+      usuario: payload.recebedor || "-",
+      descricao: `Confirmou recebimento do romaneio ${payload.numeroRomaneio || payload.romaneioId || "-"}.`
+    });
+  };
+
+  const sincronizarPendencias = async () => {
+    if (!navigator.onLine || sincronizandoPendencias) return;
+    const pendencias = await listarRecebimentosTransportePendentes(tenantId);
+    if (!pendencias.length) return;
+
+    setSincronizandoPendencias(true);
+    setMensagemSincronizacao("Sincronizando recebimentos pendentes...");
+
+    let sincronizados = 0;
+    let comErro = 0;
+
+    for (const pendencia of pendencias) {
+      try {
+        await atualizarRecebimentoTransportePendente(pendencia.id, {
+          status: "sincronizando",
+          ultimaTentativaEm: new Date().toISOString(),
+          ultimoErro: ""
+        });
+        await persistirRecebimentoRemoto(pendencia.payload);
+        await removerRecebimentoTransportePendente(pendencia.id);
+        sincronizados += 1;
+      } catch (error) {
+        comErro += 1;
+        await atualizarRecebimentoTransportePendente(pendencia.id, {
+          status: "erro",
+          ultimaTentativaEm: new Date().toISOString(),
+          ultimoErro: String(error?.message || error || "Falha ao sincronizar recebimento de transporte.")
+        });
+      }
+    }
+
+    await atualizarPendencias();
+    if (sincronizados && comErro) {
+      setMensagemSincronizacao(`${sincronizados} recebimento(s) sincronizado(s) e ${comErro} ainda pendente(s).`);
+    } else if (sincronizados) {
+      setMensagemSincronizacao(`${sincronizados} recebimento(s) sincronizado(s) com sucesso.`);
+    } else if (comErro) {
+      setMensagemSincronizacao(`${comErro} recebimento(s) ainda pendente(s) por erro de sincronizacao.`);
+    } else {
+      setMensagemSincronizacao("");
+    }
+    setSincronizandoPendencias(false);
+  };
+
+  useEffect(() => {
+    if (isOnline) {
+      sincronizarPendencias();
+    }
+  }, [isOnline]);
+
   const confirmar = async () => {
     if (!romaneio?.id || salvando) return;
     const assinatura = assinaturaRef.current?.isEmpty()
@@ -230,34 +362,32 @@ function ReceberTransporte({ setTela }) {
       alert("A assinatura do recebedor e obrigatoria.");
       return;
     }
+    const payload = {
+      romaneioId: romaneio.id,
+      numeroRomaneio: romaneio.numero || codigoManual || romaneio.id,
+      situacao,
+      observacao: String(observacao || "").trim().toUpperCase(),
+      assinatura,
+      recebedor: recebedorAtual || "RECEBEDOR"
+    };
     setSalvando(true);
+    if (!isOnline) {
+      await salvarRecebimentoTransportePendente(payload, tenantId);
+      await atualizarPendencias();
+      setMensagemSincronizacao("Recebimento salvo no celular e aguardando sincronizacao.");
+      alert("Recebimento salvo offline no celular. Ele sera sincronizado quando a internet voltar.");
+      setRomaneio(null);
+      setCodigoManual("");
+      setObservacao("");
+      setSituacao("RECEBIDO_TOTAL");
+      assinaturaRef.current?.clear();
+      setSalvando(false);
+      return;
+    }
     try {
-      const localRecebimento = await obterLocalizacao();
-      await updateDoc(
-        doc(db, COLECAO, romaneio.id),
-        withTenant(
-          {
-            status: situacao === "RECEBIDO_TOTAL" ? "RECEBIDO" : "DIVERGENCIA",
-            recebidoStatus: situacao,
-            observacaoRecebimento: String(observacao || "").trim().toUpperCase(),
-            assinaturaRecebimento: assinatura,
-            recebedor: recebedorAtual || "RECEBEDOR",
-            dataHoraRecebimento: new Date().toISOString(),
-            localRecebimento
-          },
-          tenantId
-        )
-      );
-
-      await registrarHistorico({
-        modulo: "TRANSPORTE",
-        acao: "RECEBEU",
-        entidade: "ROMANEIO_TRANSPORTE",
-        registroId: romaneio.id,
-        usuario: recebedorAtual || "-",
-        descricao: `Confirmou recebimento do romaneio ${romaneio.numero || "-"}.`
-      });
-
+      await persistirRecebimentoRemoto(payload);
+      await atualizarPendencias();
+      setMensagemSincronizacao("Recebimento enviado para o sistema com sucesso.");
       alert("Recebimento confirmado com sucesso.");
       setRomaneio(null);
       setCodigoManual("");
@@ -265,7 +395,21 @@ function ReceberTransporte({ setTela }) {
       setSituacao("RECEBIDO_TOTAL");
       assinaturaRef.current?.clear();
     } catch (e) {
-      alert(`Falha ao confirmar recebimento. Detalhes: ${String(e?.message || e || "")}`);
+      const mensagem = String(e?.message || e || "");
+      const erroDeRede = !navigator.onLine || /network|offline|unavailable|failed-precondition/i.test(mensagem);
+      if (erroDeRede) {
+        await salvarRecebimentoTransportePendente(payload, tenantId);
+        await atualizarPendencias();
+        setMensagemSincronizacao("Sem internet no momento. O recebimento ficou salvo no celular.");
+        alert("Sem internet no momento. O recebimento foi salvo offline e sera sincronizado depois.");
+        setRomaneio(null);
+        setCodigoManual("");
+        setObservacao("");
+        setSituacao("RECEBIDO_TOTAL");
+        assinaturaRef.current?.clear();
+        return;
+      }
+      alert(`Falha ao confirmar recebimento. Detalhes: ${mensagem}`);
     } finally {
       setSalvando(false);
     }
@@ -285,6 +429,28 @@ function ReceberTransporte({ setTela }) {
             Voltar
           </button>
         </div>
+      </div>
+
+      <div
+        style={{
+          ...card,
+          borderColor: isOnline ? "#cce5d1" : "#ffd8a8",
+          background: isOnline ? "#f1fff4" : "#fff4e6",
+          color: "#173454"
+        }}
+      >
+        <div style={{ fontWeight: 800 }}>{isOnline ? "Celular online" : "Celular offline"}</div>
+        <div style={{ marginTop: 4, fontSize: 13 }}>
+          {isOnline
+            ? "Os recebimentos podem ser enviados agora."
+            : "No offline, use preferencialmente o QR para registrar o recebimento no celular."}
+        </div>
+        {!!pendenciasOffline.length && (
+          <div style={{ marginTop: 6, fontSize: 13 }}>Pendencias offline: {pendenciasOffline.length}</div>
+        )}
+        {!!mensagemSincronizacao && (
+          <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700 }}>{mensagemSincronizacao}</div>
+        )}
       </div>
 
       <div style={card}>
@@ -375,6 +541,14 @@ function ReceberTransporte({ setTela }) {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
               <button type="button" onClick={() => assinaturaRef.current?.clear()} style={botaoSecundario}>
                 Limpar assinatura
+              </button>
+              <button
+                type="button"
+                onClick={sincronizarPendencias}
+                disabled={!pendenciasOffline.length || !isOnline || sincronizandoPendencias}
+                style={{ ...botaoSecundario, opacity: sincronizandoPendencias ? 0.7 : 1 }}
+              >
+                {sincronizandoPendencias ? "Sincronizando..." : `Sincronizar pendencias${pendenciasOffline.length ? ` (${pendenciasOffline.length})` : ""}`}
               </button>
               <button type="button" onClick={confirmar} disabled={salvando} style={{ ...botaoPrimario, opacity: salvando ? 0.7 : 1 }}>
                 {salvando ? "Salvando..." : "Confirmar recebimento"}
