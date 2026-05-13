@@ -10,6 +10,7 @@ import {
   updateDoc
 } from "firebase/firestore";
 import { registrarHistorico } from "../utils/historico";
+import { LIMITES_PADRAO_PLANO, obterLimitesPlanoCliente } from "../utils/planos";
 import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
 import { garantirUsuarioAuth } from "../utils/authUsers";
 
@@ -84,9 +85,9 @@ function Frentista({ setTela }) {
   const [listaOriginal, setListaOriginal] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
   const [limitesPlano, setLimitesPlano] = useState({
-    gestores: 1,
-    admins: 2,
-    operadores: 20,
+    gestores: LIMITES_PADRAO_PLANO.gestores,
+    admins: LIMITES_PADRAO_PLANO.admins,
+    operadores: LIMITES_PADRAO_PLANO.operadores,
     operadoresIlimitado: false,
     total: 0
   });
@@ -196,15 +197,16 @@ function Frentista({ setTela }) {
     const clienteAtual =
       clientes.find((item) => String(item.tenantId || "").toLowerCase() === String(tenantId || "").toLowerCase()) ||
       clientes.find((item) => String(item.cnpj || "") === String(tenantId || ""));
-    const limiteGestores = Number(clienteAtual?.limiteGestoresPlano || 1);
-    const limiteAdmins = Number(clienteAtual?.limiteAdminsPlano || 2);
-    const limiteOperadoresRaw = clienteAtual?.limiteOperadoresPlano;
+    const limitesCliente = obterLimitesPlanoCliente(clienteAtual || {});
+    const limiteGestores = Number(limitesCliente.limiteGestores || LIMITES_PADRAO_PLANO.gestores);
+    const limiteAdmins = Number(limitesCliente.limiteAdmins || LIMITES_PADRAO_PLANO.admins);
+    const limiteOperadoresRaw = limitesCliente.limiteOperadores;
     const operadoresIlimitado = limiteOperadoresRaw === null || Number(limiteOperadoresRaw) <= 0;
-    const limiteOperadores = operadoresIlimitado ? 0 : Number(limiteOperadoresRaw || 20);
-    const limiteTotal = Number(clienteAtual?.maxUsuariosNoPlano || 0);
+    const limiteOperadores = operadoresIlimitado ? 0 : Number(limiteOperadoresRaw || LIMITES_PADRAO_PLANO.operadores);
+    const limiteTotal = Number(limitesCliente.maxUsuariosNoPlano || 0);
     setLimitesPlano({
-      gestores: limiteGestores > 0 ? limiteGestores : 1,
-      admins: limiteAdmins > 0 ? limiteAdmins : 2,
+      gestores: limiteGestores > 0 ? limiteGestores : LIMITES_PADRAO_PLANO.gestores,
+      admins: limiteAdmins > 0 ? limiteAdmins : LIMITES_PADRAO_PLANO.admins,
       operadores: limiteOperadores,
       operadoresIlimitado,
       total: limiteTotal > 0 ? limiteTotal : 0

@@ -6,44 +6,9 @@ import { alterarSenhaMaster, masterLogout } from "../utils/masterAuth";
 import { garantirUsuarioAuth } from "../utils/authUsers";
 import { getContatoComercialConfig, salvarContatoComercialConfig } from "../utils/contactConfig";
 import { limparCacheClienteSistema } from "../utils/clienteSistema";
+import { descreverPlano, obterPlanoPorId, PLANOS, PLANO_TESTE_10D } from "../utils/planos";
 import JSZip from "jszip";
 import { obterRefMesAnterior, obterRefMesAtual } from "../utils/clienteSistema";
-
-const PLANOS = [
-  {
-    id: "PLANO_1",
-    nome: "Plano 1",
-    valor: 349,
-    limiteGestores: 1,
-    limiteAdmins: 7,
-    limiteOperadores: 50
-  },
-  {
-    id: "PLANO_2",
-    nome: "Plano 2",
-    valor: 499,
-    limiteGestores: 1,
-    limiteAdmins: 10,
-    limiteOperadores: 80
-  },
-  {
-    id: "PLANO_600",
-    // Mantemos o ID antigo por compatibilidade com clientes ja cadastrados.
-    nome: "Plano 3",
-    valor: 699,
-    limiteGestores: 1,
-    limiteAdmins: 15,
-    limiteOperadores: 120
-  },
-  {
-    id: "PLANO_4",
-    nome: "Plano 4",
-    valor: 899,
-    limiteGestores: 1,
-    limiteAdmins: 20,
-    limiteOperadores: null
-  }
-];
 
 const VALOR_ADMIN_EXTRA = 20;
 const VALOR_OPERADOR_EXTRA = 5;
@@ -55,22 +20,6 @@ const CICLOS_PLANOS = [
   { meses: 12, nome: "12 meses", descontoPct: 15 }
 ];
 
-const PLANO_TESTE_10D = {
-  id: "TESTE_10D",
-  nome: "Teste 10 dias",
-  valor: 0,
-  limiteGestores: 1,
-  limiteAdmins: 3,
-  limiteOperadores: 10,
-  dias: 10
-};
-
-const obterPlanoPorId = (planoId) => {
-  const pid = String(planoId || "").trim();
-  if (!pid) return null;
-  if (pid === PLANO_TESTE_10D.id) return PLANO_TESTE_10D;
-  return PLANOS.find((p) => String(p.id) === pid) || null;
-};
 
 const obterCicloPlano = (meses) => {
   const ciclo = Number(meses || 1);
@@ -99,11 +48,6 @@ const calcularPrecoPlano = (valorBase, meses) => {
 
 const formatarMoedaBR = (valor) =>
   Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-
-const descreverPlano = (plano) =>
-  `1 Gestor, ${plano.limiteAdmins} ADM, ${
-    plano.limiteOperadores === null ? "Operadores ilimitados" : `${plano.limiteOperadores} Operadores`
-  }`;
 
 const COLECOES_OPERACIONAIS = [
   "abastecimentos",

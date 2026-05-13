@@ -3,6 +3,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { getTenantId } from "../utils/tenant";
 import { obterRefMesAtual } from "../utils/clienteSistema";
+import { obterLimitesPlanoCliente } from "../utils/planos";
 
 const STATUS_CORES = {
   PENDENTE: { fundo: "#eef4ff", borda: "#b8ccff", texto: "#2457d6" },
@@ -94,12 +95,13 @@ function FinanceiroCliente({ setTela }) {
   const diaVenc = Number(cliente?.diaVencimento || 0);
   const pagoAteRef = String(cliente?.pagoAteRef || "").trim();
   const refAtual = obterRefMesAtual();
-  const limiteGestores = Number(cliente?.limiteGestoresPlano || 1);
-  const limiteAdmins = Number(cliente?.limiteAdminsPlano || 2);
-  const limiteOperadoresRaw = cliente?.limiteOperadoresPlano;
+  const limitesPlano = obterLimitesPlanoCliente(cliente || {});
+  const limiteGestores = Number(limitesPlano.limiteGestores || 0);
+  const limiteAdmins = Number(limitesPlano.limiteAdmins || 0);
+  const limiteOperadoresRaw = limitesPlano.limiteOperadores;
   const limiteOperadoresIlimitado = limiteOperadoresRaw === null || Number(limiteOperadoresRaw) <= 0;
   const limiteOperadores = limiteOperadoresIlimitado ? 0 : Number(limiteOperadoresRaw || 20);
-  const limiteUsuarios = Number(cliente?.maxUsuariosNoPlano || 0);
+  const limiteUsuarios = Number(limitesPlano.maxUsuariosNoPlano || 0);
 
   const caixa = {
     maxWidth: 1060,
