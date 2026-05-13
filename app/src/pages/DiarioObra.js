@@ -3,6 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { registrarHistorico } from "../utils/historico";
+import {
+  atualizarRdoPendente,
+  listarRdosPendentes,
+  removerRdoPendente,
+  salvarRdoPendente
+} from "../utils/offlineRdo";
 import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
 
 function DiarioObra({ setTela }) {
@@ -17,8 +23,6 @@ function DiarioObra({ setTela }) {
 
   const perfilSessao = String(sessaoOperacional?.perfilAcesso || "").trim().toUpperCase();
   const usuarioChaveSessao = Boolean(sessaoOperacional?.usuarioChave);
-  // Importante: ADMIN_UNIDADE nao e acesso total de bases.
-  // Ele deve respeitar basesPermitidas (cidade/estado) como qualquer operacional.
   const acessoTotalBases = perfilSessao === "GESTOR_GERAL" || usuarioChaveSessao;
   const basesPermitidas = Array.isArray(sessaoOperacional?.basesPermitidas)
     ? sessaoOperacional.basesPermitidas.map((b) => String(b || "").trim().toUpperCase()).filter(Boolean)
@@ -76,6 +80,10 @@ function DiarioObra({ setTela }) {
   const [obraId, setObraId] = useState("");
   const obraSelecionada = useMemo(() => obras.find((o) => String(o.id) === String(obraId)) || null, [obras, obraId]);
   const [salvando, setSalvando] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
+  const [pendenciasOffline, setPendenciasOffline] = useState([]);
+  const [sincronizandoPendencias, setSincronizandoPendencias] = useState(false);
+  const [mensagemSincronizacao, setMensagemSincronizacao] = useState("");
 
   const [data, setData] = useState(hojeISO());
   const [objeto, setObjeto] = useState("");
@@ -124,30 +132,46 @@ function DiarioObra({ setTela }) {
     const snap = await getDocs(collection(db, "obras"));
     const lista = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
-      // Obras legadas (sem tenantId) podem existir. Para nao "sumir" no uso real,
-      // permitimos exibir quando o tenant atual nao e o tenant_local.
       .filter((o) => belongsToTenant(o, tenantId) || (!o?.tenantId && String(tenantId) !== "tenant_local"))
-      // Operacional: restringe por base/cidade permitida (igual outros modulos).
       .filter((o) => basePermitida(o))
       .sort((a, b) => String(a.numero || a.codigo || a.id).localeCompare(String(b.numero || b.codigo || b.id), "pt-BR"));
     setObras(lista);
-    // Se a obra atual nao existe mais na lista (por permissao), seleciona a primeira disponivel.
     const existeAtual = lista.some((o) => String(o.id) === String(obraId));
-    if ((!obraId || !existeAtual) && lista.length) setObraId(String(lista[0].id));
+    if ((!obraId || !existeAtual) && lista.length) {
+      setObraId(String(lista[0].id));
+    }
   };
 
   useEffect(() => {
     carregarObras();
   }, []);
 
+  useEffect(() => {
+    atualizarPendencias().catch(() => {});
+  }, [tenantId]);
+
+  useEffect(() => {
+    const atualizarStatusConexao = () => setIsOnline(window.navigator.onLine);
+    window.addEventListener("online", atualizarStatusConexao);
+    window.addEventListener("offline", atualizarStatusConexao);
+    return () => {
+      window.removeEventListener("online", atualizarStatusConexao);
+      window.removeEventListener("offline", atualizarStatusConexao);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOnline) {
+      sincronizarPendencias();
+    }
+  }, [isOnline]);
+
   const parseObraNumeroEObjeto = (obra) => {
     const nome = String(obra?.nome || "").trim();
-    // Padrao comum: "072 - EXECUCAO DE SERVICOS ..."
-    const m = nome.match(/^\s*([0-9]{1,6})\s*[-â€“â€”]\s*(.+)\s*$/);
+    const m = nome.match(/^\s*([0-9]{1,6})\s*[-–—]\s*(.+)\s*$/);
     if (m) {
       return { numero: m[1], objeto: m[2] };
     }
-    // Se nao tiver separador, tenta pegar um "codigo" no inicio.
     const m2 = nome.match(/^\s*([0-9]{1,6})\s+(.+)\s*$/);
     if (m2) {
       return { numero: m2[1], objeto: m2[2] };
@@ -155,12 +179,9 @@ function DiarioObra({ setTela }) {
     return { numero: nome || String(obra?.id || "-").trim(), objeto: "" };
   };
 
-  // Auto-preencher o Objeto/Descrição com base na obra selecionada.
   useEffect(() => {
     if (!obraSelecionada) return;
     const { objeto: objetoDaObra } = parseObraNumeroEObjeto(obraSelecionada);
-    // Se o usuario ainda nao editou manualmente (ou esta com o valor auto anterior),
-    // mantemos sempre sincronizado com a obra selecionada.
     const atual = String(objeto || "").trim();
     const autoAnterior = String(objetoAuto || "").trim();
     if (!atual || atual === autoAnterior) {
@@ -168,7 +189,6 @@ function DiarioObra({ setTela }) {
       setObjeto(novo);
       setObjetoAuto(novo);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obraId]);
 
   const montarPayloadRdo = () => {
@@ -194,87 +214,170 @@ function DiarioObra({ setTela }) {
     }, tenantId);
   };
 
+  const atualizarPendencias = async () => {
+    const pendentes = await listarRdosPendentes(tenantId);
+    setPendenciasOffline(pendentes);
+    return pendentes;
+  };
+
+  const persistirRdoRemoto = async (payload) => {
+    const snapExistentes = await getDocs(collection(db, "rdo"));
+    const existentes = snapExistentes.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((r) => belongsToTenant(r, tenantId));
+
+    const obraKey = String(payload.obraNumero || "").trim();
+    const apontadorKey = String(payload.apontadorEmail || payload.apontadorNome || "").trim().toUpperCase();
+    const daMesmaObraEApontador = existentes.filter((r) => {
+      if (String(r.obraNumero || "").trim() !== obraKey) return false;
+      const key = String(r.apontadorEmail || r.apontadorNome || "").trim().toUpperCase();
+      return key === apontadorKey;
+    });
+
+    const dataKey = String(payload.data || "").trim();
+    const logKey = String(payload.logradouro || "").trim().toUpperCase();
+    const bairroKey = String(payload.bairro || "").trim().toUpperCase();
+    const jaExisteMesmoLocal = daMesmaObraEApontador.some((r) => {
+      if (String(r.data || "").trim() !== dataKey) return false;
+      const rLog = String(r.logradouro || "").trim().toUpperCase();
+      const rBairro = String(r.bairro || "").trim().toUpperCase();
+      return rLog === logKey && rBairro === bairroKey;
+    });
+
+    if (jaExisteMesmoLocal) {
+      const erro = new Error("Ja existe um RDO para esse apontador nesta obra, nesta data e neste local (logradouro/bairro).");
+      erro.userMessage = "Ja existe um RDO para esse apontador nesta obra, nesta data e neste local (logradouro/bairro).";
+      throw erro;
+    }
+
+    const maxSeq = daMesmaObraEApontador.reduce((acc, r) => {
+      const n = Number(r.sequencia || r.seq || 0);
+      return Number.isFinite(n) ? Math.max(acc, n) : acc;
+    }, 0);
+
+    const prox = maxSeq + 1;
+    const numeroRdo = String(prox).padStart(3, "0");
+    const payloadFinal = {
+      ...payload,
+      sequencia: prox,
+      numeroRdo
+    };
+
+    const ref = await addDoc(collection(db, "rdo"), payloadFinal);
+    await registrarHistorico({
+      modulo: "RDO",
+      acao: "CRIAR",
+      entidade: "RDO",
+      registroId: ref.id,
+      descricao: `RDO ${payloadFinal.numeroRdo || ""} OBRA ${payloadFinal.obraNumero || "-"} - ${payloadFinal.logradouro || "-"} - ${payloadFinal.data || "-"}`,
+      usuario: payloadFinal.apontadorNome || payloadFinal.apontadorEmail || "APONTADOR"
+    });
+
+    return ref;
+  };
+
+  const sincronizarPendencias = async () => {
+    if (!window.navigator.onLine || sincronizandoPendencias) {
+      return;
+    }
+
+    setSincronizandoPendencias(true);
+
+    try {
+      const pendentes = await listarRdosPendentes(tenantId);
+      let sincronizados = 0;
+      let comErro = 0;
+
+      for (const item of pendentes) {
+        try {
+          await persistirRdoRemoto(item.payload);
+          await removerRdoPendente(item.id);
+          sincronizados += 1;
+        } catch (error) {
+          comErro += 1;
+          await atualizarRdoPendente(item.id, {
+            status: "erro",
+            ultimoErro: error?.userMessage || error?.message || "Falha na sincronização do RDO.",
+            ultimaTentativaEm: new Date().toISOString()
+          });
+        }
+      }
+
+      await atualizarPendencias();
+      if (sincronizados > 0 || comErro > 0) {
+        setMensagemSincronizacao(
+          comErro > 0
+            ? `${sincronizados} RDO(s) sincronizado(s) e ${comErro} ainda precisa(m) de revisão.`
+            : `${sincronizados} RDO(s) sincronizado(s) com sucesso.`
+        );
+      }
+    } finally {
+      setSincronizandoPendencias(false);
+    }
+  };
+
   const salvarRdo = async () => {
     if (!obraId) {
       alert("Selecione a obra.");
       return;
     }
+
     const payload = montarPayloadRdo();
     const faltando = [];
     if (!payload.data) faltando.push("Data");
-    if (!payload.objeto) faltando.push("Objeto/Descrição");
+    if (!payload.objeto) faltando.push("Objeto/Descricao");
     if (!payload.logradouro) faltando.push("Logradouro");
     if (!payload.bairro) faltando.push("Bairro");
     if (!String(payload.atividades || "").trim()) faltando.push("Atividades executadas");
+
     if (faltando.length) {
       alert(`Campos obrigatorios faltando: ${faltando.join(", ")}`);
       return;
     }
+
     try {
       setSalvando(true);
-      // Regras:
-      // 1) Permite varios RDO no mesmo dia (ruas diferentes).
-      // 2) Evita duplicar o MESMO local no mesmo dia (OBRA + APONTADOR + DATA + LOGRADOURO + BAIRRO).
-      // 3) Sequencia 001/002/... por OBRA + APONTADOR (nao mistura entre apontadores).
-      const snapExistentes = await getDocs(collection(db, "rdo"));
-      const existentes = snapExistentes.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((r) => belongsToTenant(r, tenantId));
 
-      const obraKey = String(payload.obraNumero || "").trim();
-      const apontadorKey = String(payload.apontadorEmail || payload.apontadorNome || "").trim().toUpperCase();
-      const daMesmaObraEApontador = existentes.filter((r) => {
-        if (String(r.obraNumero || "").trim() !== obraKey) return false;
-        const key = String(r.apontadorEmail || r.apontadorNome || "").trim().toUpperCase();
-        return key === apontadorKey;
-      });
-
-      const dataKey = String(payload.data || "").trim();
-      const logKey = String(payload.logradouro || "").trim().toUpperCase();
-      const bairroKey = String(payload.bairro || "").trim().toUpperCase();
-      const jaExisteMesmoLocal = daMesmaObraEApontador.some((r) => {
-        if (String(r.data || "").trim() !== dataKey) return false;
-        const rLog = String(r.logradouro || "").trim().toUpperCase();
-        const rBairro = String(r.bairro || "").trim().toUpperCase();
-        return rLog === logKey && rBairro === bairroKey;
-      });
-      if (jaExisteMesmoLocal) {
-        alert("Ja existe um RDO para esse apontador nesta obra, nesta data e neste local (logradouro/bairro).");
+      if (!isOnline) {
+        await salvarRdoPendente(payload, tenantId);
+        await atualizarPendencias();
+        setMensagemSincronizacao("RDO salvo no aparelho e aguardando sincronização.");
+        alert("Sem internet: o RDO foi salvo no celular e sera enviado quando a conexao voltar.");
         return;
       }
 
-      const maxSeq = daMesmaObraEApontador.reduce((acc, r) => {
-        const n = Number(r.sequencia || r.seq || 0);
-        return Number.isFinite(n) ? Math.max(acc, n) : acc;
-      }, 0);
-      const prox = maxSeq + 1;
-      const numeroRdo = String(prox).padStart(3, "0");
-
-      const payloadFinal = {
-        ...payload,
-        sequencia: prox,
-        numeroRdo
-      };
-
-      const ref = await addDoc(collection(db, "rdo"), payloadFinal);
-      await registrarHistorico({
-        modulo: "RDO",
-        acao: "CRIAR",
-        entidade: "RDO",
-        registroId: ref.id,
-        descricao: `RDO ${payloadFinal.numeroRdo || ""} OBRA ${payloadFinal.obraNumero || "-"} - ${payloadFinal.logradouro || "-"} - ${payloadFinal.data || "-"}`,
-        usuario: payloadFinal.apontadorNome || payloadFinal.apontadorEmail || "APONTADOR"
-      });
-      alert("RDO salvo. Ele vai aparecer em Relatórios > Relatório Diario de Obra (RDO).");
+      await persistirRdoRemoto(payload);
+      setMensagemSincronizacao("");
+      alert("RDO salvo. Ele vai aparecer em Relatorios > Relatorio Diario de Obra (RDO).");
     } catch (e) {
       console.log(e);
-      alert("Nao foi possivel salvar o RDO.");
+
+      const mensagemErro = `${e?.code || ""} ${e?.message || ""}`.toLowerCase();
+      const erroDeConexao = !window.navigator.onLine
+        || mensagemErro.includes("offline")
+        || mensagemErro.includes("network")
+        || mensagemErro.includes("unavailable");
+
+      if (erroDeConexao) {
+        try {
+          await salvarRdoPendente(payload, tenantId);
+          await atualizarPendencias();
+          setMensagemSincronizacao("Conexao instavel: o RDO foi guardado no aparelho para sincronizar depois.");
+          alert("A internet falhou durante o envio. O RDO foi guardado no celular para sincronizar depois.");
+          return;
+        } catch (offlineError) {
+          console.log(offlineError);
+        }
+      }
+
+      alert(e?.userMessage || "Nao foi possivel salvar o RDO.");
     } finally {
       setSalvando(false);
     }
   };
 
-  // PDF do RDO e gerado/baixado pelo Relatório Diario de Obra (RDO).
+  const pendenciasComErro = pendenciasOffline.filter((item) => item.status === "erro").length;
+  const pendenciasAguardando = pendenciasOffline.length - pendenciasComErro;
 
   return (
     <div style={{ padding: isMobileDevice ? 10 : 20, maxWidth: 1240, margin: "0 auto", fontFamily: "Arial" }}>
@@ -283,6 +386,36 @@ function DiarioObra({ setTela }) {
         <div style={{ color: "#4a5c74", fontWeight: 700, fontSize: 13, lineHeight: 1.25 }}>
           Modelo inicial para voce revisar. Depois que voce aprovar a estrutura, a gente liga no banco e cria o relatorio oficial.
         </div>
+      </div>
+
+      <div
+        style={{
+          ...card,
+          marginBottom: 12,
+          background: isOnline ? "#eef9f1" : "#fff4d8",
+          borderColor: isOnline ? "#b9e2c3" : "#f1d38a",
+          color: "#234",
+          fontWeight: "bold"
+        }}
+      >
+        <strong>{isOnline ? "Celular online" : "Celular offline"}</strong>
+        {" - "}
+        {isOnline
+          ? "os novos RDOs podem sincronizar automaticamente."
+          : "os novos RDOs serao guardados no aparelho ate a internet voltar."}
+        <br />
+        <span>
+          Pendencias no aparelho: {pendenciasOffline.length}
+          {pendenciasAguardando > 0 ? ` | aguardando envio: ${pendenciasAguardando}` : ""}
+          {pendenciasComErro > 0 ? ` | com revisao pendente: ${pendenciasComErro}` : ""}
+          {sincronizandoPendencias ? " | sincronizando agora..." : ""}
+        </span>
+        {mensagemSincronizacao && (
+          <>
+            <br />
+            <span>{mensagemSincronizacao}</span>
+          </>
+        )}
       </div>
 
       <div style={{ ...card, marginBottom: 12 }}>
@@ -323,7 +456,7 @@ function DiarioObra({ setTela }) {
 
         <div style={{ display: "grid", gridTemplateColumns: isMobileDevice ? "1fr" : "2fr 1fr", gap: 10, marginTop: 10 }}>
           <div>
-            <div style={label}>Objeto / Descrição</div>
+            <div style={label}>Objeto / Descricao</div>
             <textarea
               value={objeto}
               onChange={(e) => setObjeto(e.target.value)}
@@ -397,7 +530,7 @@ function DiarioObra({ setTela }) {
               <tr style={{ background: "#0b5ed7", color: "#fff" }}>
                 <th style={{ textAlign: "left", padding: 8 }}>Funcao</th>
                 <th style={{ width: 120, textAlign: "center", padding: 8 }}>Qtd</th>
-                <th style={{ width: 90, textAlign: "center", padding: 8 }}>Ações</th>
+                <th style={{ width: 90, textAlign: "center", padding: 8 }}>Acoes</th>
               </tr>
             </thead>
             <tbody>
@@ -406,9 +539,7 @@ function DiarioObra({ setTela }) {
                   <td style={{ border: "1px solid #e5ebf3", padding: 6 }}>
                     <input
                       value={l.funcao}
-                      onChange={(e) =>
-                        setEquipe((prev) => prev.map((x, i) => (i === idx ? { ...x, funcao: e.target.value } : x)))
-                      }
+                      onChange={(e) => setEquipe((prev) => prev.map((x, i) => (i === idx ? { ...x, funcao: e.target.value } : x)))}
                       style={{ ...inputBase, height: 36 }}
                       placeholder="Ex.: Pedreiro"
                     />
@@ -416,9 +547,7 @@ function DiarioObra({ setTela }) {
                   <td style={{ border: "1px solid #e5ebf3", padding: 6 }}>
                     <input
                       value={l.quantidade}
-                      onChange={(e) =>
-                        setEquipe((prev) => prev.map((x, i) => (i === idx ? { ...x, quantidade: e.target.value } : x)))
-                      }
+                      onChange={(e) => setEquipe((prev) => prev.map((x, i) => (i === idx ? { ...x, quantidade: e.target.value } : x)))}
                       style={{ ...inputBase, height: 36, textAlign: "center" }}
                       placeholder="0"
                     />
@@ -459,7 +588,7 @@ function DiarioObra({ setTela }) {
               <tr style={{ background: "#0b5ed7", color: "#fff" }}>
                 <th style={{ textAlign: "left", padding: 8 }}>Equipamento</th>
                 <th style={{ width: 90, textAlign: "center", padding: 8 }}>Qtd</th>
-                <th style={{ width: 90, textAlign: "center", padding: 8 }}>Ações</th>
+                <th style={{ width: 90, textAlign: "center", padding: 8 }}>Acoes</th>
               </tr>
             </thead>
             <tbody>
@@ -468,9 +597,7 @@ function DiarioObra({ setTela }) {
                   <td style={{ border: "1px solid #e5ebf3", padding: 6 }}>
                     <input
                       value={l.descricao}
-                      onChange={(e) =>
-                        setEquipamentos((prev) => prev.map((x, i) => (i === idx ? { ...x, descricao: e.target.value } : x)))
-                      }
+                      onChange={(e) => setEquipamentos((prev) => prev.map((x, i) => (i === idx ? { ...x, descricao: e.target.value } : x)))}
                       style={{ ...inputBase, height: 36 }}
                       placeholder="Ex.: Motoniveladora 120K"
                     />
@@ -478,9 +605,7 @@ function DiarioObra({ setTela }) {
                   <td style={{ border: "1px solid #e5ebf3", padding: 6 }}>
                     <input
                       value={l.quantidade}
-                      onChange={(e) =>
-                        setEquipamentos((prev) => prev.map((x, i) => (i === idx ? { ...x, quantidade: e.target.value } : x)))
-                      }
+                      onChange={(e) => setEquipamentos((prev) => prev.map((x, i) => (i === idx ? { ...x, quantidade: e.target.value } : x)))}
                       style={{ ...inputBase, height: 36, textAlign: "center" }}
                       placeholder="0"
                     />
@@ -520,7 +645,7 @@ function DiarioObra({ setTela }) {
       </div>
 
       <div style={{ ...card, marginBottom: 12 }}>
-        <div style={label}>Ocorrencias / Observações</div>
+        <div style={label}>Ocorrencias / Observacoes</div>
         <textarea
           value={ocorrencias}
           onChange={(e) => setOcorrencias(e.target.value)}
@@ -562,6 +687,22 @@ function DiarioObra({ setTela }) {
         </button>
         <button
           type="button"
+          onClick={sincronizarPendencias}
+          disabled={!isOnline || pendenciasOffline.length === 0 || sincronizandoPendencias}
+          style={{
+            border: "none",
+            borderRadius: 10,
+            padding: "12px 16px",
+            background: !isOnline || pendenciasOffline.length === 0 ? "#9aa7b8" : "#0b5ed7",
+            color: "#fff",
+            fontWeight: 900,
+            cursor: !isOnline || pendenciasOffline.length === 0 ? "not-allowed" : "pointer"
+          }}
+        >
+          {sincronizandoPendencias ? "Sincronizando..." : "Sincronizar pendencias"}
+        </button>
+        <button
+          type="button"
           onClick={() => setTela("home")}
           style={{ border: "none", borderRadius: 10, padding: "12px 16px", background: "#6c757d", color: "#fff", fontWeight: 900, cursor: "pointer" }}
         >
@@ -573,4 +714,3 @@ function DiarioObra({ setTela }) {
 }
 
 export default DiarioObra;
-
