@@ -7,6 +7,12 @@ import { db } from "../firebase";
 import { input } from "../styles";
 import { registrarHistorico } from "../utils/historico";
 import { parseDecimalInput } from "../utils/number";
+import {
+  atualizarAbastecimentoPendente,
+  listarAbastecimentosPendentes,
+  removerAbastecimentoPendente,
+  salvarAbastecimentoPendente
+} from "../utils/offlineAbastecimento";
 import { formatoLogoPdf, resolverLogoPdf } from "../utils/pdfLogo";
 import { belongsToTenant, getConfigDocId, getTenantId, withTenant } from "../utils/tenant";
 
@@ -96,6 +102,10 @@ function Abastecimento({ setTela }) {
 
 
   const [config, setConfig] = useState(null);
+  const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
+  const [pendenciasOffline, setPendenciasOffline] = useState([]);
+  const [sincronizandoPendencias, setSincronizandoPendencias] = useState(false);
+  const [mensagemSincronizacao, setMensagemSincronizacao] = useState("");
 
   const [lista, setLista] = useState([]);
   const [aberto, setAberto] = useState(null);
@@ -116,7 +126,28 @@ function Abastecimento({ setTela }) {
 
     buscarTudo();
     carregarHistorico();
+    atualizarPendencias();
   }, []);
+
+  useEffect(() => {
+    const atualizarStatusConexao = () => {
+      setIsOnline(window.navigator.onLine);
+    };
+
+    window.addEventListener("online", atualizarStatusConexao);
+    window.addEventListener("offline", atualizarStatusConexao);
+
+    return () => {
+      window.removeEventListener("online", atualizarStatusConexao);
+      window.removeEventListener("offline", atualizarStatusConexao);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOnline) {
+      sincronizarPendencias();
+    }
+  }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buscarTudo = async () => {
     const snapEq = await getDocs(collection(db, "equipamentos"));
@@ -170,6 +201,12 @@ function Abastecimento({ setTela }) {
     const cidadeReq = normalizarCidade(cidadeParam);
     const hoje = new Date();
     const dataBase = `${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, "0")}${String(hoje.getDate()).padStart(2, "0")}`;
+
+    if (!window.navigator.onLine) {
+      await gerarReqOffline(cidadeParam);
+      return;
+    }
+
     if (!cidadeReq) {
       setReq(`RQ-${dataBase}-001`);
       return;
@@ -360,6 +397,251 @@ function Abastecimento({ setTela }) {
     return restante <= 0;
   };
 
+  const criarErroValidacao = (mensagem) => {
+    const erro = new Error(mensagem);
+    erro.userMessage = mensagem;
+    return erro;
+  };
+
+  const montarDadosCupom = (payload) => ({
+    data: payload.data,
+    dataHora: payload.dataHora,
+    equipamento: payload.equipamento,
+    obra: payload.obra || "",
+    empresa: payload.empresa,
+    frentista: payload.frentista,
+    operador: payload.operador,
+    litros: payload.litros,
+    tipo: payload.tipo,
+    lubrificacoes: payload.lubrificacoes || [],
+    observacao: payload.observacao || "",
+    assinatura: payload.assinatura,
+    req: payload.req,
+    obraNumero: identificarNumeroObra(payload.obra || "")
+  });
+
+  const limparFormulario = () => {
+    setLitros("");
+    setEquipamento("");
+    setEmpresa("");
+    setObraId("");
+    setObservacao("");
+    setOperador("");
+    setTipoLubrificante("");
+    setProdutoLubrificante("");
+    setQuantidadeLubrificante("");
+    setItensLubrificacao([]);
+    setBuscaReq("");
+
+    if (sigPad.current) {
+      sigPad.current.clear();
+    }
+  };
+
+  const atualizarPendencias = async () => {
+    const pendentes = await listarAbastecimentosPendentes(tenantId);
+    setPendenciasOffline(pendentes);
+    return pendentes;
+  };
+
+  const montarPayloadAbastecimento = ({ assinaturaAtual, frentista, litrosNum, horimetroTxt }) => {
+    const obraAtual = obras.find((o) => o.id === obraId);
+
+    return {
+      data,
+      equipamento,
+      obra: obraAtual?.nome || "",
+      obraId,
+      obraCidade: obraAtual?.cidade || "",
+      obraEstado: obraAtual?.estado || "",
+      codigo,
+      placa,
+      litros: litrosNum,
+      tipo: tipoDiesel,
+      lubrificacoes: itensLubrificacao,
+      empresa,
+      frentista,
+      operador,
+      horimetro: horimetroTxt,
+      horimetroQuebrado: Boolean(horimetroQuebrado),
+      horaInicioTurno: "",
+      horaFimTurno: "",
+      horasTrabalhadas: 0,
+      req,
+      observacao,
+      assinatura: assinaturaAtual,
+      criadoEm: new Date().toISOString(),
+      dataHora: new Date().toLocaleString("pt-BR"),
+    };
+  };
+
+  const gerarReqOffline = async (cidadeParam = cidadeBase) => {
+    const cidadeReq = normalizarCidade(cidadeParam);
+    const hoje = new Date();
+    const dataBase = `${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, "0")}${String(hoje.getDate()).padStart(2, "0")}`;
+    const pendentes = await listarAbastecimentosPendentes(tenantId);
+
+    const maiorAtual = pendentes
+      .map((item) => item.payload)
+      .filter((item) => normalizarCidade(item?.obraCidade) === cidadeReq)
+      .map((item) => {
+        const reqTexto = String(item?.req || "").trim().toUpperCase();
+        const match = reqTexto.match(/(\d{3})$/);
+        return match ? Number(match[1]) : 900;
+      })
+      .filter((num) => Number.isFinite(num))
+      .reduce((max, atual) => (atual > max ? atual : max), 900);
+
+    setReq(`RQ-${dataBase}-${String(maiorAtual + 1).padStart(3, "0")}`);
+  };
+
+  const persistirAbastecimentoRemoto = async (payload) => {
+    const cidade = payload?.obraCidade;
+    const estado = payload?.obraEstado;
+    const litrosNum = parseDecimalInput(payload?.litros || 0);
+
+    if (!cidade || !estado) {
+      throw criarErroValidacao("Obra sem cidade/estado cadastrados.");
+    }
+
+    const [estoqueSnap, lubSnap] = await Promise.all([
+      getDocs(collection(db, "estoque")),
+      getDocs(collection(db, "lubrificantes"))
+    ]);
+
+    const produtosEstoque = estoqueSnap.docs.map((d) => ({
+      id: d.id,
+      __collection: "estoque",
+      ...d.data()
+    })).filter((item) => belongsToTenant(item, tenantId));
+
+    const produtosLub = lubSnap.docs.map((d) => ({
+      id: d.id,
+      __collection: "lubrificantes",
+      ...d.data()
+    })).filter((item) => belongsToTenant(item, tenantId));
+
+    const produtosDiesel = [...produtosEstoque, ...produtosLub];
+
+    if (payload?.litros) {
+      const dieselItens = filtrarEstoqueProduto(
+        produtosDiesel,
+        payload.tipo,
+        cidade,
+        estado
+      );
+
+      const totalDiesel = dieselItens.reduce(
+        (total, item) => total + parseDecimalInput(item.quantidade || 0),
+        0
+      );
+
+      if (totalDiesel < litrosNum) {
+        throw criarErroValidacao("Estoque de diesel insuficiente para sincronizar este abastecimento.");
+      }
+    }
+
+    const totaisLubrificacao = (payload?.lubrificacoes || []).reduce((totais, item) => {
+      totais[item.produto] =
+        (totais[item.produto] || 0) + parseDecimalInput(item.quantidade || 0);
+      return totais;
+    }, {});
+
+    for (const [produto, quantidade] of Object.entries(totaisLubrificacao)) {
+      const produtos = filtrarEstoqueProduto(
+        produtosLub,
+        produto,
+        cidade,
+        estado
+      );
+
+      const totalEstoque = produtos.reduce(
+        (total, item) => total + parseDecimalInput(item.quantidade || 0),
+        0
+      );
+
+      if (totalEstoque < quantidade) {
+        throw criarErroValidacao(`Estoque insuficiente para ${produto}.`);
+      }
+    }
+
+    if (payload?.litros) {
+      await baixarEstoqueProduto(
+        filtrarEstoqueProduto(produtosDiesel, payload.tipo, cidade, estado),
+        litrosNum
+      );
+    }
+
+    for (const [produto, quantidade] of Object.entries(totaisLubrificacao)) {
+      await baixarEstoqueProduto(
+        filtrarEstoqueProduto(produtosLub, produto, cidade, estado),
+        quantidade,
+        "lubrificantes"
+      );
+    }
+
+    const ref = await addDoc(collection(db, "abastecimentos"), withTenant(payload, tenantId));
+
+    await registrarHistorico({
+      modulo: "ABASTECIMENTO",
+      acao: "CRIOU",
+      entidade: "ABASTECIMENTO",
+      registroId: ref.id,
+      usuario: payload.frentista,
+      descricao: `Abastecimento de ${payload.equipamento} (${payload.tipo}) na obra ${payload.obra || "-"}.`,
+      detalhes: {
+        litros: litrosNum,
+        operador: payload.operador
+      }
+    });
+
+    return ref;
+  };
+
+  const sincronizarPendencias = async () => {
+    if (!window.navigator.onLine || sincronizandoPendencias) {
+      return;
+    }
+
+    setSincronizandoPendencias(true);
+
+    try {
+      const pendentes = await listarAbastecimentosPendentes(tenantId);
+      let sincronizados = 0;
+      let comErro = 0;
+
+      for (const item of pendentes) {
+        try {
+          await persistirAbastecimentoRemoto(item.payload);
+          await removerAbastecimentoPendente(item.id);
+          sincronizados += 1;
+        } catch (error) {
+          comErro += 1;
+          await atualizarAbastecimentoPendente(item.id, {
+            status: "erro",
+            ultimoErro: error?.userMessage || error?.message || "Falha na sincronização.",
+            ultimaTentativaEm: new Date().toISOString()
+          });
+        }
+      }
+
+      await atualizarPendencias();
+      await carregarHistorico();
+      await buscarEstoque();
+      await gerarReq(cidadeBase);
+
+      if (sincronizados > 0 || comErro > 0) {
+        setMensagemSincronizacao(
+          comErro > 0
+            ? `${sincronizados} sincronizado(s) e ${comErro} pendência(s) ainda precisam de revisão.`
+            : `${sincronizados} abastecimento(s) sincronizado(s) com sucesso.`
+        );
+      }
+    } finally {
+      setSincronizandoPendencias(false);
+    }
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     buscarEstoque();
@@ -440,13 +722,38 @@ function Abastecimento({ setTela }) {
       return;
     }
 
-    if (litros && estoque < litrosNum) {
+    if (litros && isOnline && estoque < litrosNum) {
       alert("Estoque insuficiente!");
       return;
     }
 
     try {
       const obraSelecionada = obras.find((o) => o.id === obraId);
+      const cidadeAtual = obraSelecionada?.cidade || cidadeBase;
+
+      if (!obraSelecionada?.cidade || !obraSelecionada?.estado) {
+        alert("Obra sem cidade/estado cadastrados.");
+        return;
+      }
+
+      if (!isOnline) {
+        const payloadOffline = montarPayloadAbastecimento({
+          assinaturaAtual,
+          frentista,
+          litrosNum,
+          horimetroTxt
+        });
+
+        await salvarAbastecimentoPendente(payloadOffline, tenantId);
+        setUltimoCupomDados(montarDadosCupom(payloadOffline));
+        await atualizarPendencias();
+        await carregarHistorico();
+        limparFormulario();
+        await gerarReq(cidadeAtual);
+        setMensagemSincronizacao("Abastecimento salvo no aparelho e aguardando sincronização.");
+        alert("Sem internet: o abastecimento foi salvo no celular e será enviado quando a conexão voltar.");
+        return;
+      }
 
       const cidade = obraSelecionada?.cidade;
       const estado = obraSelecionada?.estado;
@@ -610,6 +917,8 @@ function Abastecimento({ setTela }) {
 
       gerarReq();
       buscarEstoque();
+      carregarHistorico();
+      atualizarPendencias();
 
     } catch (error) {
       console.error(error);
@@ -884,6 +1193,7 @@ function Abastecimento({ setTela }) {
 
     try {
       const snap = await getDocs(collection(db, "abastecimentos"));
+      const pendentes = await listarAbastecimentosPendentes(tenantId);
 
       const cidadeBusca = normalizarCidade(cidadeBase);
       const encontrado = snap.docs.find((docSnap) => {
@@ -896,6 +1206,20 @@ function Abastecimento({ setTela }) {
       });
 
       if (!encontrado) {
+        const pendente = pendentes.find((item) => {
+          const dados = item.payload || {};
+          return (
+            String(dados.req) === String(buscaReq) &&
+            (!cidadeBusca || normalizarCidade(dados.obraCidade) === cidadeBusca)
+          );
+        });
+
+        if (pendente) {
+          prepararCupom(pendente.payload, true);
+          setBuscaReq("");
+          return;
+        }
+
         alert("Requisi\u00e7\u00e3o n\u00e3o encontrada!");
         return;
       }
@@ -915,6 +1239,7 @@ function Abastecimento({ setTela }) {
   const carregarHistorico = async () => {
     try {
       const snap = await getDocs(collection(db, "abastecimentos"));
+      const pendentes = await listarAbastecimentosPendentes(tenantId);
 
       const dados = snap.docs.map((docSnap) => ({
         id: docSnap.id,
@@ -922,10 +1247,22 @@ function Abastecimento({ setTela }) {
       }));
 
       // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ ordena do mais recente
-        const dadosTenant = dados
-          .filter((item) => belongsToTenant(item, tenantId))
-          .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
-        setLista(dadosTenant);
+      const dadosPendentes = pendentes.map((item) => ({
+        id: item.id,
+        ...item.payload,
+        offlinePendente: true,
+        statusOffline: item.status || "pendente",
+        ultimoErroOffline: item.ultimoErro || ""
+      }));
+
+      const dadosTenant = dados
+        .filter((item) => belongsToTenant(item, tenantId))
+        .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+
+      setLista(
+        [...dadosPendentes, ...dadosTenant]
+          .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")))
+      );
 
     } catch (error) {
       console.error(error);
@@ -950,6 +1287,8 @@ function Abastecimento({ setTela }) {
   ).sort((a, b) => a.localeCompare(b));
   const baseUnicaTravada = cidadesDisponiveis.length === 1;
   const nomeObraSelecionada = obraSelecionada ? nomeObraExibicao(obraSelecionada) : "";
+  const pendenciasComErro = pendenciasOffline.filter((item) => item.status === "erro").length;
+  const pendenciasAguardando = pendenciasOffline.length - pendenciasComErro;
 
   return (
     <div style={page}>
@@ -981,6 +1320,36 @@ function Abastecimento({ setTela }) {
             Sair
           </button>
         </div>
+      </div>
+
+      <div
+        style={{
+          ...card,
+          marginTop: 0,
+          background: isOnline ? "#eef9f1" : "#fff4d8",
+          borderColor: isOnline ? "#b9e2c3" : "#f1d38a",
+          color: "#234",
+          fontWeight: "bold"
+        }}
+      >
+        <strong>{isOnline ? "Celular online" : "Celular offline"}</strong>
+        {" - "}
+        {isOnline
+          ? "os novos abastecimentos podem sincronizar automaticamente."
+          : "os novos abastecimentos serão guardados no aparelho até a internet voltar."}
+        <br />
+        <span>
+          Pendências no aparelho: {pendenciasOffline.length}
+          {pendenciasAguardando > 0 ? ` | aguardando envio: ${pendenciasAguardando}` : ""}
+          {pendenciasComErro > 0 ? ` | com revisão pendente: ${pendenciasComErro}` : ""}
+          {sincronizandoPendencias ? " | sincronizando agora..." : ""}
+        </span>
+        {mensagemSincronizacao && (
+          <>
+            <br />
+            <span>{mensagemSincronizacao}</span>
+          </>
+        )}
       </div>
 
       <p style={{
@@ -1248,12 +1617,21 @@ function Abastecimento({ setTela }) {
         <div style={infoChip}>Placa: {placa || "-"}</div>
       </div>
 
-      <button
-        style={secondaryButton}
-        onClick={() => setMostrarHistorico(!mostrarHistorico)}
-      >
-        {mostrarHistorico ? "Ocultar Histórico" : "Ver Histórico"}
-      </button>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <button
+          style={secondaryButton}
+          onClick={() => setMostrarHistorico(!mostrarHistorico)}
+        >
+          {mostrarHistorico ? "Ocultar Histórico" : "Ver Histórico"}
+        </button>
+        <button
+          style={{ ...primaryButton, opacity: isOnline && pendenciasOffline.length > 0 ? 1 : 0.7 }}
+          onClick={sincronizarPendencias}
+          disabled={!isOnline || pendenciasOffline.length === 0 || sincronizandoPendencias}
+        >
+          {sincronizandoPendencias ? "Sincronizando..." : "Sincronizar pendências"}
+        </button>
+      </div>
 
 
       <div style={card}>
@@ -1332,7 +1710,14 @@ function Abastecimento({ setTela }) {
                   setAberto(aberto === item.id ? null : item.id)
                 }
               >
-                <span><strong>Req:</strong> {item.req}</span>
+                <span>
+                  <strong>Req:</strong> {item.req}
+                  {item.offlinePendente && (
+                    <span style={{ marginLeft: 8, color: item.statusOffline === "erro" ? "#c0392b" : "#b06b00" }}>
+                      {item.statusOffline === "erro" ? "Pendente com revisão" : "Pendente no aparelho"}
+                    </span>
+                  )}
+                </span>
                 <span>{item.equipamento}</span>
               </div>
 
@@ -1342,6 +1727,9 @@ function Abastecimento({ setTela }) {
                   <p><strong>Litros:</strong> {item.litros}</p>
                   <p><strong>Data/Hora:</strong> {item.dataHora}</p>
                   <p><strong>Operador:</strong> {item.operador}</p>
+                  {item.offlinePendente && item.ultimoErroOffline && (
+                    <p><strong>Último erro:</strong> {item.ultimoErroOffline}</p>
+                  )}
 
                   <button
                     style={primaryButton}
