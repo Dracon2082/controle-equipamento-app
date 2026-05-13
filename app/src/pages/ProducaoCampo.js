@@ -5,6 +5,12 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { db } from "../firebase";
 import { registrarHistorico } from "../utils/historico";
+import {
+  atualizarProducaoPendente,
+  listarProducoesPendentes,
+  removerProducaoPendente,
+  salvarProducaoPendente
+} from "../utils/offlineProducaoCampo";
 import { formatoLogoPdf, resolverLogoPdf } from "../utils/pdfLogo";
 import { belongsToTenant, getConfigDocId, getTenantId, withTenant } from "../utils/tenant";
 
@@ -77,6 +83,10 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
   const [obras, setObras] = useState([]);
   const [lista, setLista] = useState([]);
   const [empresaSistema, setEmpresaSistema] = useState(null);
+  const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
+  const [pendenciasOffline, setPendenciasOffline] = useState([]);
+  const [sincronizandoPendencias, setSincronizandoPendencias] = useState(false);
+  const [mensagemSincronizacao, setMensagemSincronizacao] = useState("");
 
   const hojeISO = new Date().toISOString().split("T")[0];
   const [data, setData] = useState(hojeISO);
@@ -188,10 +198,33 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
     background: "#6c757d"
   };
 
+  const pendenciasComErro = pendenciasOffline.filter((item) => item.status === "erro").length;
+  const pendenciasAguardando = pendenciasOffline.length - pendenciasComErro;
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     carregarTudo();
   }, []);
+
+  useEffect(() => {
+    atualizarPendencias().catch(() => {});
+  }, [tenantId]);
+
+  useEffect(() => {
+    const atualizarStatusConexao = () => setIsOnline(window.navigator.onLine);
+    window.addEventListener("online", atualizarStatusConexao);
+    window.addEventListener("offline", atualizarStatusConexao);
+    return () => {
+      window.removeEventListener("online", atualizarStatusConexao);
+      window.removeEventListener("offline", atualizarStatusConexao);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOnline) {
+      sincronizarPendencias();
+    }
+  }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Apontador deve ser o usuario logado (campo). Se houver sessao, preenche automatico.
@@ -547,6 +580,12 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
     setIdentificacaoPonto("RP001");
   };
 
+  const atualizarPendencias = async () => {
+    const pendentes = await listarProducoesPendentes(tenantId);
+    setPendenciasOffline(pendentes);
+    return pendentes;
+  };
+
   const cancelarEdicaoItem = () => {
     setEditandoItemId(null);
     editStartShapesLenRef.current = 0;
@@ -628,6 +667,98 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
 
     if (snapEmpresa.exists()) setEmpresaSistema(snapEmpresa.data());
     setTimeout(() => desenharCanvas(), 50);
+  };
+
+  const montarPayloadProducao = (croquiBase64 = "") => ({
+    data,
+    obra,
+    rua: rua.trim().toUpperCase(),
+    bairro: bairro.trim().toUpperCase(),
+    localizacao: bairro.trim().toUpperCase(),
+    apontador: apontador.trim().toUpperCase(),
+    itensCroqui,
+    croqui: croquiBase64,
+    criadoEm: new Date().toISOString()
+  });
+
+  const persistirProducaoRemota = async (payload) => {
+    const norm = (v) => String(v || "").trim().toUpperCase();
+    const snapProducao = await getDocs(collection(db, "producaoCampo"));
+    const registros = snapProducao.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((item) => belongsToTenant(item, tenantId));
+
+    const folhaGrupo = `${payload.data}|${norm(payload.obra)}|${norm(payload.rua)}|${norm(payload.bairro)}|${norm(payload.apontador)}`;
+    const folhasExistentes = registros.filter((r) => {
+      if (!r) return false;
+      return (
+        String(r.data || "") === String(payload.data || "")
+        && norm(r.obra) === norm(payload.obra)
+        && norm(r.rua) === norm(payload.rua)
+        && norm(r.bairro) === norm(payload.bairro)
+        && norm(r.apontador) === norm(payload.apontador)
+      );
+    }).length;
+
+    const ref = await addDoc(collection(db, "producaoCampo"), withTenant({
+      ...payload,
+      folhaGrupo,
+      folhaNumero: folhasExistentes + 1
+    }, tenantId));
+
+    await registrarHistorico({
+      modulo: "PRODUCAO_CAMPO",
+      acao: "CRIOU",
+      entidade: "PRODUCAO_CROQUI",
+      registroId: ref.id,
+      usuario: payload.apontador,
+      descricao: `Lancamento de producao no logradouro ${payload.rua} (${payload.obra}).`,
+      detalhes: { itens: payload.itensCroqui?.length || 0, bairro: payload.bairro }
+    });
+
+    return ref;
+  };
+
+  const sincronizarPendencias = async () => {
+    if (!window.navigator.onLine || sincronizandoPendencias) {
+      return;
+    }
+
+    setSincronizandoPendencias(true);
+
+    try {
+      const pendentes = await listarProducoesPendentes(tenantId);
+      let sincronizados = 0;
+      let comErro = 0;
+
+      for (const item of pendentes) {
+        try {
+          await persistirProducaoRemota(item.payload);
+          await removerProducaoPendente(item.id);
+          sincronizados += 1;
+        } catch (error) {
+          comErro += 1;
+          await atualizarProducaoPendente(item.id, {
+            status: "erro",
+            ultimoErro: error?.message || "Falha na sincronizacao da producao.",
+            ultimaTentativaEm: new Date().toISOString()
+          });
+        }
+      }
+
+      await atualizarPendencias();
+      await carregarTudo();
+
+      if (sincronizados > 0 || comErro > 0) {
+        setMensagemSincronizacao(
+          comErro > 0
+            ? `${sincronizados} producao(oes) sincronizada(s) e ${comErro} ainda precisa(m) de revisao.`
+            : `${sincronizados} producao(oes) sincronizada(s) com sucesso.`
+        );
+      }
+    } finally {
+      setSincronizandoPendencias(false);
+    }
   };
 
   useEffect(() => {
@@ -1519,6 +1650,38 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
     // Preferir o snapshot (capturado do canvas real) para manter exatamente a escala do desenho.
     // Usar ref para evitar "corrida" de state no mobile (fechar tela cheia + salvar rapido).
     const croquiBase64 = croquiSnapshotRef.current || croquiSnapshot || gerarCroquiDataUrl() || "";
+    const payload = montarPayloadProducao(croquiBase64);
+
+    if (!isOnline) {
+      try {
+        await salvarProducaoPendente(payload, tenantId);
+        await atualizarPendencias();
+        setMensagemSincronizacao("Producao salva no aparelho e aguardando sincronizacao.");
+        alert("Sem internet: a producao de campo foi salva no celular e sera enviada quando a conexao voltar.");
+      } catch (offlineError) {
+        console.log("Falha ao guardar producao offline:", offlineError);
+        alert("Falha ao salvar a producao de campo.");
+      }
+
+      setData(hojeISO);
+      setObra("");
+      setRua("");
+      setBairro("");
+      setApontador(apontadorLogado || "");
+      setTipoItem("RP");
+      setLadoExecucao("DIREITO");
+      setIdentificacaoPonto("");
+      setProfundidade("");
+      setLargura("");
+      setComprimento("");
+      setReferenciaInicio("");
+      setReferenciaFim("");
+      setQtdBueiro("");
+      setDiametroBueiro("");
+      setObservacao("");
+      limparCroqui();
+      return;
+    }
 
     try {
       const ref = await addDoc(collection(db, "producaoCampo"), withTenant({
@@ -1548,7 +1711,21 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
     } catch (e) {
       console.log("Falha ao salvar producao de campo:", e);
       const msg = String(e?.message || e || "");
-      if (msg.toLowerCase().includes("too large") || msg.toLowerCase().includes("larger than")) {
+      const erroDeConexao = !window.navigator.onLine
+        || msg.toLowerCase().includes("offline")
+        || msg.toLowerCase().includes("network")
+        || msg.toLowerCase().includes("unavailable");
+      if (erroDeConexao) {
+        try {
+          await salvarProducaoPendente(payload, tenantId);
+          await atualizarPendencias();
+          setMensagemSincronizacao("Conexao instavel: a producao foi guardada no aparelho para sincronizar depois.");
+          alert("A internet falhou durante o envio. A producao foi guardada no celular para sincronizar depois.");
+        } catch (offlineError) {
+          console.log("Falha ao guardar producao offline:", offlineError);
+          alert("Falha ao salvar a producao de campo.");
+        }
+      } else if (msg.toLowerCase().includes("too large") || msg.toLowerCase().includes("larger than")) {
         alert("Falha ao salvar: o croqui ficou muito grande. Tente novamente (o sistema vai compactar o croqui) ou use um desenho menor.");
       } else {
         alert(`Falha ao salvar a producao de campo. Detalhes: ${msg || "erro desconhecido"}`);
@@ -1880,6 +2057,35 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
 
   return (
     <div style={page}>
+      <div
+        style={{
+          ...card,
+          background: isOnline ? "#eef9f1" : "#fff4d8",
+          borderColor: isOnline ? "#b9e2c3" : "#f1d38a",
+          color: "#234",
+          fontWeight: "bold"
+        }}
+      >
+        <strong>{isOnline ? "Celular online" : "Celular offline"}</strong>
+        {" - "}
+        {isOnline
+          ? "os novos lancamentos de producao podem sincronizar automaticamente."
+          : "os novos lancamentos de producao serao guardados no aparelho ate a internet voltar."}
+        <br />
+        <span>
+          Pendencias no aparelho: {pendenciasOffline.length}
+          {pendenciasAguardando > 0 ? ` | aguardando envio: ${pendenciasAguardando}` : ""}
+          {pendenciasComErro > 0 ? ` | com revisao pendente: ${pendenciasComErro}` : ""}
+          {sincronizandoPendencias ? " | sincronizando agora..." : ""}
+        </span>
+        {mensagemSincronizacao && (
+          <>
+            <br />
+            <span>{mensagemSincronizacao}</span>
+          </>
+        )}
+      </div>
+
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <h2 style={{ margin: 0, color: "#10243e" }}>Produção de Campo e Croqui de Rua</h2>
@@ -2166,6 +2372,13 @@ function ProducaoCampo({ setTela, modo = "operacional" }) {
 
       <div style={{ ...card, display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button style={btn} onClick={salvarProducao}>Salvar producao do dia</button>
+        <button
+          style={{ ...btnSec, opacity: isOnline && pendenciasOffline.length > 0 ? 1 : 0.7 }}
+          onClick={sincronizarPendencias}
+          disabled={!isOnline || pendenciasOffline.length === 0 || sincronizandoPendencias}
+        >
+          {sincronizandoPendencias ? "Sincronizando..." : "Sincronizar pendencias"}
+        </button>
       </div>
     </div>
   );

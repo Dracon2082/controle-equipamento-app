@@ -1,0 +1,169 @@
+const DB_NAME = "controle-equipamento-offline-producao";
+const DB_VERSION = 1;
+const STORE_NAME = "producaoCampoPendentes";
+const FALLBACK_KEY = "producaoCampoPendentesOffline";
+
+function gerarIdOffline() {
+  return `offline-producao-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function possuiIndexedDb() {
+  return typeof window !== "undefined" && "indexedDB" in window;
+}
+
+function lerFallback() {
+  try {
+    return JSON.parse(localStorage.getItem(FALLBACK_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function salvarFallback(itens) {
+  localStorage.setItem(FALLBACK_KEY, JSON.stringify(itens));
+}
+
+function abrirBanco() {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => reject(request.error || new Error("Falha ao abrir banco offline da producao."));
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+        store.createIndex("tenantId", "tenantId", { unique: false });
+        store.createIndex("status", "status", { unique: false });
+      }
+    };
+  });
+}
+
+export async function listarProducoesPendentes(tenantId) {
+  if (!possuiIndexedDb()) {
+    return lerFallback()
+      .filter((item) => !tenantId || item.tenantId === tenantId)
+      .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+  }
+
+  const db = await abrirBanco();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, "readonly");
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+
+    request.onerror = () => {
+      db.close();
+      reject(request.error || new Error("Falha ao listar pendencias da producao."));
+    };
+
+    request.onsuccess = () => {
+      const itens = (request.result || [])
+        .filter((item) => !tenantId || item.tenantId === tenantId)
+        .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+      db.close();
+      resolve(itens);
+    };
+  });
+}
+
+export async function salvarProducaoPendente(payload, tenantId) {
+  const registro = {
+    id: gerarIdOffline(),
+    tenantId,
+    tipo: "producaoCampo",
+    status: "pendente",
+    criadoEm: new Date().toISOString(),
+    ultimaTentativaEm: null,
+    ultimoErro: "",
+    payload
+  };
+
+  if (!possuiIndexedDb()) {
+    const itens = lerFallback();
+    itens.push(registro);
+    salvarFallback(itens);
+    return registro;
+  }
+
+  const db = await abrirBanco();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.add(registro);
+
+    request.onerror = () => {
+      db.close();
+      reject(request.error || new Error("Falha ao salvar pendencia da producao."));
+    };
+    request.onsuccess = () => {
+      db.close();
+      resolve(registro);
+    };
+  });
+}
+
+export async function atualizarProducaoPendente(id, updates) {
+  if (!possuiIndexedDb()) {
+    const itens = lerFallback();
+    const atualizados = itens.map((item) => (item.id === id ? { ...item, ...updates } : item));
+    salvarFallback(atualizados);
+    return atualizados.find((item) => item.id === id) || null;
+  }
+
+  const db = await abrirBanco();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const getRequest = store.get(id);
+
+    getRequest.onerror = () => {
+      db.close();
+      reject(getRequest.error || new Error("Falha ao atualizar pendencia da producao."));
+    };
+
+    getRequest.onsuccess = () => {
+      const atual = getRequest.result;
+      if (!atual) {
+        db.close();
+        resolve(null);
+        return;
+      }
+
+      const proximo = { ...atual, ...updates };
+      const putRequest = store.put(proximo);
+      putRequest.onerror = () => {
+        db.close();
+        reject(putRequest.error || new Error("Falha ao gravar atualizacao da producao offline."));
+      };
+      putRequest.onsuccess = () => {
+        db.close();
+        resolve(proximo);
+      };
+    };
+  });
+}
+
+export async function removerProducaoPendente(id) {
+  if (!possuiIndexedDb()) {
+    salvarFallback(lerFallback().filter((item) => item.id !== id));
+    return;
+  }
+
+  const db = await abrirBanco();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.delete(id);
+
+    request.onerror = () => {
+      db.close();
+      reject(request.error || new Error("Falha ao remover pendencia da producao."));
+    };
+    request.onsuccess = () => {
+      db.close();
+      resolve();
+    };
+  });
+}
