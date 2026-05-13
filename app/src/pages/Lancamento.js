@@ -3,6 +3,12 @@ import { useEffect, useState } from "react";
 import { db } from "../firebase";
 import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from "firebase/firestore";
 import { registrarHistorico } from "../utils/historico";
+import {
+  atualizarLancamentoPendente,
+  listarLancamentosPendentes,
+  removerLancamentoPendente,
+  salvarLancamentoPendente
+} from "../utils/offlineLancamentos";
 import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
 
 const SERVICOS_POR_EQUIPAMENTO = [
@@ -229,6 +235,10 @@ function Lancamento({ setTela }) {
   const [registros, setRegistros] = useState([]);
   const [editandoId, setEditandoId] = useState("");
   const [mostrarRegistros, setMostrarRegistros] = useState(() => !isMobile);
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [pendenciasOffline, setPendenciasOffline] = useState([]);
+  const [sincronizandoPendencias, setSincronizandoPendencias] = useState(false);
+  const [mensagemSincronizacao, setMensagemSincronizacao] = useState("");
 
   const [relatoQuebra, setRelatoQuebra] = useState("");
   const [enviandoAlerta, setEnviandoAlerta] = useState(false);
@@ -276,6 +286,27 @@ function Lancamento({ setTela }) {
   useEffect(() => {
     buscarDados();
   }, []);
+
+  useEffect(() => {
+    const aoFicarOnline = () => setIsOnline(true);
+    const aoFicarOffline = () => setIsOnline(false);
+    window.addEventListener("online", aoFicarOnline);
+    window.addEventListener("offline", aoFicarOffline);
+    return () => {
+      window.removeEventListener("online", aoFicarOnline);
+      window.removeEventListener("offline", aoFicarOffline);
+    };
+  }, []);
+
+  const atualizarPendencias = async () => {
+    const itens = await listarLancamentosPendentes(tenantId);
+    setPendenciasOffline(itens);
+    return itens;
+  };
+
+  useEffect(() => {
+    atualizarPendencias();
+  }, [tenantId]);
 
   const identificarNumeroObra = (obraTexto) => {
     const texto = String(obraTexto || "").trim();
@@ -511,6 +542,106 @@ function Lancamento({ setTela }) {
     setData(hojeBR());
     setEditandoId("");
   };
+
+  const persistirLancamentoRemoto = async (operacao) => {
+    const { operation, targetId, payloadBase, agoraIso, usuario, dataRegistro, obraRegistro, equipamentoRegistro, statusRegistro } = operacao;
+
+    if (operation === "update") {
+      await updateDoc(doc(db, "lancamentos", targetId), { ...payloadBase, dataAtualizacao: agoraIso });
+      await registrarHistorico({
+        modulo: "LANCAMENTO",
+        acao: "EDITOU",
+        entidade: "LANCAMENTO_DIARIO",
+        registroId: targetId,
+        usuario,
+        descricao: `Editou lancamento de ${equipamentoRegistro} na data ${dataRegistro}.`,
+        detalhes: { obra: obraRegistro, equipamento: equipamentoRegistro, status: statusRegistro }
+      });
+      return { id: targetId };
+    }
+
+    const ref = await addDoc(collection(db, "lancamentos"), { ...payloadBase, dataCriacao: agoraIso });
+    await registrarHistorico({
+      modulo: "LANCAMENTO",
+      acao: "CRIOU",
+      entidade: "LANCAMENTO_DIARIO",
+      registroId: ref.id,
+      usuario,
+      descricao: `Criou lancamento de ${equipamentoRegistro} na data ${dataRegistro}.`,
+      detalhes: { obra: obraRegistro, equipamento: equipamentoRegistro, status: statusRegistro }
+    });
+    return { id: ref.id };
+  };
+
+  const aplicarLancamentoLocal = (operacao, pendenciaId) => {
+    const { operation, targetId, payloadBase, agoraIso } = operacao;
+    const idLocal = operation === "update" ? targetId : pendenciaId;
+    const registroLocal = {
+      id: idLocal,
+      ...payloadBase,
+      dataCriacao: operation === "create" ? agoraIso : undefined,
+      dataAtualizacao: operation === "update" ? agoraIso : undefined,
+      offlinePendente: true
+    };
+
+    setRegistros((atual) => {
+      if (operation === "update") {
+        return (atual || []).map((item) => (item.id === targetId ? { ...item, ...registroLocal } : item));
+      }
+      return [registroLocal, ...(atual || [])];
+    });
+  };
+
+  const sincronizarPendencias = async () => {
+    if (!navigator.onLine || sincronizandoPendencias) return;
+    const pendencias = await listarLancamentosPendentes(tenantId);
+    if (!pendencias.length) return;
+
+    setSincronizandoPendencias(true);
+    setMensagemSincronizacao("Sincronizando lancamentos pendentes...");
+
+    let sincronizados = 0;
+    let comErro = 0;
+
+    for (const pendencia of pendencias) {
+      try {
+        await atualizarLancamentoPendente(pendencia.id, {
+          status: "sincronizando",
+          ultimaTentativaEm: new Date().toISOString(),
+          ultimoErro: ""
+        });
+        await persistirLancamentoRemoto(pendencia.payload);
+        await removerLancamentoPendente(pendencia.id);
+        sincronizados += 1;
+      } catch (error) {
+        comErro += 1;
+        await atualizarLancamentoPendente(pendencia.id, {
+          status: "erro",
+          ultimaTentativaEm: new Date().toISOString(),
+          ultimoErro: String(error?.message || error || "Falha ao sincronizar lancamento.")
+        });
+      }
+    }
+
+    await atualizarPendencias();
+    await carregarLancamentos();
+    if (sincronizados && comErro) {
+      setMensagemSincronizacao(`${sincronizados} lancamento(s) sincronizado(s) e ${comErro} ainda pendente(s).`);
+    } else if (sincronizados) {
+      setMensagemSincronizacao(`${sincronizados} lancamento(s) sincronizado(s) com sucesso.`);
+    } else if (comErro) {
+      setMensagemSincronizacao(`${comErro} lancamento(s) ainda pendente(s) por erro de sincronizacao.`);
+    } else {
+      setMensagemSincronizacao("");
+    }
+    setSincronizandoPendencias(false);
+  };
+
+  useEffect(() => {
+    if (isOnline) {
+      sincronizarPendencias();
+    }
+  }, [isOnline]);
 
   const editarRegistro = async (registro) => {
     setEditandoId(registro.id);
@@ -750,35 +881,50 @@ function Lancamento({ setTela }) {
       }
     }
 
-    if (editandoId || alvoFinalizacaoId) {
-      const id = editandoId || alvoFinalizacaoId;
-      await updateDoc(doc(db, "lancamentos", id), { ...payloadBase, dataAtualizacao: agoraIso });
-      await registrarHistorico({
-        modulo: "LANCAMENTO",
-        acao: "EDITOU",
-        entidade: "LANCAMENTO_DIARIO",
-        registroId: id,
-        usuario: operadorEfetivo,
-        descricao: `Editou lancamento de ${equipamento} na data ${data}.`,
-        detalhes: { obra: obraEfetiva, equipamento, status: statusEfetivo }
-      });
-      alert("Lancamento atualizado com sucesso.");
-    } else {
-      const ref = await addDoc(collection(db, "lancamentos"), { ...payloadBase, dataCriacao: agoraIso });
-      await registrarHistorico({
-        modulo: "LANCAMENTO",
-        acao: "CRIOU",
-        entidade: "LANCAMENTO_DIARIO",
-        registroId: ref.id,
-        usuario: operadorEfetivo,
-        descricao: `Criou lancamento de ${equipamento} na data ${data}.`,
-        detalhes: { obra: obraEfetiva, equipamento, status: statusEfetivo }
-      });
-      alert("Lancamento salvo com sucesso.");
+    const operacao = {
+      operation: (editandoId || alvoFinalizacaoId) ? "update" : "create",
+      targetId: editandoId || alvoFinalizacaoId || "",
+      payloadBase,
+      agoraIso,
+      usuario: operadorEfetivo,
+      dataRegistro: data,
+      obraRegistro: obraEfetiva,
+      equipamentoRegistro: equipamento,
+      statusRegistro: statusEfetivo
+    };
+
+    if (!isOnline) {
+      const pendencia = await salvarLancamentoPendente(operacao, tenantId);
+      aplicarLancamentoLocal(operacao, pendencia.id);
+      await atualizarPendencias();
+      limparFormulario();
+      setMensagemSincronizacao("Lancamento salvo no celular e aguardando sincronizacao.");
+      alert("Lancamento salvo offline no celular. Ele sera sincronizado quando a internet voltar.");
+      return;
     }
 
-    limparFormulario();
-    await carregarLancamentos();
+    try {
+      await persistirLancamentoRemoto(operacao);
+      limparFormulario();
+      await carregarLancamentos();
+      await atualizarPendencias();
+      setMensagemSincronizacao("Lancamento enviado para o sistema com sucesso.");
+      alert(operacao.operation === "update" ? "Lancamento atualizado com sucesso." : "Lancamento salvo com sucesso.");
+    } catch (error) {
+      const mensagem = String(error?.message || error || "");
+      const erroDeRede = !navigator.onLine || /network|offline|unavailable|failed-precondition/i.test(mensagem);
+      if (erroDeRede) {
+        const pendencia = await salvarLancamentoPendente(operacao, tenantId);
+        aplicarLancamentoLocal(operacao, pendencia.id);
+        await atualizarPendencias();
+        limparFormulario();
+        setMensagemSincronizacao("Sem internet no momento. O lancamento ficou salvo no celular.");
+        alert("Sem internet no momento. O lancamento foi salvo offline e sera sincronizado depois.");
+        return;
+      }
+      alert(`Falha ao salvar lancamento. Detalhes: ${mensagem}`);
+      return;
+    }
   };
 
   return (
@@ -787,6 +933,31 @@ function Lancamento({ setTela }) {
 
       <div style={card}>
         <h3 style={{ marginTop: 0 }}>{editandoId ? "Editar lancamento" : "Dados do lancamento"}</h3>
+
+        <div
+          style={{
+            marginBottom: 10,
+            borderRadius: 8,
+            padding: "10px 12px",
+            border: `1px solid ${isOnline ? "#cce5d1" : "#ffd8a8"}`,
+            background: isOnline ? "#f1fff4" : "#fff4e6",
+            color: "#173454",
+            fontWeight: 700
+          }}
+        >
+          <div>{isOnline ? "Celular online" : "Celular offline"}</div>
+          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600 }}>
+            {isOnline
+              ? "Os lancamentos podem ser enviados agora."
+              : "Os lancamentos serao salvos no celular e sincronizados quando a internet voltar."}
+          </div>
+          {!!pendenciasOffline.length && (
+            <div style={{ marginTop: 6, fontSize: 12 }}>Pendencias offline: {pendenciasOffline.length}</div>
+          )}
+          {!!mensagemSincronizacao && (
+            <div style={{ marginTop: 6, fontSize: 12 }}>{mensagemSincronizacao}</div>
+          )}
+        </div>
 
         {modoFinalizarDia && (
           <div style={{ background: "#eafaf1", color: "#0a5b2b", borderRadius: 8, padding: "10px 12px", fontWeight: "bold", marginBottom: 10 }}>
@@ -1024,6 +1195,13 @@ function Lancamento({ setTela }) {
               if (registroAbertoHoje) return "FINALIZAR DIA";
               return fimInformado ? "SALVAR DIA" : "SALVAR INICIO";
             })()}
+          </button>
+          <button
+            style={{ ...secondaryButton, opacity: sincronizandoPendencias ? 0.7 : 1 }}
+            onClick={sincronizarPendencias}
+            disabled={!pendenciasOffline.length || !isOnline || sincronizandoPendencias}
+          >
+            {sincronizandoPendencias ? "SINCRONIZANDO..." : `SINCRONIZAR${pendenciasOffline.length ? ` (${pendenciasOffline.length})` : ""}`}
           </button>
           <button style={secondaryButton} onClick={limparFormulario}>LIMPAR</button>
           </div>
