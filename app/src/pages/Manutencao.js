@@ -5,6 +5,12 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { db } from "../firebase";
 import { registrarHistorico } from "../utils/historico";
+import {
+  atualizarManutencaoPendente,
+  listarManutencoesPendentes,
+  removerManutencaoPendente,
+  salvarManutencaoPendente
+} from "../utils/offlineManutencao";
 import { formatoLogoPdf, resolverLogoPdf } from "../utils/pdfLogo";
 import { belongsToTenant, getConfigDocId, getTenantId, withTenant } from "../utils/tenant";
 
@@ -55,6 +61,10 @@ function Manutencao({ setTela, modoRelatorio = false }) {
   const [oleoEstoqueId, setOleoEstoqueId] = useState("");
   const [baseChaveAtiva, setBaseChaveAtiva] = useState("");
   const [ultimoLancPorEquip, setUltimoLancPorEquip] = useState({});
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [pendenciasOffline, setPendenciasOffline] = useState([]);
+  const [sincronizandoPendencias, setSincronizandoPendencias] = useState(false);
+  const [mensagemSincronizacao, setMensagemSincronizacao] = useState("");
 
   const [tipoManutencao, setTipoManutencao] = useState("PREVENTIVA");
   const [equipamento, setEquipamento] = useState("");
@@ -135,6 +145,27 @@ function Manutencao({ setTela, modoRelatorio = false }) {
   useEffect(() => {
     carregarDadosIniciais();
   }, []);
+
+  useEffect(() => {
+    const aoFicarOnline = () => setIsOnline(true);
+    const aoFicarOffline = () => setIsOnline(false);
+    window.addEventListener("online", aoFicarOnline);
+    window.addEventListener("offline", aoFicarOffline);
+    return () => {
+      window.removeEventListener("online", aoFicarOnline);
+      window.removeEventListener("offline", aoFicarOffline);
+    };
+  }, []);
+
+  const atualizarPendencias = async () => {
+    const itens = await listarManutencoesPendentes(tenantId);
+    setPendenciasOffline(itens);
+    return itens;
+  };
+
+  useEffect(() => {
+    atualizarPendencias();
+  }, [tenantId]);
 
   const numero = (valor) => {
     if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
@@ -516,6 +547,142 @@ function Manutencao({ setTela, modoRelatorio = false }) {
     }
   }, [itemTipo, pecaSelecionada, filtroSelecionado, oleoSelecionado]);
 
+  const persistirManutencaoRemota = async (payloadBase) => {
+    /* eslint-disable no-unreachable */
+    const manutRef = doc(collection(db, "manutencoes"));
+    const pecasNoEstoque = (payloadBase.itens || []).filter((i) => i.tipo === "PECA" || i.tipo === "FILTRO");
+    const oleosNoEstoque = (payloadBase.itens || []).filter((i) => i.tipo === "OLEO");
+
+    await runTransaction(db, async (tx) => {
+      for (const item of pecasNoEstoque) {
+        const estoqueRef = doc(db, "almoxarifado_estoque_pecas", item.estoquePecaId);
+        const estoqueSnap = await tx.get(estoqueRef);
+        if (!estoqueSnap.exists()) {
+          throw new Error("Peca nao encontrada no estoque.");
+        }
+        const est = estoqueSnap.data();
+        const saldoAtual = Number(est.quantidade || 0);
+        const qtd = Number(item.quantidade || 0);
+        if (qtd <= 0) throw new Error("Quantidade invalida para peca.");
+        if (saldoAtual < qtd) {
+          throw new Error(`Estoque insuficiente para a peca ${String(item.nome || "").trim()}.`);
+        }
+
+        tx.update(estoqueRef, {
+          quantidade: saldoAtual - qtd,
+          atualizadoEm: new Date().toISOString()
+        });
+
+        const movRef = doc(collection(db, "almoxarifado_movimentacoes_pecas"));
+        const numeroSerie = String(item.serie || "").trim().toUpperCase();
+        const valorUnit = Number(item.valorUnitario || 0) || 0;
+        const total = Number(item.total || 0) || qtd * valorUnit;
+        tx.set(movRef, withTenant({
+          tipoMov: "SAIDA",
+          tipoItem: String(item.tipo || "PECA").trim().toUpperCase(),
+          nome: String(item.nome || "").trim().toUpperCase(),
+          numeroSerie,
+          quantidade: qtd,
+          unidade: String(est.unidade || "UN").trim().toUpperCase(),
+          dataMov: payloadBase.dataExecucao,
+          fornecedor: "",
+          observacao: String(item.observacao || "").trim(),
+          baseCidade: payloadBase.baseCidade,
+          baseEstado: payloadBase.baseEstado,
+          baseChave: payloadBase.baseChave,
+          obra: payloadBase.obra,
+          equipamento: payloadBase.equipamento,
+          codigoEquipamento: String(payloadBase.codigoEquipamento || "").trim().toUpperCase(),
+          mecanico: String(payloadBase.mecanico || "").trim().toUpperCase(),
+          valorUnitario: valorUnit,
+          total,
+          criadoPor: String(payloadBase.mecanico || "").trim().toUpperCase(),
+          criadoEm: new Date().toISOString()
+        }, tenantId));
+      }
+
+      for (const item of oleosNoEstoque) {
+        const lubRef = doc(db, "lubrificantes", item.estoqueLubId);
+        const lubSnap = await tx.get(lubRef);
+        if (!lubSnap.exists()) throw new Error("Oleo nao encontrado no estoque.");
+        const lub = lubSnap.data();
+        const saldo = Number(lub.quantidade || 0);
+        const qtd = Number(item.quantidade || 0);
+        if (qtd <= 0) throw new Error("Quantidade invalida para oleo.");
+        if (saldo < qtd) throw new Error(`Estoque insuficiente para ${String(item.nome || "").trim()}.`);
+        tx.update(lubRef, {
+          quantidade: saldo - qtd,
+          total: (saldo - qtd) * (Number(lub.preco || 0) || 0)
+        });
+      }
+
+      tx.set(manutRef, withTenant(payloadBase, tenantId));
+    });
+
+    await registrarHistorico({
+      modulo: "MANUTENCAO",
+      acao: "CRIOU",
+      entidade: "MANUTENCAO",
+      registroId: manutRef.id,
+      usuario: String(payloadBase.mecanico || "").trim(),
+      descricao: `ManutenÃ§Ã£o ${payloadBase.tipoManutencao} registrada para ${payloadBase.equipamento}.`,
+      detalhes: { obra: payloadBase.obra, totalItens: payloadBase.totalManutencao }
+    });
+  };
+
+  const sincronizarPendencias = async () => {
+    if (!navigator.onLine || sincronizandoPendencias) return;
+    const pendencias = await listarManutencoesPendentes(tenantId);
+    if (!pendencias.length) return;
+
+    setSincronizandoPendencias(true);
+    setMensagemSincronizacao("Sincronizando manutencoes pendentes...");
+
+    let sincronizados = 0;
+    let comErro = 0;
+
+    for (const pendencia of pendencias) {
+      try {
+        await atualizarManutencaoPendente(pendencia.id, {
+          status: "sincronizando",
+          ultimaTentativaEm: new Date().toISOString(),
+          ultimoErro: ""
+        });
+        await persistirManutencaoRemota(pendencia.payload);
+        await removerManutencaoPendente(pendencia.id);
+        sincronizados += 1;
+      } catch (error) {
+        comErro += 1;
+        await atualizarManutencaoPendente(pendencia.id, {
+          status: "erro",
+          ultimaTentativaEm: new Date().toISOString(),
+          ultimoErro: String(error?.message || error || "Falha ao sincronizar manutencao.")
+        });
+      }
+    }
+
+    await atualizarPendencias();
+    await carregarDadosIniciais();
+
+    if (sincronizados && comErro) {
+      setMensagemSincronizacao(`${sincronizados} manutencao(oes) sincronizada(s) e ${comErro} ainda pendente(s).`);
+    } else if (sincronizados) {
+      setMensagemSincronizacao(`${sincronizados} manutencao(oes) sincronizada(s) com sucesso.`);
+    } else if (comErro) {
+      setMensagemSincronizacao(`${comErro} manutencao(oes) ainda pendente(s) por erro de sincronizacao.`);
+    } else {
+      setMensagemSincronizacao("");
+    }
+
+    setSincronizandoPendencias(false);
+  };
+
+  useEffect(() => {
+    if (isOnline) {
+      sincronizarPendencias();
+    }
+  }, [isOnline]);
+
   const salvarManutencao = async () => {
     if (!baseChaveAtiva || !equipamento || !mecanico.trim() || !dataExecucao) {
       alert("Preencha base/cidade, equipamento, mecanico e data.");
@@ -541,6 +708,9 @@ function Manutencao({ setTela, modoRelatorio = false }) {
     }
 
     const payloadBase = {
+      baseChave: baseChaveObra,
+      baseCidade: baseCidadeAtiva,
+      baseEstado: baseEstadoAtivo,
       tipoManutencao,
       equipamento,
       codigoEquipamento: equipamentoSelecionado?.codigo || "",
@@ -558,6 +728,52 @@ function Manutencao({ setTela, modoRelatorio = false }) {
       totalManutencao: totalItens,
       criadoEm: new Date().toISOString()
     };
+
+    const limparFormulario = () => {
+      setTipoManutencao("PREVENTIVA");
+      setEquipamento("");
+      setObra("");
+      setMecanico("");
+      setDataExecucao(new Date().toISOString().split("T")[0]);
+      setHorimetroKm("");
+      setProblemaRelatado("");
+      setServicosExecutados("");
+      setProximaManutencao("");
+      setObservacao("");
+      setItens([]);
+    };
+
+    if (!isOnline) {
+      await salvarManutencaoPendente(payloadBase, tenantId);
+      await atualizarPendencias();
+      limparFormulario();
+      setMensagemSincronizacao("Manutencao salva no celular e aguardando sincronizacao.");
+      alert("Manutencao salva offline no celular. Ela sera sincronizada quando a internet voltar.");
+      return;
+    }
+
+    try {
+      await persistirManutencaoRemota(payloadBase);
+      limparFormulario();
+      setMensagemSincronizacao("Manutencao enviada para o sistema com sucesso.");
+      await carregarDadosIniciais();
+      await atualizarPendencias();
+      alert("Manutencao salva com sucesso.");
+      return;
+    } catch (err) {
+      const mensagem = String(err?.message || err || "Erro ao salvar manutencao/baixar estoque.");
+      const erroDeRede = !navigator.onLine || /network|offline|unavailable|failed-precondition/i.test(mensagem);
+      if (erroDeRede) {
+        await salvarManutencaoPendente(payloadBase, tenantId);
+        await atualizarPendencias();
+        limparFormulario();
+        setMensagemSincronizacao("Sem internet no momento. A manutencao ficou salva no celular.");
+        alert("Sem internet no momento. A manutencao foi salva offline e sera sincronizada depois.");
+        return;
+      }
+      alert(mensagem);
+      return;
+    }
 
     const manutRef = doc(collection(db, "manutencoes"));
 
@@ -660,6 +876,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
     setItens([]);
 
     carregarDadosIniciais();
+    /* eslint-enable no-unreachable */
   };
 
   const listaFiltrada = useMemo(() => {
@@ -901,6 +1118,29 @@ function Manutencao({ setTela, modoRelatorio = false }) {
       {!modoRelatorio && (
       <div style={card}>
         <h3 style={{ marginTop: 0, color: "#10243e" }}>Cadastro de manutencao</h3>
+        <div
+          style={{
+            marginBottom: 12,
+            borderRadius: 8,
+            padding: 12,
+            border: `1px solid ${isOnline ? "#cce5d1" : "#ffd8a8"}`,
+            background: isOnline ? "#f1fff4" : "#fff4e6",
+            color: "#173454"
+          }}
+        >
+          <div style={{ fontWeight: 800 }}>{isOnline ? "Celular online" : "Celular offline"}</div>
+          <div style={{ marginTop: 4, fontSize: 13 }}>
+            {isOnline
+              ? "As manutencoes podem ser enviadas agora."
+              : "As manutencoes serao salvas no celular e sincronizadas quando a internet voltar."}
+          </div>
+          {!!pendenciasOffline.length && (
+            <div style={{ marginTop: 6, fontSize: 13 }}>Pendencias offline: {pendenciasOffline.length}</div>
+          )}
+          {!!mensagemSincronizacao && (
+            <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700 }}>{mensagemSincronizacao}</div>
+          )}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
           <select style={inputBase} value={tipoManutencao} onChange={(e) => setTipoManutencao(e.target.value)}>
             {TIPOS_MANUTENCAO.map((tipo) => (
@@ -1127,6 +1367,13 @@ function Manutencao({ setTela, modoRelatorio = false }) {
 
         <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
           <button style={botaoPrimario} onClick={salvarManutencao}>Salvar manutencao</button>
+          <button
+            style={{ ...botaoSecundario, opacity: sincronizandoPendencias ? 0.7 : 1 }}
+            onClick={sincronizarPendencias}
+            disabled={!pendenciasOffline.length || !isOnline || sincronizandoPendencias}
+          >
+            {sincronizandoPendencias ? "Sincronizando..." : `Sincronizar pendencias${pendenciasOffline.length ? ` (${pendenciasOffline.length})` : ""}`}
+          </button>
           <button style={botaoSecundario} onClick={() => setItens([])}>Limpar itens</button>
         </div>
       </div>

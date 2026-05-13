@@ -6,6 +6,12 @@ import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { db } from "../firebase";
 import { registrarHistorico } from "../utils/historico";
+import {
+  atualizarTransportePendente,
+  listarTransportesPendentes,
+  removerTransportePendente,
+  salvarTransportePendente
+} from "../utils/offlineTransportes";
 import { formatoLogoPdf, resolverLogoPdf } from "../utils/pdfLogo";
 import { belongsToTenant, getConfigDocId, getTenantId, withTenant } from "../utils/tenant";
 
@@ -80,6 +86,10 @@ function Transportes({ setTela }) {
   const [gerandoPdfId, setGerandoPdfId] = useState("");
   const [formularioAberto, setFormularioAberto] = useState(false);
   const [menuComprovanteAbertoId, setMenuComprovanteAbertoId] = useState("");
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [pendenciasOffline, setPendenciasOffline] = useState([]);
+  const [sincronizandoPendencias, setSincronizandoPendencias] = useState(false);
+  const [mensagemSincronizacao, setMensagemSincronizacao] = useState("");
 
   const inputStyle = {
     width: "100%",
@@ -170,6 +180,27 @@ function Transportes({ setTela }) {
   useEffect(() => {
     carregar();
   }, []);
+
+  useEffect(() => {
+    const aoFicarOnline = () => setIsOnline(true);
+    const aoFicarOffline = () => setIsOnline(false);
+    window.addEventListener("online", aoFicarOnline);
+    window.addEventListener("offline", aoFicarOffline);
+    return () => {
+      window.removeEventListener("online", aoFicarOnline);
+      window.removeEventListener("offline", aoFicarOffline);
+    };
+  }, []);
+
+  const atualizarPendencias = async () => {
+    const itens = await listarTransportesPendentes(tenantId);
+    setPendenciasOffline(itens);
+    return itens;
+  };
+
+  useEffect(() => {
+    atualizarPendencias();
+  }, [tenantId]);
 
   useEffect(() => {
     if (!caminhaoSelecionado) return;
@@ -430,6 +461,132 @@ function Transportes({ setTela }) {
     return mapa[chave] || String(status || "-").replace(/_/g, " ");
   };
 
+  const persistirTransporteRemoto = async (payload) => {
+    const { numeroSequencial, numeroExibicao, origemChave } = montarNumeroSequencial(payload.origem);
+    const numeroFinal = montarNumeroRomaneio(numeroExibicao);
+    const localSaida = payload.modoLancamento === MODO_ROMANEIO ? await obterLocalizacao() : null;
+    const ref = doc(collection(db, COLECAO));
+    const qrPayload = payload.modoLancamento === MODO_ROMANEIO ? montarPayloadQr(ref.id) : "";
+    const caminhaoNomeFinal = payload.modoLancamento === MODO_ROMANEIO
+      ? String(payload.caminhaoNome || "").trim().toUpperCase()
+      : String(payload.veiculoAvulso || "").trim().toUpperCase();
+    const placaFinal = payload.modoLancamento === MODO_ROMANEIO
+      ? String(payload.placaCaminhao || "").trim().toUpperCase()
+      : String(payload.placaAvulsa || "").trim().toUpperCase();
+    const statusFinal = payload.modoLancamento === MODO_SAIDA_SIMPLES ? "SAIDA_SIMPLES_CONCLUIDA" : "EM_TRANSITO";
+    const tipoFinal = payload.modoLancamento === MODO_SAIDA_SIMPLES
+      ? "SAIDA_SIMPLES"
+      : (payload.material === "DIVERSOS" ? "DIVERSOS" : "MATERIAL");
+
+    await setDoc(
+      ref,
+      withTenant({
+        numero: numeroFinal,
+        numeroSequencial,
+        tipoTransporte: tipoFinal,
+        material: payload.material,
+        materialLabel: payload.material === "DIVERSOS" ? String(payload.descricaoMaterial || "").trim().toUpperCase() : payload.material,
+        descricaoMaterial: String(payload.descricaoMaterial || "").trim().toUpperCase(),
+        quantidade: Number(payload.quantidade || 0),
+        unidade: payload.unidade,
+        origem: String(payload.origem || "").trim().toUpperCase(),
+        origemChave,
+        destino: String(payload.destino || "").trim().toUpperCase(),
+        obra: payload.modoLancamento === MODO_ROMANEIO ? String(payload.obra || "").trim().toUpperCase() : "",
+        requisitante: String(payload.requisitante || "").trim().toUpperCase(),
+        caminhaoId: payload.modoLancamento === MODO_ROMANEIO ? payload.caminhaoId : "",
+        caminhaoNome: caminhaoNomeFinal,
+        caminhaoCodigo: payload.modoLancamento === MODO_ROMANEIO ? String(payload.caminhaoCodigo || "").trim().toUpperCase() : "",
+        placa: placaFinal,
+        motorista: String(payload.motorista || "").trim().toUpperCase(),
+        observacao: String(payload.observacao || "").trim().toUpperCase(),
+        status: statusFinal,
+        apontadorSaida: payload.apontadorSaida || "APONTADOR",
+        assinaturaSaida: payload.assinaturaSaida,
+        assinaturaMotorista: payload.assinaturaMotorista,
+        assinaturaRecebimento: "",
+        recebidoStatus: "",
+        observacaoRecebimento: "",
+        qrPayload,
+        usaRecebimentoDestino: payload.modoLancamento === MODO_ROMANEIO,
+        criadoEm: new Date().toISOString(),
+        dataHoraSaida: new Date().toISOString(),
+        dataHoraRecebimento: "",
+        localSaida,
+        localRecebimento: null
+      }, tenantId)
+    );
+
+    await registrarHistorico({
+      modulo: "TRANSPORTE",
+      acao: "CRIOU",
+      entidade: "ROMANEIO_TRANSPORTE",
+      registroId: ref.id,
+      usuario: payload.apontadorSaida || "-",
+      descricao: payload.modoLancamento === MODO_SAIDA_SIMPLES
+        ? `Registrou saÃ­da simples ${numeroFinal} para ${String(payload.destino || "").trim().toUpperCase()}.`
+        : `Criou romaneio de transporte ${numeroFinal} para ${String(payload.destino || "").trim().toUpperCase()}.`
+    });
+
+    return {
+      id: ref.id,
+      numero: numeroFinal,
+      qrPayload,
+      tipoTransporte: tipoFinal
+    };
+  };
+
+  const sincronizarPendencias = async () => {
+    if (!navigator.onLine || sincronizandoPendencias) return;
+    const pendencias = await listarTransportesPendentes(tenantId);
+    if (!pendencias.length) return;
+
+    setSincronizandoPendencias(true);
+    setMensagemSincronizacao("Sincronizando transportes pendentes...");
+
+    let sincronizados = 0;
+    let comErro = 0;
+
+    for (const pendencia of pendencias) {
+      try {
+        await atualizarTransportePendente(pendencia.id, {
+          status: "sincronizando",
+          ultimaTentativaEm: new Date().toISOString(),
+          ultimoErro: ""
+        });
+        await persistirTransporteRemoto(pendencia.payload);
+        await removerTransportePendente(pendencia.id);
+        sincronizados += 1;
+      } catch (error) {
+        comErro += 1;
+        await atualizarTransportePendente(pendencia.id, {
+          status: "erro",
+          ultimaTentativaEm: new Date().toISOString(),
+          ultimoErro: String(error?.message || error || "Falha ao sincronizar transporte.")
+        });
+      }
+    }
+
+    await atualizarPendencias();
+    await carregar();
+    if (sincronizados && comErro) {
+      setMensagemSincronizacao(`${sincronizados} transporte(s) sincronizado(s) e ${comErro} ainda pendente(s).`);
+    } else if (sincronizados) {
+      setMensagemSincronizacao(`${sincronizados} transporte(s) sincronizado(s) com sucesso.`);
+    } else if (comErro) {
+      setMensagemSincronizacao(`${comErro} transporte(s) ainda pendente(s) por erro de sincronizacao.`);
+    } else {
+      setMensagemSincronizacao("");
+    }
+    setSincronizandoPendencias(false);
+  };
+
+  useEffect(() => {
+    if (isOnline) {
+      sincronizarPendencias();
+    }
+  }, [isOnline]);
+
   const salvar = async () => {
     if (salvando) return;
       if (!quantidade || Number(String(quantidade).replace(",", ".")) <= 0) return alert("Informe a quantidade.");
@@ -452,8 +609,54 @@ function Transportes({ setTela }) {
     if (!assinaturaSaida) return alert("A assinatura do apontador da saida e obrigatoria.");
     if (!assinaturaMotorista) return alert("A assinatura do motorista e obrigatoria.");
 
+    const payload = {
+      modoLancamento,
+      material,
+      descricaoMaterial,
+      quantidade: Number(String(quantidade).replace(",", ".")),
+      unidade,
+      origem: String(origem || "").trim().toUpperCase(),
+      destino: String(destino || "").trim().toUpperCase(),
+      obra: String(obra || "").trim().toUpperCase(),
+      requisitante: String(requisitante || "").trim().toUpperCase(),
+      caminhaoId: caminhaoSelecionado?.id || "",
+      caminhaoNome: String(caminhaoSelecionado?.nome || "").trim().toUpperCase(),
+      caminhaoCodigo: String(caminhaoSelecionado?.codigo || "").trim().toUpperCase(),
+      placaCaminhao: String(caminhaoSelecionado?.placa || "").trim().toUpperCase(),
+      veiculoAvulso: String(veiculoAvulso || "").trim().toUpperCase(),
+      placaAvulsa: String(placaAvulsa || "").trim().toUpperCase(),
+      motorista: String(motorista || "").trim().toUpperCase(),
+      observacao: String(observacao || "").trim().toUpperCase(),
+      apontadorSaida: apontadorAtual || "APONTADOR",
+      assinaturaSaida,
+      assinaturaMotorista
+    };
+
       setSalvando(true);
+      if (!isOnline) {
+        await salvarTransportePendente(payload, tenantId);
+        await atualizarPendencias();
+        limpar();
+        setMensagemSincronizacao("Transporte salvo no celular e aguardando sincronizacao.");
+        setSalvando(false);
+        alert("Transporte salvo offline no celular. Ele sera sincronizado quando a internet voltar.");
+        return;
+      }
       try {
+        const resultado = await persistirTransporteRemoto(payload);
+        setRomaneioGerado(resultado);
+        if (resultado.qrPayload) {
+          setQrPreview(await QRCode.toDataURL(resultado.qrPayload, { margin: 1, width: 360, errorCorrectionLevel: "H" }));
+        } else {
+          setQrPreview("");
+        }
+        limpar();
+        await carregar();
+        await atualizarPendencias();
+        setMensagemSincronizacao("Transporte enviado para o sistema com sucesso.");
+        alert(modoLancamento === MODO_SAIDA_SIMPLES ? "Saida simples registrada com sucesso." : "Romaneio criado com sucesso.");
+        return;
+        /* eslint-disable no-unreachable */
         const { numeroSequencial, numeroExibicao, origemChave } = montarNumeroSequencial(origem);
         const numeroFinal = montarNumeroRomaneio(numeroExibicao);
         const localSaida = modoLancamento === MODO_ROMANEIO ? await obterLocalizacao() : null;
@@ -538,7 +741,18 @@ function Transportes({ setTela }) {
       await carregar();
       alert(modoLancamento === MODO_SAIDA_SIMPLES ? "Saida simples registrada com sucesso." : "Romaneio criado com sucesso.");
     } catch (e) {
-      alert(`Falha ao criar romaneio. Detalhes: ${String(e?.message || e || "")}`);
+      const mensagem = String(e?.message || e || "");
+      const erroDeRede = !navigator.onLine || /network|offline|unavailable|failed-precondition/i.test(mensagem);
+      if (erroDeRede) {
+        await salvarTransportePendente(payload, tenantId);
+        await atualizarPendencias();
+        limpar();
+        setMensagemSincronizacao("Sem internet no momento. O transporte ficou salvo no celular.");
+        alert("Sem internet no momento. O transporte foi salvo offline e sera sincronizado depois.");
+        return;
+      }
+      alert(`Falha ao criar romaneio. Detalhes: ${mensagem}`);
+      /* eslint-enable no-unreachable */
     } finally {
       setSalvando(false);
     }
@@ -589,6 +803,28 @@ function Transportes({ setTela }) {
             </button>
           </div>
         </div>
+      </div>
+
+      <div
+        style={{
+          ...card,
+          borderColor: isOnline ? "#cce5d1" : "#ffd8a8",
+          background: isOnline ? "#f1fff4" : "#fff4e6",
+          color: "#173454"
+        }}
+      >
+        <div style={{ fontWeight: 800 }}>{isOnline ? "Celular online" : "Celular offline"}</div>
+        <div style={{ marginTop: 4, fontSize: 13 }}>
+          {isOnline
+            ? "Os transportes podem ser enviados agora."
+            : "Os transportes serao salvos no celular e sincronizados quando a internet voltar."}
+        </div>
+        {!!pendenciasOffline.length && (
+          <div style={{ marginTop: 6, fontSize: 13 }}>Pendencias offline: {pendenciasOffline.length}</div>
+        )}
+        {!!mensagemSincronizacao && (
+          <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700 }}>{mensagemSincronizacao}</div>
+        )}
       </div>
 
       {formularioAberto && (
@@ -729,6 +965,14 @@ function Transportes({ setTela }) {
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
           <button type="button" onClick={salvar} disabled={salvando} style={{ ...botaoPrimario, opacity: salvando ? 0.7 : 1 }}>
             {salvando ? "Salvando..." : (modoLancamento === MODO_SAIDA_SIMPLES ? "Registrar saída simples" : "Gerar romaneio")}
+          </button>
+          <button
+            type="button"
+            onClick={sincronizarPendencias}
+            disabled={!pendenciasOffline.length || !isOnline || sincronizandoPendencias}
+            style={{ ...botaoSecundario, opacity: sincronizandoPendencias ? 0.7 : 1 }}
+          >
+            {sincronizandoPendencias ? "Sincronizando..." : `Sincronizar pendencias${pendenciasOffline.length ? ` (${pendenciasOffline.length})` : ""}`}
           </button>
           <button type="button" onClick={limpar} style={botaoSecundario}>
             Limpar formulario
