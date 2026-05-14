@@ -65,6 +65,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
   const acessoTotalBases = perfilSessao === "GESTOR_GERAL" || usuarioChaveSessao;
   const podeEditarRegistrosEntrada = perfilSessao === "GESTOR_GERAL" || perfilSessao === "ADMIN_UNIDADE" || usuarioChaveSessao;
   const podeApagarRegistrosEntrada = perfilSessao === "GESTOR_GERAL" || usuarioChaveSessao;
+  const podeEditarEstruturaEntrada = podeApagarRegistrosEntrada;
   const basesPermitidas = Array.isArray(sessaoOperacional?.basesPermitidas)
     ? sessaoOperacional.basesPermitidas.map((b) => String(b || "").trim().toUpperCase()).filter(Boolean)
     : [];
@@ -564,8 +565,16 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
   const iniciarEdicaoEntrada = (registro) => {
     limparFeedbackEntrada();
+    const categoria = normalizarNome(registro.categoria || "FERRAMENTA");
     setEntradaEmEdicaoId(registro.id);
     setEntradaEditando({
+      categoria,
+      nome: String(registro.nome || ""),
+      quantidade: String(registro.quantidade ?? ""),
+      unidade: String(registro.unidade || (categoria === "INSUMO" ? "SC" : "UN")),
+      precoUnitario: String(registro.precoUnitario ?? ""),
+      caEpi: String(registro.caEpi || ""),
+      numeroSerie: String(registro.numeroSerie || registro.equipamentoCodigo || ""),
       dataEntrada: String(registro.dataEntrada || ""),
       notaFiscal: String(registro.notaFiscal || ""),
       fornecedor: String(registro.fornecedor || ""),
@@ -583,10 +592,238 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     setEntradaEditando(null);
   };
 
+  const entradaPodeEditarEstrutura = (registro) => {
+    const { item } = localizarEstoqueEntrada(registro);
+    if (!item) return false;
+    return Number(item.quantidade || 0) + 0.000001 >= Number(registro?.quantidade || 0);
+  };
+
+  const aplicarDeltaEstoque = async ({ categoria, nome, numeroSerie, caEpi, unidade, precoUnitario, base, delta }) => {
+    const categoriaNormalizada = normalizarNome(categoria);
+    const nomeNormalizado = normalizarNome(nome);
+    const serieNormalizada = String(numeroSerie || "").trim().toUpperCase();
+    const caNormalizado = normalizarNome(caEpi);
+    const unidadeFinal = normalizarNome(unidade || "UN") || "UN";
+    const valorDelta = Number(delta || 0);
+
+    if (!valorDelta) return;
+
+    if (categoriaNormalizada === "FERRAMENTA") {
+      const existente = estoqueFerramentas.find((item) => normalizarNome(item.nome) === nomeNormalizado);
+      const saldoAtual = Number(existente?.quantidade || 0);
+      const novoSaldo = saldoAtual + valorDelta;
+      if (novoSaldo < -0.000001) throw new Error("Saldo insuficiente para ajustar ferramenta.");
+      if (existente) {
+        if (novoSaldo <= 0.000001) {
+          await deleteDoc(doc(db, "almoxarifado_estoque_ferramentas", existente.id));
+        } else {
+          await updateDoc(doc(db, "almoxarifado_estoque_ferramentas", existente.id), {
+            quantidade: novoSaldo,
+            atualizadoEm: new Date().toISOString()
+          });
+        }
+      } else if (valorDelta > 0) {
+        await addDoc(
+          collection(db, "almoxarifado_estoque_ferramentas"),
+          withTenant(
+            {
+              nome: nomeNormalizado,
+              quantidade: valorDelta,
+              baseCidade: base.baseCidade,
+              baseEstado: base.baseEstado,
+              baseChave: base.baseChave,
+              criadoEm: new Date().toISOString()
+            },
+            tenantId
+          )
+        );
+      } else {
+        throw new Error("Ferramenta nao encontrada para reverter estoque.");
+      }
+      return;
+    }
+
+    if (categoriaNormalizada === "INSUMO") {
+      const existente = estoqueInsumos.find((item) => normalizarNome(item.nome) === nomeNormalizado);
+      const saldoAtual = Number(existente?.quantidade || 0);
+      const novoSaldo = saldoAtual + valorDelta;
+      if (novoSaldo < -0.000001) throw new Error("Saldo insuficiente para ajustar insumo.");
+      if (existente) {
+        if (novoSaldo <= 0.000001) {
+          await deleteDoc(doc(db, "almoxarifado_estoque_insumos", existente.id));
+        } else {
+          await updateDoc(doc(db, "almoxarifado_estoque_insumos", existente.id), {
+            quantidade: novoSaldo,
+            unidade: unidadeFinal,
+            atualizadoEm: new Date().toISOString()
+          });
+        }
+      } else if (valorDelta > 0) {
+        await addDoc(
+          collection(db, "almoxarifado_estoque_insumos"),
+          withTenant(
+            {
+              nome: nomeNormalizado,
+              quantidade: valorDelta,
+              unidade: unidadeFinal,
+              baseCidade: base.baseCidade,
+              baseEstado: base.baseEstado,
+              baseChave: base.baseChave,
+              criadoEm: new Date().toISOString()
+            },
+            tenantId
+          )
+        );
+      } else {
+        throw new Error("Insumo nao encontrado para reverter estoque.");
+      }
+      return;
+    }
+
+    if (categoriaNormalizada === "EPI") {
+      const existente = estoqueEpi.find(
+        (item) => normalizarNome(item.nome) === nomeNormalizado && normalizarNome(item.caEpi) === caNormalizado
+      );
+      const saldoAtual = Number(existente?.quantidade || 0);
+      const novoSaldo = saldoAtual + valorDelta;
+      if (novoSaldo < -0.000001) throw new Error("Saldo insuficiente para ajustar EPI.");
+      if (existente) {
+        if (novoSaldo <= 0.000001) {
+          await deleteDoc(doc(db, "almoxarifado_estoque_epi", existente.id));
+        } else {
+          await updateDoc(doc(db, "almoxarifado_estoque_epi", existente.id), {
+            quantidade: novoSaldo,
+            atualizadoEm: new Date().toISOString()
+          });
+        }
+      } else if (valorDelta > 0) {
+        await addDoc(
+          collection(db, "almoxarifado_estoque_epi"),
+          withTenant(
+            {
+              nome: nomeNormalizado,
+              caEpi: caNormalizado,
+              quantidade: valorDelta,
+              unidade: "UN",
+              baseCidade: base.baseCidade,
+              baseEstado: base.baseEstado,
+              baseChave: base.baseChave,
+              criadoEm: new Date().toISOString()
+            },
+            tenantId
+          )
+        );
+      } else {
+        throw new Error("EPI nao encontrado para reverter estoque.");
+      }
+      return;
+    }
+
+    if (categoriaNormalizada === "PECA_EQUIPAMENTO") {
+      const existente = estoquePecas.find(
+        (item) =>
+          normalizarNome(item.nome) === nomeNormalizado &&
+          normalizarNome(item.numeroSerie || item.equipamentoCodigo) === normalizarNome(serieNormalizada)
+      );
+      const saldoAtual = Number(existente?.quantidade || 0);
+      const novoSaldo = saldoAtual + valorDelta;
+      if (novoSaldo < -0.000001) throw new Error("Saldo insuficiente para ajustar peca.");
+      if (existente) {
+        if (novoSaldo <= 0.000001) {
+          await deleteDoc(doc(db, "almoxarifado_estoque_pecas", existente.id));
+        } else {
+          await updateDoc(doc(db, "almoxarifado_estoque_pecas", existente.id), {
+            quantidade: novoSaldo,
+            unidade: unidadeFinal,
+            numeroSerie: serieNormalizada,
+            precoUnitario: Number(precoUnitario || 0) || 0,
+            atualizadoEm: new Date().toISOString()
+          });
+        }
+      } else if (valorDelta > 0) {
+        await addDoc(
+          collection(db, "almoxarifado_estoque_pecas"),
+          withTenant(
+            {
+              nome: nomeNormalizado,
+              numeroSerie: serieNormalizada,
+              quantidade: valorDelta,
+              unidade: unidadeFinal,
+              precoUnitario: Number(precoUnitario || 0) || 0,
+              baseCidade: base.baseCidade,
+              baseEstado: base.baseEstado,
+              baseChave: base.baseChave,
+              criadoEm: new Date().toISOString()
+            },
+            tenantId
+          )
+        );
+      } else {
+        throw new Error("Peca nao encontrada para reverter estoque.");
+      }
+    }
+  };
+
   const salvarEdicaoEntrada = async (registro) => {
     if (!entradaEditando) return;
 
+    const categoriaNova = normalizarNome(entradaEditando.categoria || registro.categoria || "FERRAMENTA");
+    const nomeNovo = normalizarNome(entradaEditando.nome || registro.nome);
+    const quantidadeNova = Number(entradaEditando.quantidade || 0);
+    const unidadeNova = normalizarNome(entradaEditando.unidade || "UN");
+    const precoUnitarioNovo = parseDecimalInput(entradaEditando.precoUnitario);
+    const caNovo = normalizarNome(entradaEditando.caEpi);
+    const numeroSerieNovo = String(entradaEditando.numeroSerie || "").trim().toUpperCase();
+    const quantidadeAntiga = Number(registro.quantidade || 0);
+    const categoriaAntiga = normalizarNome(registro.categoria);
+    const nomeAntigo = normalizarNome(registro.nome);
+    const unidadeAntiga = normalizarNome(registro.unidade || "UN");
+    const precoUnitarioAntigo = parseDecimalInput(registro.precoUnitario);
+    const caAntigo = normalizarNome(registro.caEpi);
+    const numeroSerieAntigo = String(registro.numeroSerie || registro.equipamentoCodigo || "").trim().toUpperCase();
+    const estruturaMudou =
+      categoriaNova !== categoriaAntiga ||
+      nomeNovo !== nomeAntigo ||
+      !quaseIgual(quantidadeNova, quantidadeAntiga) ||
+      unidadeNova !== unidadeAntiga ||
+      !quaseIgual(precoUnitarioNovo, precoUnitarioAntigo) ||
+      caNovo !== caAntigo ||
+      numeroSerieNovo !== numeroSerieAntigo;
+
+    if (estruturaMudou && !podeEditarEstruturaEntrada) {
+      mostrarFeedbackEntrada("erro", "Seu perfil pode editar apenas dados administrativos desse registro.");
+      return;
+    }
+    if (!nomeNovo || quantidadeNova <= 0) {
+      mostrarFeedbackEntrada("erro", "Preencha material e quantidade validos.");
+      return;
+    }
+    if (categoriaNova === "EPI" && !caNovo) {
+      mostrarFeedbackEntrada("erro", "Para EPI, informe o CA.");
+      return;
+    }
+    if (categoriaNova === "PECA_EQUIPAMENTO" && !numeroSerieNovo) {
+      mostrarFeedbackEntrada("erro", "Para peca de equipamento, informe o numero de serie / item.");
+      return;
+    }
+    if (estruturaMudou && !entradaPodeEditarEstrutura(registro)) {
+      mostrarFeedbackEntrada(
+        "erro",
+        "Essa entrada ja teve consumo/saida no estoque. Edicao completa foi bloqueada; nesse caso use apenas correcao administrativa."
+      );
+      return;
+    }
+
     const payloadEntrada = {
+      categoria: categoriaNova,
+      nome: nomeNovo,
+      quantidade: quantidadeNova,
+      unidade: categoriaNova === "INSUMO" || categoriaNova === "PECA_EQUIPAMENTO" ? (unidadeNova || "UN") : "UN",
+      precoUnitario: precoUnitarioNovo,
+      totalEntrada: quantidadeNova * (Number(precoUnitarioNovo || 0) || 0),
+      totalGeralEntrada: (quantidadeNova * (Number(precoUnitarioNovo || 0) || 0)) + (Number(parseDecimalInput(entradaEditando.valorFrete) || 0) || 0),
+      caEpi: categoriaNova === "EPI" ? caNovo : "",
+      numeroSerie: categoriaNova === "PECA_EQUIPAMENTO" ? numeroSerieNovo : "",
       dataEntrada: String(entradaEditando.dataEntrada || "").trim(),
       notaFiscal: String(entradaEditando.notaFiscal || "").trim(),
       fornecedor: normalizarNome(entradaEditando.fornecedor),
@@ -600,16 +837,68 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
       editadoPor: localStorage.getItem("usuarioLogado") || "USUARIO"
     };
 
+    const base = {
+      baseCidade: registro.baseCidade,
+      baseEstado: registro.baseEstado,
+      baseChave: registro.baseChave
+    };
+
+    if (estruturaMudou) {
+      await aplicarDeltaEstoque({
+        categoria: categoriaAntiga,
+        nome: nomeAntigo,
+        numeroSerie: numeroSerieAntigo,
+        caEpi: caAntigo,
+        unidade: unidadeAntiga,
+        precoUnitario: precoUnitarioAntigo,
+        base,
+        delta: -quantidadeAntiga
+      });
+      await aplicarDeltaEstoque({
+        categoria: categoriaNova,
+        nome: nomeNovo,
+        numeroSerie: numeroSerieNovo,
+        caEpi: caNovo,
+        unidade: unidadeNova,
+        precoUnitario: precoUnitarioNovo,
+        base,
+        delta: quantidadeNova
+      });
+    }
+
     await updateDoc(doc(db, "almoxarifado_entradas_materiais", registro.id), payloadEntrada);
 
     const docsMov = await listarMovimentacoesRelacionadasEntrada(registro);
+    const collectionAntiga = obterMovimentacaoCollectionEntrada(registro.categoria);
+    const collectionNova = obterMovimentacaoCollectionEntrada(categoriaNova);
     for (const item of docsMov) {
-      await updateDoc(doc(db, obterMovimentacaoCollectionEntrada(registro.categoria), item.id), {
+      const payloadMov = {
+        tipoMov: "ENTRADA",
+        nome: nomeNovo,
+        quantidade: quantidadeNova,
+        unidade: payloadEntrada.unidade,
         dataMov: payloadEntrada.dataEntrada,
         fornecedor: payloadEntrada.fornecedor,
         observacao: payloadEntrada.observacao,
+        baseCidade: registro.baseCidade,
+        baseEstado: registro.baseEstado,
+        baseChave: registro.baseChave,
+        criadoPor: item.criadoPor || localStorage.getItem("usuarioLogado") || "USUARIO",
+        criadoEm: item.criadoEm || new Date().toISOString(),
         atualizadoEm: new Date().toISOString()
-      });
+      };
+      if (categoriaNova === "PECA_EQUIPAMENTO") {
+        payloadMov.numeroSerie = numeroSerieNovo;
+        payloadMov.valorUnitario = Number(precoUnitarioNovo || 0) || 0;
+        payloadMov.total = quantidadeNova * (Number(precoUnitarioNovo || 0) || 0);
+      }
+
+      if (collectionAntiga && collectionNova && collectionAntiga !== collectionNova) {
+        await deleteDoc(doc(db, collectionAntiga, item.id));
+        await addDoc(collection(db, collectionNova), withTenant(payloadMov, tenantId));
+      } else if (collectionNova) {
+        await updateDoc(doc(db, collectionNova, item.id), payloadMov);
+      }
     }
 
     cancelarEdicaoEntrada();
@@ -2280,9 +2569,74 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
               <div style={{ ...card, marginTop: 12, background: "#f8fbff", border: "1px solid #cfe0ff" }}>
                 <h4 style={{ marginTop: 0 }}>Editar registro de entrada</h4>
                 <div style={{ marginBottom: 10, color: "#5b6f8a", fontSize: 13 }}>
-                  Edicao liberada para corrigir dados administrativos do registro. Material, categoria, quantidade, CA e numero de serie continuam travados para nao desalinhar o estoque.
+                  {podeEditarEstruturaEntrada
+                    ? "Admin chave e gestor geral podem corrigir item, quantidade, preco, numero de serie e dados administrativos. Se a entrada ja tiver sido consumida no estoque, a tela bloqueia a edicao estrutural para proteger o saldo."
+                    : "Edicao liberada para corrigir dados administrativos do registro. Material, categoria, quantidade, CA e numero de serie continuam travados para nao desalinhar o estoque."}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                  {podeEditarEstruturaEntrada && (
+                    <select
+                      style={inputStyle}
+                      value={entradaEditando.categoria}
+                      onChange={(e) => setEntradaEditando((atual) => ({ ...atual, categoria: e.target.value }))}
+                    >
+                      <option value="FERRAMENTA">Ferramenta</option>
+                      <option value="INSUMO">Insumo</option>
+                      <option value="EPI">EPI</option>
+                      <option value="PECA_EQUIPAMENTO">Peca de equipamento</option>
+                    </select>
+                  )}
+                  {podeEditarEstruturaEntrada && (
+                    <input
+                      style={inputStyle}
+                      placeholder="Material"
+                      value={entradaEditando.nome}
+                      onChange={(e) => setEntradaEditando((atual) => ({ ...atual, nome: e.target.value }))}
+                    />
+                  )}
+                  {podeEditarEstruturaEntrada && (
+                    <input
+                      style={inputStyle}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Quantidade"
+                      value={entradaEditando.quantidade}
+                      onChange={(e) => setEntradaEditando((atual) => ({ ...atual, quantidade: e.target.value }))}
+                    />
+                  )}
+                  {podeEditarEstruturaEntrada && (
+                    <input
+                      style={inputStyle}
+                      placeholder="Unidade"
+                      value={entradaEditando.unidade}
+                      onChange={(e) => setEntradaEditando((atual) => ({ ...atual, unidade: e.target.value }))}
+                    />
+                  )}
+                  {podeEditarEstruturaEntrada && (
+                    <input
+                      style={inputStyle}
+                      placeholder="Preco unitario (R$)"
+                      value={entradaEditando.precoUnitario}
+                      onChange={(e) => setEntradaEditando((atual) => ({ ...atual, precoUnitario: e.target.value }))}
+                    />
+                  )}
+                  {podeEditarEstruturaEntrada && entradaEditando.categoria === "EPI" && (
+                    <input
+                      style={inputStyle}
+                      placeholder="CA do EPI"
+                      value={entradaEditando.caEpi}
+                      onChange={(e) => setEntradaEditando((atual) => ({ ...atual, caEpi: e.target.value }))}
+                    />
+                  )}
+                  {podeEditarEstruturaEntrada && entradaEditando.categoria === "PECA_EQUIPAMENTO" && (
+                    <input
+                      style={inputStyle}
+                      placeholder="Numero de serie / item"
+                      value={entradaEditando.numeroSerie}
+                      onChange={(e) => setEntradaEditando((atual) => ({ ...atual, numeroSerie: e.target.value }))}
+                    />
+                  )}
                   <input
                     style={inputStyle}
                     type="date"
