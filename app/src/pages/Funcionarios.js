@@ -37,21 +37,10 @@ function Funcionarios({ setTela }) {
     );
   };
 
-  const formatarCpf = (valor) => {
-    const numeros = String(valor || "").replace(/\D/g, "").slice(0, 11);
-    if (numeros.length <= 3) return numeros;
-    if (numeros.length <= 6) return `${numeros.slice(0, 3)}.${numeros.slice(3)}`;
-    if (numeros.length <= 9) return `${numeros.slice(0, 3)}.${numeros.slice(3, 6)}.${numeros.slice(6)}`;
-    return `${numeros.slice(0, 3)}.${numeros.slice(3, 6)}.${numeros.slice(6, 9)}-${numeros.slice(9)}`;
-  };
-
-  const soDigitos = (valor) => String(valor || "").replace(/\D/g, "");
   const normalizarTexto = (valor) => String(valor || "").toUpperCase().trim();
 
   const [nome, setNome] = useState("");
   const [funcao, setFuncao] = useState("");
-  const [cpf, setCpf] = useState("");
-  const [dataNascimento, setDataNascimento] = useState("");
   const [dataCadastro, setDataCadastro] = useState(hojeBR());
   const [lista, setLista] = useState([]);
   const [listaOriginal, setListaOriginal] = useState([]);
@@ -130,8 +119,6 @@ function Funcionarios({ setTela }) {
   const limparFormulario = () => {
     setNome("");
     setFuncao("");
-    setCpf("");
-    setDataNascimento("");
     setDataCadastro(hojeBR());
     setEditandoId(null);
   };
@@ -157,8 +144,6 @@ function Funcionarios({ setTela }) {
   const editar = (item) => {
     setNome(item.nome || "");
     setFuncao(item.funcao || "");
-    setCpf(formatarCpf(item.cpf || ""));
-    setDataNascimento(item.dataNascimento || "");
     setDataCadastro(item.dataCadastro || hojeBR());
     setEditandoId(item.id);
     setAcoesAbertasId(null);
@@ -167,25 +152,15 @@ function Funcionarios({ setTela }) {
   const salvar = async () => {
     if (!nome) return alert("Digite o nome completo do funcionario!");
     if (!funcao) return alert("Digite a funcao!");
-    if (soDigitos(cpf).length !== 11) return alert("CPF invalido!");
     if (!dataValidaBR(dataCadastro)) return alert("Data invalida! Use dd/mm/aaaa.");
-    if (dataNascimento && !dataValidaBR(dataNascimento)) return alert("Data de nascimento invalida! Use dd/mm/aaaa.");
 
-    const cpfNumero = soDigitos(cpf);
     const nomeFormatado = normalizarTexto(nome);
     const funcaoFormatada = normalizarTexto(funcao);
-
-    const cpfExiste = lista.find(
-      (item) => soDigitos(item.cpf) === cpfNumero && item.id !== editandoId
-    );
-    if (cpfExiste) return alert("CPF ja cadastrado!");
 
     if (editandoId) {
       await updateDoc(doc(db, "funcionarios", editandoId), {
         nome: nomeFormatado,
         funcao: funcaoFormatada,
-        cpf: cpfNumero,
-        dataNascimento: dataNascimento || "",
         dataCadastro
       });
       await registrarHistorico({
@@ -200,8 +175,6 @@ function Funcionarios({ setTela }) {
       const ref = await addDoc(collection(db, "funcionarios"), withTenant({
         nome: nomeFormatado,
         funcao: funcaoFormatada,
-        cpf: cpfNumero,
-        dataNascimento: dataNascimento || "",
         dataCadastro
       }, tenantId));
       await registrarHistorico({
@@ -326,24 +299,6 @@ function Funcionarios({ setTela }) {
 
         <input
           style={inputStyle}
-          placeholder="CPF"
-          value={cpf}
-          maxLength={14}
-          onChange={(e) => setCpf(formatarCpf(e.target.value))}
-        />
-
-        <input
-          style={inputStyle}
-          type="text"
-          inputMode="numeric"
-          maxLength={10}
-          placeholder="Data de nascimento (opcional) (dd/mm/aaaa)"
-          value={dataNascimento}
-          onChange={(e) => setDataNascimento(formatarDataBR(e.target.value))}
-        />
-
-        <input
-          style={inputStyle}
           type="text"
           inputMode="numeric"
           maxLength={10}
@@ -410,8 +365,6 @@ function Funcionarios({ setTela }) {
             <tr>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Nome</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Funcao</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>CPF</th>
-              <th style={{ border: "1px solid #ccc", padding: 8 }}>Data Nasc.</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Data Cadastro</th>
               <th style={{ border: "1px solid #ccc", padding: 8 }}>Ações</th>
             </tr>
@@ -420,7 +373,7 @@ function Funcionarios({ setTela }) {
           <tbody>
             {listaFiltrada.length === 0 && (
               <tr>
-                <td colSpan="6" style={{ textAlign: "center", padding: 12 }}>
+                <td colSpan="4" style={{ textAlign: "center", padding: 12 }}>
                   Nenhum funcionario cadastrado.
                 </td>
               </tr>
@@ -433,8 +386,6 @@ function Funcionarios({ setTela }) {
               >
                 <td style={{ border: "1px solid #ccc", padding: 8 }}>{item.nome || "-"}</td>
                 <td style={{ border: "1px solid #ccc", padding: 8 }}>{item.funcao || "-"}</td>
-                <td style={{ border: "1px solid #ccc", padding: 8, whiteSpace: "nowrap" }}>{formatarCpf(item.cpf || "") || "-"}</td>
-                <td style={{ border: "1px solid #ccc", padding: 8, whiteSpace: "nowrap" }}>{item.dataNascimento || "-"}</td>
                 <td style={{ border: "1px solid #ccc", padding: 8, whiteSpace: "nowrap" }}>{item.dataCadastro || "-"}</td>
                 <td style={{ border: "1px solid #ccc", padding: 8, textAlign: "center" }}>
                   <div style={{ position: "relative", display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
