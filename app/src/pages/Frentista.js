@@ -84,6 +84,7 @@ function Frentista({ setTela }) {
   const [lista, setLista] = useState([]);
   const [listaOriginal, setListaOriginal] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
+  const [mostrarListaUsuarios, setMostrarListaUsuarios] = useState(false);
   const [limitesPlano, setLimitesPlano] = useState({
     gestores: LIMITES_PADRAO_PLANO.gestores,
     admins: LIMITES_PADRAO_PLANO.admins,
@@ -305,6 +306,7 @@ function Frentista({ setTela }) {
         : basesDisponiveis.map((base) => base.chave)
     );
     setEditandoId(item.id);
+    setMostrarListaUsuarios(true);
   };
 
   const salvar = async () => {
@@ -666,72 +668,108 @@ function Frentista({ setTela }) {
 
       {podeVerListaUsuarios ? (
       <div style={card}>
-        <input
-          style={{ ...inputStyle, marginBottom: 14 }}
-          placeholder="Buscar usuario..."
-          onChange={(e) => {
-            const valor = String(e.target.value || "").toLowerCase().trim();
-            if (!valor) {
-              setLista(listaOriginal);
-              return;
-            }
-            const filtrado = listaOriginal.filter((item) =>
-              String(item.nome || "").toLowerCase().includes(valor)
-            );
-            setLista(filtrado);
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: mostrarListaUsuarios ? 14 : 0
           }}
-        />
-
-        <div style={{ width: "100%" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", tableLayout: "fixed" }}>
-            <thead style={{ background: "#0b3d91", color: "#fff" }}>
-              <tr>
-                <th style={{ ...thStyle, width: "14%" }}>Nome</th>
-                <th style={{ ...thStyle, width: "16%" }}>E-mail</th>
-                <th style={{ ...thStyle, width: "10%" }}>CPF/Login</th>
-                <th style={{ ...thStyle, width: "10%" }}>Senha inicial</th>
-                <th style={{ ...thStyle, width: "12%" }}>Perfil / Funcao</th>
-                <th style={{ ...thStyle, width: "14%" }}>Permissoes</th>
-                <th style={{ ...thStyle, width: "14%" }}>Bases</th>
-                <th style={{ ...thStyle, width: "10%" }}>Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-            {lista.length === 0 && (
-              <tr>
-                <td colSpan="8" style={{ textAlign: "center", padding: 12 }}>
-                  Nenhum usuario operacional cadastrado.
-                </td>
-              </tr>
-            )}
-            {lista.map((item, index) => (
-              <tr key={item.id} style={{ background: index % 2 === 0 ? "#f2f2f2" : "#fff" }}>
-                <td style={tdStyle}>{item.nome || "-"}</td>
-                <td style={{ ...tdStyle, textAlign: "left" }}>{item.email || "-"}</td>
-                <td style={{ ...tdNoWrap, textAlign: "center" }}>{formatarCpf(item.cpf || "") || "-"}</td>
-                <td style={{ ...tdNoWrap, fontFamily: "monospace", textAlign: "center" }}>{item.senhaInicial || item.senha || "-"}</td>
-                <td style={tdStyle}>
-                  <div style={{ fontWeight: "bold" }}>{item.perfilAcesso || PERFIL_OPERACIONAL}</div>
-                  <div>{item.funcao || "-"}</div>
-                  {item.usuarioChave ? <div style={{ color: "#1d5f3d", fontWeight: "bold" }}>Usuario-chave</div> : null}
-                </td>
-                <td style={tdStyle}>{textoPermissoes(item.permissoes) || "-"}</td>
-                <td style={tdStyle}>
-                  {String(item.perfilAcesso || PERFIL_OPERACIONAL).toUpperCase() === PERFIL_GESTOR_GERAL
-                    ? "TODAS"
-                    : textoBases(item.basesPermitidas) || "-"}
-                </td>
-                <td style={tdAcoes}>
-                  <div style={{ display: "grid", gap: 4 }}>
-                    <button style={{ ...warningButton, marginRight: 0 }} onClick={() => editar(item)}>Editar</button>
-                    <button style={dangerButton} onClick={() => excluir(item.id)}>Excluir</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            </tbody>
-          </table>
+        >
+          <div>
+            <div style={{ fontSize: 24, fontWeight: "bold", color: "#16345f" }}>
+              Usuarios cadastrados
+            </div>
+            <div style={{ color: "#5a6f8f", marginTop: 4 }}>
+              {listaOriginal.length} usuario(s) disponivel(is) para consulta e manutencao.
+            </div>
+          </div>
+          <button
+            style={{
+              ...secondaryButton,
+              minWidth: 220,
+              background: mostrarListaUsuarios ? "#0b3d91" : "#6c757d"
+            }}
+            onClick={() => setMostrarListaUsuarios((aberto) => !aberto)}
+          >
+            {mostrarListaUsuarios
+              ? `OCULTAR USUARIOS (${listaOriginal.length})`
+              : `VER USUARIOS CADASTRADOS (${listaOriginal.length})`}
+          </button>
         </div>
+
+        {mostrarListaUsuarios ? (
+          <>
+            <input
+              style={{ ...inputStyle, marginBottom: 14 }}
+              placeholder="Buscar usuario..."
+              onChange={(e) => {
+                const valor = String(e.target.value || "").toLowerCase().trim();
+                if (!valor) {
+                  setLista(listaOriginal);
+                  return;
+                }
+                const filtrado = listaOriginal.filter((item) =>
+                  String(item.nome || "").toLowerCase().includes(valor)
+                );
+                setLista(filtrado);
+              }}
+            />
+
+            <div style={{ width: "100%" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 8, overflow: "hidden", tableLayout: "fixed" }}>
+                <thead style={{ background: "#0b3d91", color: "#fff" }}>
+                  <tr>
+                    <th style={{ ...thStyle, width: "14%" }}>Nome</th>
+                    <th style={{ ...thStyle, width: "16%" }}>E-mail</th>
+                    <th style={{ ...thStyle, width: "10%" }}>CPF/Login</th>
+                    <th style={{ ...thStyle, width: "10%" }}>Senha inicial</th>
+                    <th style={{ ...thStyle, width: "12%" }}>Perfil / Funcao</th>
+                    <th style={{ ...thStyle, width: "14%" }}>Permissoes</th>
+                    <th style={{ ...thStyle, width: "14%" }}>Bases</th>
+                    <th style={{ ...thStyle, width: "10%" }}>Acoes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                {lista.length === 0 && (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: "center", padding: 12 }}>
+                      Nenhum usuario operacional cadastrado.
+                    </td>
+                  </tr>
+                )}
+                {lista.map((item, index) => (
+                  <tr key={item.id} style={{ background: index % 2 === 0 ? "#f2f2f2" : "#fff" }}>
+                    <td style={tdStyle}>{item.nome || "-"}</td>
+                    <td style={{ ...tdStyle, textAlign: "left" }}>{item.email || "-"}</td>
+                    <td style={{ ...tdNoWrap, textAlign: "center" }}>{formatarCpf(item.cpf || "") || "-"}</td>
+                    <td style={{ ...tdNoWrap, fontFamily: "monospace", textAlign: "center" }}>{item.senhaInicial || item.senha || "-"}</td>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: "bold" }}>{item.perfilAcesso || PERFIL_OPERACIONAL}</div>
+                      <div>{item.funcao || "-"}</div>
+                      {item.usuarioChave ? <div style={{ color: "#1d5f3d", fontWeight: "bold" }}>Usuario-chave</div> : null}
+                    </td>
+                    <td style={tdStyle}>{textoPermissoes(item.permissoes) || "-"}</td>
+                    <td style={tdStyle}>
+                      {String(item.perfilAcesso || PERFIL_OPERACIONAL).toUpperCase() === PERFIL_GESTOR_GERAL
+                        ? "TODAS"
+                        : textoBases(item.basesPermitidas) || "-"}
+                    </td>
+                    <td style={tdAcoes}>
+                      <div style={{ display: "grid", gap: 4 }}>
+                        <button style={{ ...warningButton, marginRight: 0 }} onClick={() => editar(item)}>Editar</button>
+                        <button style={dangerButton} onClick={() => excluir(item.id)}>Excluir</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
       </div>
       ) : (
       <div style={card}>
