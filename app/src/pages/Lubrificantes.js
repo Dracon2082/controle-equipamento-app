@@ -42,6 +42,7 @@ function Lubrificantes({ setTela, embed = false }) {
   const [fornecedor, setFornecedor] = useState("");
   const [categoria, setCategoria] = useState("");
   const [unidade, setUnidade] = useState("");
+  const [secaoAtiva, setSecaoAtiva] = useState("NOVA");
   const baseSelecionada = obras.find((item) => item.id === obraBaseId) || null;
   const baseUnicaTravada = obras.length === 1;
   const totalEntradaPreview = (() => {
@@ -556,7 +557,14 @@ function Lubrificantes({ setTela, embed = false }) {
         <div style={{ marginBottom: 10, fontWeight: "bold", color: "#0b3d91" }}>
           Base ativa: {String(baseSelecionada.cidade || "").toUpperCase()}
         </div>
-      )}<select
+      )}
+
+      {secaoAtiva === "NOVA" && (
+      <>
+      <div style={{ marginBottom: 12, color: "#5b6f8a", fontSize: 13 }}>
+        Preencha e salve a entrada. O estoque e o histórico ficam em visões separadas para deixar a tela mais leve.
+      </div>
+      <select
         style={{
           width: "100%",
           padding: "0 10px",
@@ -781,9 +789,72 @@ function Lubrificantes({ setTela, embed = false }) {
       }} onClick={importarPadrao}>
         IMPORTAR PADRAO
       </button>
+      </>
+      )}
 
       </div>
 
+      <div style={{
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        alignItems: "center",
+        background: "#fff",
+        border: "1px solid #e3e7ef",
+        borderRadius: 8,
+        padding: 14,
+        marginBottom: 16,
+        boxShadow: "0 2px 8px rgba(15, 23, 42, 0.05)"
+      }}>
+        <button
+          style={{
+            background: secaoAtiva === "NOVA" ? "#0b5ed7" : "#eaf2ff",
+            color: secaoAtiva === "NOVA" ? "#fff" : "#17407f",
+            border: secaoAtiva === "NOVA" ? "none" : "1px solid #cfe0ff",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontWeight: "bold",
+            cursor: "pointer"
+          }}
+          onClick={() => setSecaoAtiva("NOVA")}
+        >
+          Nova entrada
+        </button>
+        <button
+          style={{
+            background: secaoAtiva === "ESTOQUE" ? "#0b5ed7" : "#eaf2ff",
+            color: secaoAtiva === "ESTOQUE" ? "#fff" : "#17407f",
+            border: secaoAtiva === "ESTOQUE" ? "none" : "1px solid #cfe0ff",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontWeight: "bold",
+            cursor: "pointer"
+          }}
+          onClick={() => setSecaoAtiva("ESTOQUE")}
+        >
+          Estoque atual
+        </button>
+        <button
+          style={{
+            background: secaoAtiva === "HISTORICO" ? "#0b5ed7" : "#eaf2ff",
+            color: secaoAtiva === "HISTORICO" ? "#fff" : "#17407f",
+            border: secaoAtiva === "HISTORICO" ? "none" : "1px solid #cfe0ff",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontWeight: "bold",
+            cursor: "pointer"
+          }}
+          onClick={() => setSecaoAtiva("HISTORICO")}
+        >
+          Historico de entradas
+        </button>
+        <div style={{ color: "#5b6f8a", fontSize: 13 }}>
+          Cada visao mostra uma etapa separada para deixar a tela mais leve.
+        </div>
+      </div>
+
+      {secaoAtiva === "ESTOQUE" && (
+      <>
       <h3>ESTOQUE DE DIESEL</h3>
 
       <table style={{
@@ -894,7 +965,11 @@ function Lubrificantes({ setTela, embed = false }) {
           </>
         ))}
       </table>
+      </>
+      )}
 
+      {secaoAtiva === "HISTORICO" && (
+      <>
       <h3 style={{ marginBottom: 10 }}>
         REGISTRO DE ENTRADA
       </h3>
@@ -1049,6 +1124,8 @@ function Lubrificantes({ setTela, embed = false }) {
             ))}
         </tbody>
         </table>
+      </>
+      )}
 
       <br />
       
