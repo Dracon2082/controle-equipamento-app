@@ -349,13 +349,21 @@ function Lancamento({ setTela }) {
     setObras(listaObras);
     setObrasDetalhes(listaObrasDados);
 
+    const montarRotuloEquipamento = (item) => {
+      const nome = String(item?.nome || "").trim();
+      const codigo = String(item?.codigo || "").trim();
+      if (!nome) return "";
+      if (!codigo) return nome;
+      return `${nome} - ${codigo}`;
+    };
+
     const snapEquip = await getDocs(collection(db, "equipamentos"));
     const listaEquip = snapEquip.docs
       .map((d) => d.data())
       .filter((item) => belongsToTenant(item, tenantId))
-      .map((item) => item.nome)
+      .map((item) => montarRotuloEquipamento(item))
       .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
     setEquipamentos(listaEquip);
 
     const snapOp = await getDocs(collection(db, "funcionarios"));
@@ -981,6 +989,9 @@ function Lancamento({ setTela }) {
 
         <select style={inputStyle} value={equipamento} onChange={(e) => setEquipamento(e.target.value)} disabled={modoFinalizarDia}>
           <option value="">Selecione o equipamento</option>
+          {equipamento && !equipamentos.includes(equipamento) && (
+            <option value={equipamento}>{equipamento}</option>
+          )}
           {equipamentos.map((item) => (
             <option key={item} value={item}>{item}</option>
           ))}
