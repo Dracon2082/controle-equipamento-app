@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
-import { addDoc, collection, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { belongsToTenant, getConfigDocId, getTenantId, withTenant } from "../utils/tenant";
 import { registrarHistorico } from "../utils/historico";
@@ -63,6 +63,8 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
   const perfilSessao = String(sessaoOperacional?.perfilAcesso || "").trim().toUpperCase();
   const usuarioChaveSessao = Boolean(sessaoOperacional?.usuarioChave);
   const acessoTotalBases = perfilSessao === "GESTOR_GERAL" || usuarioChaveSessao;
+  const podeEditarRegistrosEntrada = perfilSessao === "GESTOR_GERAL" || perfilSessao === "ADMIN_UNIDADE" || usuarioChaveSessao;
+  const podeApagarRegistrosEntrada = perfilSessao === "GESTOR_GERAL" || usuarioChaveSessao;
   const basesPermitidas = Array.isArray(sessaoOperacional?.basesPermitidas)
     ? sessaoOperacional.basesPermitidas.map((b) => String(b || "").trim().toUpperCase()).filter(Boolean)
     : [];
@@ -120,6 +122,9 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
   const [filtroSerieEntrada, setFiltroSerieEntrada] = useState("");
   const [filtroDataIniEntrada, setFiltroDataIniEntrada] = useState("");
   const [filtroDataFimEntrada, setFiltroDataFimEntrada] = useState("");
+  const [feedbackEntrada, setFeedbackEntrada] = useState(null);
+  const [entradaEmEdicaoId, setEntradaEmEdicaoId] = useState("");
+  const [entradaEditando, setEntradaEditando] = useState(null);
 
   // Ferramentas (emprestimo/devolucao)
   const [ferramentaEntradaPadrao, setFerramentaEntradaPadrao] = useState("");
@@ -190,6 +195,15 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
   };
 
   const normalizarNome = (v) => String(v || "").trim().toUpperCase();
+  const quaseIgual = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) < 0.000001;
+  const diferencaDatasMs = (a, b) => {
+    const ta = new Date(a || "").getTime();
+    const tb = new Date(b || "").getTime();
+    if (Number.isNaN(ta) || Number.isNaN(tb)) return Number.POSITIVE_INFINITY;
+    return Math.abs(ta - tb);
+  };
+  const mostrarFeedbackEntrada = (tipo, texto) => setFeedbackEntrada({ tipo, texto });
+  const limparFeedbackEntrada = () => setFeedbackEntrada(null);
   const baseSelecionada = useMemo(
     () => obras.find((item) => item.id === obraBaseId) || null,
     [obras, obraBaseId]
@@ -470,6 +484,184 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     return n;
   };
 
+  const localizarEstoqueEntrada = (registro) => {
+    const categoria = normalizarNome(registro?.categoria);
+    const nome = normalizarNome(registro?.nome);
+    const numeroSerie = normalizarNome(registro?.numeroSerie || registro?.equipamentoCodigo);
+    const caEpi = normalizarNome(registro?.caEpi);
+
+    if (categoria === "FERRAMENTA") {
+      return {
+        collectionName: "almoxarifado_estoque_ferramentas",
+        item: estoqueFerramentas.find((item) => normalizarNome(item.nome) === nome)
+      };
+    }
+    if (categoria === "INSUMO") {
+      return {
+        collectionName: "almoxarifado_estoque_insumos",
+        item: estoqueInsumos.find((item) => normalizarNome(item.nome) === nome)
+      };
+    }
+    if (categoria === "EPI") {
+      return {
+        collectionName: "almoxarifado_estoque_epi",
+        item: estoqueEpi.find((item) => normalizarNome(item.nome) === nome && normalizarNome(item.caEpi) === caEpi)
+      };
+    }
+    if (categoria === "PECA_EQUIPAMENTO") {
+      return {
+        collectionName: "almoxarifado_estoque_pecas",
+        item: estoquePecas.find(
+          (item) =>
+            normalizarNome(item.nome) === nome &&
+            normalizarNome(item.numeroSerie || item.equipamentoCodigo) === numeroSerie
+        )
+      };
+    }
+    return { collectionName: "", item: null };
+  };
+
+  const obterMovimentacaoCollectionEntrada = (categoria) => {
+    const categoriaNormalizada = normalizarNome(categoria);
+    if (categoriaNormalizada === "FERRAMENTA") return "almoxarifado_movimentacoes_ferramentas";
+    if (categoriaNormalizada === "INSUMO") return "almoxarifado_movimentacoes_insumos";
+    if (categoriaNormalizada === "PECA_EQUIPAMENTO") return "almoxarifado_movimentacoes_pecas";
+    return "";
+  };
+
+  const listarMovimentacoesRelacionadasEntrada = async (registro) => {
+    const collectionName = obterMovimentacaoCollectionEntrada(registro?.categoria);
+    if (!collectionName) return [];
+
+    const snap = await getDocs(collection(db, collectionName));
+    const categoria = normalizarNome(registro?.categoria);
+    const nome = normalizarNome(registro?.nome);
+    const numeroSerie = normalizarNome(registro?.numeroSerie || registro?.equipamentoCodigo);
+    const baseChave = normalizarNome(registro?.baseChave);
+    const quantidade = Number(registro?.quantidade || 0);
+    const unidade = normalizarNome(registro?.unidade || "UN");
+    const dataEntradaRegistro = String(registro?.dataEntrada || "").trim();
+    const criadoEmRegistro = String(registro?.criadoEm || "").trim();
+
+    return snap.docs
+      .map((item) => ({ id: item.id, ...item.data() }))
+      .filter((item) => belongsToTenant(item, tenantId))
+      .filter((item) => normalizarNome(item?.tipoMov) === "ENTRADA")
+      .filter((item) => normalizarNome(item?.nome) === nome)
+      .filter((item) => normalizarNome(item?.baseChave) === baseChave)
+      .filter((item) => quaseIgual(item?.quantidade, quantidade))
+      .filter((item) => normalizarNome(item?.unidade || "UN") === unidade)
+      .filter((item) => String(item?.dataMov || "").trim() === dataEntradaRegistro)
+      .filter((item) => {
+        if (categoria !== "PECA_EQUIPAMENTO") return true;
+        return normalizarNome(item?.numeroSerie) === numeroSerie;
+      })
+      .filter((item) => {
+        if (!criadoEmRegistro || !item?.criadoEm) return true;
+        return diferencaDatasMs(criadoEmRegistro, item.criadoEm) <= 120000;
+      });
+  };
+
+  const iniciarEdicaoEntrada = (registro) => {
+    limparFeedbackEntrada();
+    setEntradaEmEdicaoId(registro.id);
+    setEntradaEditando({
+      dataEntrada: String(registro.dataEntrada || ""),
+      notaFiscal: String(registro.notaFiscal || ""),
+      fornecedor: String(registro.fornecedor || ""),
+      valorFrete: String(registro.valorFrete || ""),
+      transportador: String(registro.transportador || ""),
+      veiculoFrete: String(registro.veiculoFrete || ""),
+      placaFrete: String(registro.placaFrete || ""),
+      motoristaFrete: String(registro.motoristaFrete || ""),
+      observacao: String(registro.observacao || "")
+    });
+  };
+
+  const cancelarEdicaoEntrada = () => {
+    setEntradaEmEdicaoId("");
+    setEntradaEditando(null);
+  };
+
+  const salvarEdicaoEntrada = async (registro) => {
+    if (!entradaEditando) return;
+
+    const payloadEntrada = {
+      dataEntrada: String(entradaEditando.dataEntrada || "").trim(),
+      notaFiscal: String(entradaEditando.notaFiscal || "").trim(),
+      fornecedor: normalizarNome(entradaEditando.fornecedor),
+      valorFrete: parseDecimalInput(entradaEditando.valorFrete),
+      transportador: normalizarNome(entradaEditando.transportador),
+      veiculoFrete: normalizarNome(entradaEditando.veiculoFrete),
+      placaFrete: String(entradaEditando.placaFrete || "").trim().toUpperCase(),
+      motoristaFrete: normalizarNome(entradaEditando.motoristaFrete),
+      observacao: normalizarNome(entradaEditando.observacao),
+      atualizadoEm: new Date().toISOString(),
+      editadoPor: localStorage.getItem("usuarioLogado") || "USUARIO"
+    };
+
+    await updateDoc(doc(db, "almoxarifado_entradas_materiais", registro.id), payloadEntrada);
+
+    const docsMov = await listarMovimentacoesRelacionadasEntrada(registro);
+    for (const item of docsMov) {
+      await updateDoc(doc(db, obterMovimentacaoCollectionEntrada(registro.categoria), item.id), {
+        dataMov: payloadEntrada.dataEntrada,
+        fornecedor: payloadEntrada.fornecedor,
+        observacao: payloadEntrada.observacao,
+        atualizadoEm: new Date().toISOString()
+      });
+    }
+
+    cancelarEdicaoEntrada();
+    await carregar();
+    mostrarFeedbackEntrada("sucesso", "Registro de entrada atualizado.");
+  };
+
+  const apagarRegistroEntrada = async (registro) => {
+    const nome = String(registro?.nome || "").trim() || "item";
+    const confirmado = window.confirm(
+      `Deseja apagar o registro de entrada de ${nome}? O estoque sera ajustado somente se o saldo ainda estiver disponivel.`
+    );
+    if (!confirmado) return;
+
+    const { collectionName, item } = localizarEstoqueEntrada(registro);
+    const quantidadeRegistro = Number(registro?.quantidade || 0);
+
+    if (!collectionName || !item) {
+      mostrarFeedbackEntrada("erro", "Nao foi possivel localizar o estoque vinculado a essa entrada.");
+      return;
+    }
+
+    const saldoAtual = Number(item.quantidade || 0);
+    if (saldoAtual + 0.000001 < quantidadeRegistro) {
+      mostrarFeedbackEntrada(
+        "erro",
+        "Essa entrada ja teve consumo/saida no estoque. O sistema bloqueou a exclusao para nao baguncar o saldo."
+      );
+      return;
+    }
+
+    const novoSaldo = saldoAtual - quantidadeRegistro;
+    if (novoSaldo <= 0.000001) {
+      await deleteDoc(doc(db, collectionName, item.id));
+    } else {
+      await updateDoc(doc(db, collectionName, item.id), {
+        quantidade: novoSaldo,
+        atualizadoEm: new Date().toISOString()
+      });
+    }
+
+    const docsMov = await listarMovimentacoesRelacionadasEntrada(registro);
+    for (const itemMov of docsMov) {
+      await deleteDoc(doc(db, obterMovimentacaoCollectionEntrada(registro.categoria), itemMov.id));
+    }
+
+    await deleteDoc(doc(db, "almoxarifado_entradas_materiais", registro.id));
+    cancelarEdicaoEntrada();
+    await carregar();
+    mostrarFeedbackEntrada("sucesso", "Registro de entrada apagado.");
+  };
+
   const salvarEntradaMaterialUnica = async () => {
     const usuario = localStorage.getItem("usuarioLogado") || "USUARIO";
     const base = obterBaseAtiva();
@@ -747,7 +939,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     setNomeTravado(false);
     setSerieTravada(false);
     await carregar();
-    alert("Entrada registrada.");
+    mostrarFeedbackEntrada("sucesso", "Entrada registrada.");
   };
 
   // --- Ferramentas ---
@@ -826,7 +1018,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     setFornecedorFerramenta("");
     setObsEntradaFerramenta("");
     await carregar();
-    alert("Entrada de ferramenta registrada.");
+    mostrarFeedbackEntrada("sucesso", "Entrada de ferramenta registrada.");
   };
 
   const salvarRetirada = async () => {
@@ -907,7 +1099,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     setObservacao("");
     if (sigRetiradaRef.current) sigRetiradaRef.current.clear();
     await carregar();
-    alert("Retirada registrada com sucesso.");
+    mostrarFeedbackEntrada("sucesso", "Retirada registrada com sucesso.");
   };
 
   const confirmarBaixa = async () => {
@@ -973,7 +1165,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     setObsBaixa("");
     if (sigBaixaRef.current) sigBaixaRef.current.clear();
     await carregar();
-    alert("Baixa registrada.");
+    mostrarFeedbackEntrada("sucesso", "Baixa registrada.");
   };
 
   // --- Insumos ---
@@ -1054,7 +1246,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     setFornecedorEntrada("");
     setObsEntrada("");
     await carregar();
-    alert("Entrada de insumo registrada.");
+    mostrarFeedbackEntrada("sucesso", "Entrada de insumo registrada.");
   };
 
   const salvarSaidaInsumo = async () => {
@@ -1133,7 +1325,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
     setObsSaida("");
     if (sigSaidaInsumoRef.current) sigSaidaInsumoRef.current.clear();
     await carregar();
-    alert("Saida de insumo registrada.");
+    mostrarFeedbackEntrada("sucesso", "Saida de insumo registrada.");
   };
 
   const pendentes = movimentacoes.filter((m) => m.status === "EM_USO");
@@ -1527,6 +1719,28 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
         )}
       </div>
 
+      {feedbackEntrada?.texto && (
+        <div
+          style={{
+            ...card,
+            background: feedbackEntrada.tipo === "erro" ? "#fff4f4" : "#eefaf3",
+            border: `1px solid ${feedbackEntrada.tipo === "erro" ? "#f3c2c2" : "#cfe8d8"}`,
+            color: feedbackEntrada.tipo === "erro" ? "#a61b1b" : "#166534",
+            fontWeight: "bold"
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+            <span>{feedbackEntrada.texto}</span>
+            <button
+              style={{ ...btn, background: "transparent", color: "inherit", border: "1px solid currentColor", padding: "6px 10px" }}
+              onClick={limparFeedbackEntrada}
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
       {!somenteEntrada && (
         <div style={{ ...card, display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
@@ -1915,6 +2129,9 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
           <div style={card}>
             <h3 style={{ marginTop: 0 }}>Registros de entrada (nao baixa)</h3>
+            <div style={{ marginBottom: 10, color: "#5b6f8a", fontSize: 13 }}>
+              Admin pode editar os dados do registro. Apenas admin chave ou gestor geral podem apagar, e a exclusao so e liberada quando o saldo ainda estiver inteiro no estoque.
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 10 }}>
               <input
                 style={inputStyle}
@@ -1989,12 +2206,13 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
                     <th style={{ border: "1px solid #d4dce9", padding: 8, width: 180, textAlign: "center" }}>Fornecedor</th>
                     <th style={{ border: "1px solid #d4dce9", padding: 8, width: 150, textAlign: "center" }}>Entrada por</th>
                     <th style={{ border: "1px solid #d4dce9", padding: 8, width: 160, textAlign: "center" }}>Obs</th>
+                    <th style={{ border: "1px solid #d4dce9", padding: 8, width: 180, textAlign: "center" }}>Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {entradasFiltradas.length === 0 && (
                     <tr>
-                      <td colSpan={18} style={{ border: "1px solid #d4dce9", padding: 10, textAlign: "center" }}>
+                      <td colSpan={19} style={{ border: "1px solid #d4dce9", padding: 10, textAlign: "center" }}>
                         Sem registros de entrada.
                       </td>
                     </tr>
@@ -2032,11 +2250,110 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
                           {String(r.criadoPor || r.criado_por || r.usuario || "-").toUpperCase()}
                         </td>
                         <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis" }}>{r.observacao || "-"}</td>
+                        <td style={{ border: "1px solid #d4dce9", padding: 8, textAlign: "center", verticalAlign: "middle" }}>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+                            {podeEditarRegistrosEntrada && (
+                              <button
+                                style={{ ...btn, background: "#0b5ed7", color: "#fff", padding: "6px 10px" }}
+                                onClick={() => iniciarEdicaoEntrada(r)}
+                              >
+                                Editar
+                              </button>
+                            )}
+                            {podeApagarRegistrosEntrada && (
+                              <button
+                                style={{ ...btn, background: "#dc3545", color: "#fff", padding: "6px 10px" }}
+                                onClick={() => apagarRegistroEntrada(r)}
+                              >
+                                Apagar
+                              </button>
+                            )}
+                            {!podeEditarRegistrosEntrada && !podeApagarRegistrosEntrada && <span>-</span>}
+                          </div>
+                        </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {entradaEmEdicaoId && entradaEditando && (
+              <div style={{ ...card, marginTop: 12, background: "#f8fbff", border: "1px solid #cfe0ff" }}>
+                <h4 style={{ marginTop: 0 }}>Editar registro de entrada</h4>
+                <div style={{ marginBottom: 10, color: "#5b6f8a", fontSize: 13 }}>
+                  Edicao liberada para corrigir dados administrativos do registro. Material, categoria, quantidade, CA e numero de serie continuam travados para nao desalinhar o estoque.
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                  <input
+                    style={inputStyle}
+                    type="date"
+                    value={entradaEditando.dataEntrada}
+                    onChange={(e) => setEntradaEditando((atual) => ({ ...atual, dataEntrada: e.target.value }))}
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Numero da Nota Fiscal"
+                    value={entradaEditando.notaFiscal}
+                    onChange={(e) => setEntradaEditando((atual) => ({ ...atual, notaFiscal: e.target.value }))}
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Fornecedor"
+                    value={entradaEditando.fornecedor}
+                    onChange={(e) => setEntradaEditando((atual) => ({ ...atual, fornecedor: e.target.value }))}
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Valor do frete (R$)"
+                    value={entradaEditando.valorFrete}
+                    onChange={(e) => setEntradaEditando((atual) => ({ ...atual, valorFrete: e.target.value }))}
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Transportador / proprietario"
+                    value={entradaEditando.transportador}
+                    onChange={(e) => setEntradaEditando((atual) => ({ ...atual, transportador: e.target.value }))}
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Veiculo"
+                    value={entradaEditando.veiculoFrete}
+                    onChange={(e) => setEntradaEditando((atual) => ({ ...atual, veiculoFrete: e.target.value }))}
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Placa"
+                    value={entradaEditando.placaFrete}
+                    onChange={(e) => setEntradaEditando((atual) => ({ ...atual, placaFrete: e.target.value }))}
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Motorista"
+                    value={entradaEditando.motoristaFrete}
+                    onChange={(e) => setEntradaEditando((atual) => ({ ...atual, motoristaFrete: e.target.value }))}
+                  />
+                </div>
+                <textarea
+                  style={{ ...inputStyle, height: 70, paddingTop: 10, marginTop: 10 }}
+                  placeholder="Observacao"
+                  value={entradaEditando.observacao}
+                  onChange={(e) => setEntradaEditando((atual) => ({ ...atual, observacao: e.target.value }))}
+                />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button
+                    style={{ ...btn, background: "#198754", color: "#fff" }}
+                    onClick={() => {
+                      const registro = entradasFiltradas.find((item) => item.id === entradaEmEdicaoId) || entradasMateriais.find((item) => item.id === entradaEmEdicaoId);
+                      if (registro) salvarEdicaoEntrada(registro);
+                    }}
+                  >
+                    Salvar alteracoes
+                  </button>
+                  <button style={{ ...btn, background: "#6c757d", color: "#fff" }} onClick={cancelarEdicaoEntrada}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
