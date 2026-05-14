@@ -97,6 +97,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
   const somenteEntrada = modoTela === "entrada";
   const somenteSaidas = modoTela === "saidas";
   const [abaAtiva, setAbaAtiva] = useState(somenteSaidas ? "FERRAMENTAS" : "ENTRADA");
+  const [entradaSecaoAtiva, setEntradaSecaoAtiva] = useState("NOVA");
 
   // Entrada unica (Ferramenta/Insumo/EPI/Peca de equipamento)
   const [categoriaEntrada, setCategoriaEntrada] = useState("FERRAMENTA");
@@ -2057,8 +2058,51 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
 
       {abaAtiva === "ENTRADA" && !somenteSaidas && (
         <>
+          <div style={{ ...card, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              style={{
+                ...btn,
+                background: entradaSecaoAtiva === "NOVA" ? "#0b5ed7" : "#eaf2ff",
+                color: entradaSecaoAtiva === "NOVA" ? "#fff" : "#17407f",
+                border: entradaSecaoAtiva === "NOVA" ? "none" : "1px solid #cfe0ff"
+              }}
+              onClick={() => setEntradaSecaoAtiva("NOVA")}
+            >
+              Nova entrada
+            </button>
+            <button
+              style={{
+                ...btn,
+                background: entradaSecaoAtiva === "ESTOQUE" ? "#0b5ed7" : "#eaf2ff",
+                color: entradaSecaoAtiva === "ESTOQUE" ? "#fff" : "#17407f",
+                border: entradaSecaoAtiva === "ESTOQUE" ? "none" : "1px solid #cfe0ff"
+              }}
+              onClick={() => setEntradaSecaoAtiva("ESTOQUE")}
+            >
+              Estoque atual
+            </button>
+            <button
+              style={{
+                ...btn,
+                background: entradaSecaoAtiva === "HISTORICO" ? "#0b5ed7" : "#eaf2ff",
+                color: entradaSecaoAtiva === "HISTORICO" ? "#fff" : "#17407f",
+                border: entradaSecaoAtiva === "HISTORICO" ? "none" : "1px solid #cfe0ff"
+              }}
+              onClick={() => setEntradaSecaoAtiva("HISTORICO")}
+            >
+              Historico de entradas
+            </button>
+            <div style={{ color: "#5b6f8a", fontSize: 13 }}>
+              Cada visao mostra uma etapa separada para deixar o almoxarifado mais leve.
+            </div>
+          </div>
+
+          {entradaSecaoAtiva === "NOVA" && (
           <div style={card}>
             <h3 style={{ marginTop: 0 }}>Entrada de material (unica)</h3>
+            <div style={{ marginBottom: 12, color: "#5b6f8a", fontSize: 13 }}>
+              Preencha e salve a entrada. O estoque e o historico ficam em visoes separadas para reduzir a poluicao.
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
               <select
                 style={inputStyle}
@@ -2371,9 +2415,14 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
               Dica: o registro de entrada não baixa. Quem baixa é o estoque (quando houver retirada/saída/entrega).
             </div>
           </div>
+          )}
 
+          {entradaSecaoAtiva === "ESTOQUE" && (
           <div style={card}>
             <h3 style={{ marginTop: 0 }}>Estoque atual (baixa nas saídas)</h3>
+            <div style={{ marginBottom: 12, color: "#5b6f8a", fontSize: 13 }}>
+              Aqui aparece somente o saldo consolidado da base ativa, sem misturar com o lançamento.
+            </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
               <button style={{ ...btn, background: "#0b5ed7", color: "#fff" }} onClick={gerarRelatorioEstoqueMateriais}>
                 Imprimir relatorio do estoque
@@ -2415,7 +2464,9 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
               </table>
             </div>
           </div>
+          )}
 
+          {entradaSecaoAtiva === "HISTORICO" && (
           <div style={card}>
             <h3 style={{ marginTop: 0 }}>Registros de entrada (nao baixa)</h3>
             <div style={{ marginBottom: 10, color: "#5b6f8a", fontSize: 13 }}>
@@ -2709,6 +2760,7 @@ function Almoxarifado({ setTela, modo = "completo", embed = false }) {
               </div>
             )}
           </div>
+          )}
         </>
       )}
 
