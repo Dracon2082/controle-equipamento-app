@@ -10,6 +10,7 @@ import {
   updateDoc
 } from "firebase/firestore";
 import { registrarHistorico } from "../utils/historico";
+import { chaveBaseMelosa } from "../utils/melosas";
 import { LIMITES_PADRAO_PLANO, obterLimitesPlanoCliente } from "../utils/planos";
 import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
 import { garantirUsuarioAuth } from "../utils/authUsers";
@@ -81,10 +82,12 @@ function Frentista({ setTela }) {
   const [permissoes, setPermissoes] = useState([]);
   const [basesPermitidas, setBasesPermitidas] = useState([]);
   const [basesDisponiveis, setBasesDisponiveis] = useState([]);
+  const [melosasDisponiveis, setMelosasDisponiveis] = useState([]);
   const [lista, setLista] = useState([]);
   const [listaOriginal, setListaOriginal] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
   const [mostrarListaUsuarios, setMostrarListaUsuarios] = useState(false);
+  const [melosaId, setMelosaId] = useState("");
   const [limitesPlano, setLimitesPlano] = useState({
     gestores: LIMITES_PADRAO_PLANO.gestores,
     admins: LIMITES_PADRAO_PLANO.admins,
@@ -102,7 +105,7 @@ function Frentista({ setTela }) {
       .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
       .replace(/\.(\d{3})(\d)/, ".$1-$2");
   };
-  const chaveBase = (cidade, estado) => `${normalizarTexto(cidade)}__${normalizarTexto(estado)}`;
+  const chaveBase = (cidade, estado) => chaveBaseMelosa(cidade, estado);
 
   const inputStyle = {
     width: "100%",
@@ -170,15 +173,17 @@ function Frentista({ setTela }) {
     setUsuarioChave(false);
     setPermissoes([]);
     setBasesPermitidas([]);
+    setMelosaId("");
     setEditandoId(null);
   };
 
   const carregar = async () => {
-    const [snapUsuarios, snapClientes, snapObras, snapBases] = await Promise.all([
+    const [snapUsuarios, snapClientes, snapObras, snapBases, snapMelosas] = await Promise.all([
       getDocs(collection(db, "frentistas")),
       getDocs(collection(db, "clientesSistema")),
       getDocs(collection(db, "obras")),
-      getDocs(collection(db, "bases_operacionais"))
+      getDocs(collection(db, "bases_operacionais")),
+      getDocs(collection(db, "melosas"))
     ]);
 
     const dados = snapUsuarios.docs.map((docItem) => ({
@@ -247,6 +252,22 @@ function Frentista({ setTela }) {
       });
     }
     setBasesDisponiveis(Array.from(mapaBases.values()).sort((a, b) => `${a.estado}${a.cidade}`.localeCompare(`${b.estado}${b.cidade}`)));
+
+    const melosasAtivas = snapMelosas.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((item) => belongsToTenant(item, tenantId))
+      .filter((item) => item.ativo !== false)
+      .map((item) => ({
+        id: item.id,
+        nome: normalizarTexto(item.nome || item.codigo || ""),
+        codigo: normalizarTexto(item.codigo || ""),
+        placa: normalizarTexto(item.placa || ""),
+        baseChave: String(item.baseChave || chaveBase(item.baseCidade, item.baseEstado)).trim().toUpperCase(),
+        baseCidade: normalizarTexto(item.baseCidade || ""),
+        baseEstado: normalizarTexto(item.baseEstado || "")
+      }))
+      .sort((a, b) => `${a.baseCidade}${a.nome}`.localeCompare(`${b.baseCidade}${b.nome}`));
+    setMelosasDisponiveis(melosasAtivas);
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -305,6 +326,7 @@ function Frentista({ setTela }) {
         ? basesItem
         : basesDisponiveis.map((base) => base.chave)
     );
+    setMelosaId(String(item.melosaId || "").trim());
     setEditandoId(item.id);
     setMostrarListaUsuarios(true);
   };
@@ -371,6 +393,23 @@ function Frentista({ setTela }) {
     if (perfilSelecionado !== PERFIL_GESTOR_GERAL && !basesUsuarioFinal.length) {
       return alert("Selecione pelo menos uma base permitida para o usuario.");
     }
+    const podeAbastecer = permissoesOperacionaisSelecionadas.includes("abastecimento");
+    const melosasDaBase = melosasDisponiveis.filter((item) =>
+      basesUsuarioFinal.includes(String(item.baseChave || "").trim().toUpperCase())
+    );
+    const melosaSelecionadaBruta = melosasDisponiveis.find((item) => item.id === melosaId) || null;
+    const melosaSelecionada =
+      perfilSelecionado === PERFIL_OPERACIONAL && podeAbastecer ? melosaSelecionadaBruta : null;
+    const melosaPertenceABase = !melosaSelecionada
+      ? false
+      : basesUsuarioFinal.includes(String(melosaSelecionada.baseChave || "").trim().toUpperCase());
+
+    if (perfilSelecionado === PERFIL_OPERACIONAL && podeAbastecer && melosasDaBase.length > 0 && !melosaSelecionada) {
+      return alert("Selecione a melosa do frentista para controlar o diesel corretamente.");
+    }
+    if (melosaSelecionada && !melosaPertenceABase) {
+      return alert("A melosa selecionada precisa pertencer a uma das bases permitidas do usuario.");
+    }
 
     // Em bases antigas pode existir duplicidade de e-mail entre operacionais.
     // Na edicao, se o usuario NAO mudou o e-mail, permitimos atualizar permissoes/bases sem bloquear.
@@ -425,6 +464,8 @@ function Frentista({ setTela }) {
       usuarioChave: podeGerenciarPerfisAdministrativos ? Boolean(usuarioChave) : false,
       permissoes: permissoesFinal,
       basesPermitidas: basesUsuarioFinal,
+      melosaId: melosaSelecionada ? melosaSelecionada.id : "",
+      melosaNome: melosaSelecionada ? melosaSelecionada.nome : "",
       atualizadoEm: new Date().toISOString()
     }, tenantId);
 
@@ -531,6 +572,22 @@ function Frentista({ setTela }) {
     return (Array.isArray(basesB) ? basesB : []).some((item) =>
       setA.has(String(item || "").trim())
     );
+  };
+
+  const basesSelecionadasFormulario =
+    perfilAcesso === PERFIL_GESTOR_GERAL
+      ? []
+      : (podeGerenciarPerfisAdministrativos ? basesPermitidas : basesSessao);
+  const melosasDoFormulario = melosasDisponiveis.filter((item) =>
+    basesSelecionadasFormulario.includes(String(item.baseChave || "").trim().toUpperCase())
+  );
+  const exibirCampoMelosa =
+    perfilAcesso === PERFIL_OPERACIONAL && permissoes.includes("abastecimento");
+  const labelMelosa = (item) => {
+    const nomeBase = item?.nome || item?.codigo || "MELOSA";
+    const placaBase = item?.placa ? ` | ${item.placa}` : "";
+    const baseBase = item?.baseCidade ? ` | ${item.baseCidade}/${item.baseEstado || ""}`.replace(/\/$/, "") : "";
+    return `${nomeBase}${placaBase}${baseBase}`;
   };
 
   return (
@@ -656,6 +713,32 @@ function Frentista({ setTela }) {
           </div>
         )}
 
+        {exibirCampoMelosa && (
+          <div style={{ border: "1px solid #d4dbe7", borderRadius: 8, padding: 10, marginBottom: 12 }}>
+            <strong>Melosa vinculada ao frentista</strong>
+            <div style={{ marginTop: 8, color: "#3a4d69", fontSize: 13 }}>
+              O diesel abastecido por esse usuario vai baixar do saldo da melosa escolhida.
+            </div>
+            <select
+              style={{ ...inputStyle, marginTop: 10, marginBottom: 0 }}
+              value={melosaId}
+              onChange={(e) => setMelosaId(e.target.value)}
+            >
+              <option value="">Selecione a melosa</option>
+              {melosasDoFormulario.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {labelMelosa(item)}
+                </option>
+              ))}
+            </select>
+            {melosasDoFormulario.length === 0 && (
+              <div style={{ marginTop: 8, fontSize: 13, color: "#8a98ad" }}>
+                Nenhuma melosa cadastrada nas bases selecionadas. Cadastre em Diesel / Lubrificantes.
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
           <button style={primaryButton} onClick={salvar}>
             {editandoId ? "ATUALIZAR" : "SALVAR"}
@@ -728,14 +811,15 @@ function Frentista({ setTela }) {
                     <th style={{ ...thStyle, width: "10%" }}>Senha inicial</th>
                     <th style={{ ...thStyle, width: "12%" }}>Perfil / Funcao</th>
                     <th style={{ ...thStyle, width: "14%" }}>Permissoes</th>
-                    <th style={{ ...thStyle, width: "14%" }}>Bases</th>
+                    <th style={{ ...thStyle, width: "12%" }}>Bases</th>
+                    <th style={{ ...thStyle, width: "12%" }}>Melosa</th>
                     <th style={{ ...thStyle, width: "10%" }}>Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
                 {lista.length === 0 && (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: "center", padding: 12 }}>
+                    <td colSpan="9" style={{ textAlign: "center", padding: 12 }}>
                       Nenhum usuario operacional cadastrado.
                     </td>
                   </tr>
@@ -757,6 +841,7 @@ function Frentista({ setTela }) {
                         ? "TODAS"
                         : textoBases(item.basesPermitidas) || "-"}
                     </td>
+                    <td style={tdStyle}>{item.melosaNome || "-"}</td>
                     <td style={tdAcoes}>
                       <div style={{ display: "grid", gap: 4 }}>
                         <button style={{ ...warningButton, marginRight: 0 }} onClick={() => editar(item)}>Editar</button>

@@ -237,6 +237,8 @@ function Login({ setTela, authContext, onLoginSucesso }) {
         usuarioChave,
         permissoes,
         basesPermitidas: Array.isArray(usuario?.basesPermitidas) ? usuario.basesPermitidas : [],
+        melosaId: String(usuario?.melosaId || "").trim(),
+        melosaNome: String(usuario?.melosaNome || "").trim(),
         destino,
         tenantId: tenantUsuario,
         logadoEm: new Date().toISOString()

@@ -13,6 +13,7 @@ import {
   removerAbastecimentoPendente,
   salvarAbastecimentoPendente
 } from "../utils/offlineAbastecimento";
+import { criarSaldosMelosa, obterSaldoMelosa, totalDieselMelosa } from "../utils/melosas";
 import { formatoLogoPdf, resolverLogoPdf } from "../utils/pdfLogo";
 import { belongsToTenant, getConfigDocId, getTenantId, withTenant } from "../utils/tenant";
 
@@ -86,7 +87,9 @@ function Abastecimento({ setTela }) {
 
   const [estoque, setEstoque] = useState(0);
   const [estoqueTotalDiesel, setEstoqueTotalDiesel] = useState(0);
+  const [estoqueBaseDiesel, setEstoqueBaseDiesel] = useState(0);
   const [lubrificantes, setLubrificantes] = useState([]);
+  const [melosas, setMelosas] = useState([]);
   const [tipoLubrificante, setTipoLubrificante] = useState("");
   const [produtoLubrificante, setProdutoLubrificante] = useState("");
   const [quantidadeLubrificante, setQuantidadeLubrificante] = useState("");
@@ -110,6 +113,7 @@ function Abastecimento({ setTela }) {
   const [lista, setLista] = useState([]);
   const [aberto, setAberto] = useState(null);
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
+  const melosaIdSessao = String(sessaoOperacional?.melosaId || "").trim();
 
   // Observação: em abastecimento, o frentista registra a leitura atual (mesmo quebrado).
   // As horas trabalhadas (quando necessario) ficam no Lancamento Diario.
@@ -181,6 +185,13 @@ function Abastecimento({ setTela }) {
         ...d.data(),
       })).filter((item) => belongsToTenant(item, tenantId))
     );
+    const snapMelosas = await getDocs(collection(db, "melosas"));
+    setMelosas(
+      snapMelosas.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })).filter((item) => belongsToTenant(item, tenantId)).filter((item) => item.ativo !== false)
+    );
 
     // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ BUSCAR OPERADORES
     const snapOp = await getDocs(collection(db, "funcionarios"));
@@ -232,16 +243,17 @@ function Abastecimento({ setTela }) {
   // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ BUSCAR ESTOQUE
   const buscarEstoque = async () => {
     const obraSelecionada = obras.find((o) => o.id === obraId);
-    const cidadeSelecionada = cidadeBase || obraSelecionada?.cidade;
+    const cidadeSelecionada = melosaAtiva?.baseCidade || cidadeBase || obraSelecionada?.cidade;
     const obraDaCidade = obras.find(
       (o) => normalizarCidade(o.cidade) === normalizarCidade(cidadeSelecionada)
     );
     const cidade = cidadeSelecionada;
-    const estado = obraSelecionada?.estado || obraDaCidade?.estado;
+    const estado = melosaAtiva?.baseEstado || obraSelecionada?.estado || obraDaCidade?.estado;
 
     if (!cidade) {
       setEstoque(0);
       setEstoqueTotalDiesel(0);
+      setEstoqueBaseDiesel(0);
       return;
     }
 
@@ -267,6 +279,13 @@ function Abastecimento({ setTela }) {
           mesmoLocal(item, cidade, estado)
       )
       .reduce((total, item) => total + parseDecimalInput(item.quantidade || 0), 0);
+
+    setEstoqueBaseDiesel(totalDieselCidade);
+    if (melosaAtiva) {
+      setEstoque(obterSaldoMelosa(melosaAtiva, tipoDiesel));
+      setEstoqueTotalDiesel(totalDieselMelosa(melosaAtiva));
+      return;
+    }
 
     setEstoque(estoqueDiesel);
     setEstoqueTotalDiesel(totalDieselCidade);
@@ -410,6 +429,7 @@ function Abastecimento({ setTela }) {
     obra: payload.obra || "",
     empresa: payload.empresa,
     frentista: payload.frentista,
+    melosaNome: payload.melosaNome || "",
     operador: payload.operador,
     litros: payload.litros,
     tipo: payload.tipo,
@@ -469,6 +489,8 @@ function Abastecimento({ setTela }) {
       horasTrabalhadas: 0,
       req,
       observacao,
+      melosaId: melosaAtiva?.id || "",
+      melosaNome: melosaAtiva?.nome || melosaAtiva?.codigo || "",
       assinatura: assinaturaAtual,
       criadoEm: new Date().toISOString(),
       dataHora: new Date().toLocaleString("pt-BR"),
@@ -499,6 +521,7 @@ function Abastecimento({ setTela }) {
     const cidade = payload?.obraCidade;
     const estado = payload?.obraEstado;
     const litrosNum = parseDecimalInput(payload?.litros || 0);
+    const melosaId = String(payload?.melosaId || "").trim();
 
     if (!cidade || !estado) {
       throw criarErroValidacao("Obra sem cidade/estado cadastrados.");
@@ -523,7 +546,24 @@ function Abastecimento({ setTela }) {
 
     const produtosDiesel = [...produtosEstoque, ...produtosLub];
 
-    if (payload?.litros) {
+    let melosaDoc = null;
+    if (melosaId) {
+      const snapMelosa = await getDoc(doc(db, "melosas", melosaId));
+      if (!snapMelosa.exists()) {
+        throw criarErroValidacao("A melosa vinculada ao frentista nao foi encontrada.");
+      }
+      const dadosMelosa = snapMelosa.data();
+      if (!belongsToTenant(dadosMelosa, tenantId)) {
+        throw criarErroValidacao("Melosa fora da empresa atual.");
+      }
+      melosaDoc = { id: snapMelosa.id, ...dadosMelosa };
+      if (normalizarCidade(melosaDoc.baseCidade) !== normalizarCidade(cidade)) {
+        throw criarErroValidacao("A obra selecionada nao pertence a base da melosa do frentista.");
+      }
+      if (payload?.litros && obterSaldoMelosa(melosaDoc, payload.tipo) < litrosNum) {
+        throw criarErroValidacao("Saldo insuficiente na melosa para sincronizar este abastecimento.");
+      }
+    } else if (payload?.litros) {
       const dieselItens = filtrarEstoqueProduto(
         produtosDiesel,
         payload.tipo,
@@ -566,10 +606,22 @@ function Abastecimento({ setTela }) {
     }
 
     if (payload?.litros) {
-      await baixarEstoqueProduto(
-        filtrarEstoqueProduto(produtosDiesel, payload.tipo, cidade, estado),
-        litrosNum
-      );
+      if (melosaDoc) {
+        const saldosMelosa = criarSaldosMelosa(melosaDoc.saldos);
+        const novosSaldos = {
+          ...saldosMelosa,
+          [payload.tipo]: parseDecimalInput(saldosMelosa[payload.tipo] || 0) - litrosNum
+        };
+        await updateDoc(doc(db, "melosas", melosaDoc.id), {
+          saldos: novosSaldos,
+          atualizadoEm: new Date().toISOString()
+        });
+      } else {
+        await baixarEstoqueProduto(
+          filtrarEstoqueProduto(produtosDiesel, payload.tipo, cidade, estado),
+          litrosNum
+        );
+      }
     }
 
     for (const [produto, quantidade] of Object.entries(totaisLubrificacao)) {
@@ -591,7 +643,8 @@ function Abastecimento({ setTela }) {
       descricao: `Abastecimento de ${payload.equipamento} (${payload.tipo}) na obra ${payload.obra || "-"}.`,
       detalhes: {
         litros: litrosNum,
-        operador: payload.operador
+        operador: payload.operador,
+        melosa: payload.melosaNome || ""
       }
     });
 
@@ -645,7 +698,7 @@ function Abastecimento({ setTela }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     buscarEstoque();
-  }, [tipoDiesel, obraId, cidadeBase, obras, config]);
+  }, [tipoDiesel, obraId, cidadeBase, obras, config, melosas]);
 
   useEffect(() => {
     // Libera URL do blob anterior (evita vazamento de memoria)
@@ -664,6 +717,14 @@ function Abastecimento({ setTela }) {
     )[0];
     if (primeiraCidade) setCidadeBase(primeiraCidade);
   }, [obras, cidadeBase]);
+
+  useEffect(() => {
+    const melosaSessao = melosas.find((item) => item.id === melosaIdSessao) || null;
+    if (!melosaSessao) return;
+    const cidadeMelosa = normalizarCidade(melosaSessao.baseCidade);
+    if (!cidadeMelosa) return;
+    setCidadeBase(cidadeMelosa);
+  }, [melosaIdSessao, melosas]);
 
   useEffect(() => {
     gerarReq(cidadeBase);
@@ -1008,6 +1069,10 @@ function Abastecimento({ setTela }) {
 
     doc.text(`Frentista: ${nomeFrentista}`, 10, y);
     y += 5;
+    if (dados.melosaNome) {
+      doc.text(`Melosa: ${dados.melosaNome}`, 10, y);
+      y += 5;
+    }
 
     const operadorTexto = doc.splitTextToSize(
       `Operador: ${dados.operador || "-"}`,
@@ -1275,6 +1340,7 @@ function Abastecimento({ setTela }) {
     setTela("login");
   };
 
+  const melosaAtiva = melosas.find((item) => item.id === melosaIdSessao) || null;
   const obraSelecionada = obras.find((o) => o.id === obraId);
   const obrasDaCidade = obras.filter(
     (o) => normalizarCidade(o.cidade) === normalizarCidade(cidadeBase)
@@ -1360,11 +1426,21 @@ function Abastecimento({ setTela }) {
         color: estoqueTotalDiesel <= 500 ? "#a10000" : "#003366",
         fontWeight: "bold"
       }}>
-        <strong>Estoque Diesel da cidade:</strong> {estoqueTotalDiesel} L
+        <strong>{melosaAtiva ? "Saldo diesel da melosa:" : "Estoque Diesel da cidade:"}</strong> {estoqueTotalDiesel} L
         <br />
-        <span>Cidade do estoque: {cidadeEstoque || "selecione uma cidade"}</span>
+        <span>
+          {melosaAtiva
+            ? `Melosa ativa: ${melosaAtiva.nome || melosaAtiva.codigo || "-"}`
+            : `Cidade do estoque: ${cidadeEstoque || "selecione uma cidade"}`}
+        </span>
         <br />
         <span>Selecionado ({tipoDiesel}): {estoque} L</span>
+        {melosaAtiva && (
+          <>
+            <br />
+            <span>Saldo restante da base: {estoqueBaseDiesel} L</span>
+          </>
+        )}
 
         {estoqueTotalDiesel <= 500 && " - ESTOQUE BAIXO"}
       </p>
@@ -1383,7 +1459,20 @@ function Abastecimento({ setTela }) {
       </select>
 
       {/* CIDADE BASE */}
-      {baseUnicaTravada && cidadeBase ? (
+      {melosaAtiva ? (
+        <div
+          style={{
+            ...inputField,
+            display: "flex",
+            alignItems: "center",
+            fontWeight: "bold",
+            color: "#0b3d91",
+            background: "#eef5ff"
+          }}
+        >
+          Base da melosa: {melosaAtiva.baseCidade}
+        </div>
+      ) : baseUnicaTravada && cidadeBase ? (
         <div
           style={{
             ...inputField,
@@ -1583,6 +1672,12 @@ function Abastecimento({ setTela }) {
       <div style={card}>
         <h3 style={cardTitle}>Responsável</h3>
 
+      {melosaAtiva && (
+        <div style={{ marginBottom: 10, background: "#eef4ff", border: "1px solid #c9dafd", borderRadius: 8, padding: "8px 10px", color: "#1b3e8a", fontWeight: "bold" }}>
+          Frentista vinculado à melosa: {melosaAtiva.nome || melosaAtiva.codigo || "-"}
+        </div>
+      )}
+
       {/* EMPRESA */}
       <select
         style={inputField}
@@ -1724,6 +1819,7 @@ function Abastecimento({ setTela }) {
               {aberto === item.id && (
                 <div style={{ marginTop: 8 }}>
                   <p><strong>Frentista:</strong> {item.frentista}</p>
+                  {item.melosaNome ? <p><strong>Melosa:</strong> {item.melosaNome}</p> : null}
                   <p><strong>Litros:</strong> {item.litros}</p>
                   <p><strong>Data/Hora:</strong> {item.dataHora}</p>
                   <p><strong>Operador:</strong> {item.operador}</p>

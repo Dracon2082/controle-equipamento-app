@@ -3,6 +3,7 @@ import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { registrarHistorico } from "../utils/historico";
+import { chaveBaseMelosa, criarSaldosMelosa, normalizarTextoMelosa, obterSaldoMelosa, totalDieselMelosa } from "../utils/melosas";
 import { parseDecimalInput } from "../utils/number";
 import { belongsToTenant, getTenantId, withTenant } from "../utils/tenant";
 
@@ -22,7 +23,7 @@ function Lubrificantes({ setTela, embed = false }) {
     ? sessaoOperacional.basesPermitidas.map((b) => String(b || "").trim().toUpperCase()).filter(Boolean)
     : [];
   const chaveBase = (cidadeValor, estadoValor) =>
-    `${String(cidadeValor || "").trim().toUpperCase()}__${String(estadoValor || "").trim().toUpperCase()}`;
+    chaveBaseMelosa(cidadeValor, estadoValor);
   const normalizarCidade = (valor) =>
     String(valor || "").replace(/\s+/g, " ").trim().toUpperCase();
 
@@ -43,6 +44,18 @@ function Lubrificantes({ setTela, embed = false }) {
   const [categoria, setCategoria] = useState("");
   const [unidade, setUnidade] = useState("");
   const [secaoAtiva, setSecaoAtiva] = useState("NOVA");
+  const [melosas, setMelosas] = useState([]);
+  const [frentistas, setFrentistas] = useState([]);
+  const [movimentacoesMelosa, setMovimentacoesMelosa] = useState([]);
+  const [melosaNome, setMelosaNome] = useState("");
+  const [melosaCodigo, setMelosaCodigo] = useState("");
+  const [melosaPlaca, setMelosaPlaca] = useState("");
+  const [melosaCapacidade, setMelosaCapacidade] = useState("");
+  const [melosaEditId, setMelosaEditId] = useState("");
+  const [transferMelosaId, setTransferMelosaId] = useState("");
+  const [transferTipoDiesel, setTransferTipoDiesel] = useState("S-10");
+  const [transferQuantidade, setTransferQuantidade] = useState("");
+  const [transferObservacao, setTransferObservacao] = useState("");
   const baseSelecionada = obras.find((item) => item.id === obraBaseId) || null;
   const baseUnicaTravada = obras.length === 1;
   const totalEntradaPreview = (() => {
@@ -80,6 +93,10 @@ function Lubrificantes({ setTela, embed = false }) {
   useEffect(() => {
     buscar();
   }, [obraBaseId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    buscarMelosas();
+  }, [obraBaseId, obras]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buscarObras = async () => {
     if (!acessoTotalBases && basesPermitidas.length) {
@@ -184,6 +201,245 @@ function Lubrificantes({ setTela, embed = false }) {
         // Se falhar, nao bloqueia a tela. A proxima carga tenta novamente.
       }
     }
+  };
+
+  const limparFormularioMelosa = () => {
+    setMelosaNome("");
+    setMelosaCodigo("");
+    setMelosaPlaca("");
+    setMelosaCapacidade("");
+    setMelosaEditId("");
+  };
+
+  const buscarMelosas = async () => {
+    const cidadeBase = String(baseSelecionada?.cidade || "").trim().toUpperCase();
+    const [snapMelosas, snapFrentistas, snapMov] = await Promise.all([
+      getDocs(collection(db, "melosas")),
+      getDocs(collection(db, "frentistas")),
+      getDocs(collection(db, "movimentacoes_melosas"))
+    ]);
+
+    const listaMelosas = snapMelosas.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((item) => belongsToTenant(item, tenantId))
+      .filter((item) => !cidadeBase || normalizarCidade(item.baseCidade) === cidadeBase)
+      .sort((a, b) => String(a.nome || a.codigo || "").localeCompare(String(b.nome || b.codigo || "")));
+    setMelosas(listaMelosas);
+
+    const listaFrentistas = snapFrentistas.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((item) => belongsToTenant(item, tenantId))
+      .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || "")));
+    setFrentistas(listaFrentistas);
+
+    const listaMov = snapMov.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((item) => belongsToTenant(item, tenantId))
+      .filter((item) => !cidadeBase || normalizarCidade(item.baseCidade) === cidadeBase)
+      .sort((a, b) => String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+    setMovimentacoesMelosa(listaMov);
+  };
+
+  const dieselDaBase = lista.filter((item) => {
+    const nomeNormalizado = normalizarTextoMelosa(item.nome || "");
+    return nomeNormalizado === "DIESEL S-10" || nomeNormalizado === "DIESEL S-500";
+  });
+
+  const baixarDieselDaBase = async (tipoDiesel, litros) => {
+    let restante = parseDecimalInput(litros || 0);
+    const dieselItens = dieselDaBase
+      .filter((item) => normalizarTextoMelosa(item.nome || "") === `DIESEL ${normalizarTextoMelosa(tipoDiesel)}`)
+      .sort((a, b) => String(a.data || "").localeCompare(String(b.data || "")));
+
+    const totalDisponivel = dieselItens.reduce((acc, item) => acc + parseDecimalInput(item.quantidade || 0), 0);
+    if (totalDisponivel < restante) {
+      throw new Error(`Estoque insuficiente de ${tipoDiesel} na base.`);
+    }
+
+    for (const item of dieselItens) {
+      if (restante <= 0) break;
+      const quantidadeAtual = parseDecimalInput(item.quantidade || 0);
+      const baixado = Math.min(quantidadeAtual, restante);
+      const novaQuantidade = quantidadeAtual - baixado;
+      const precoItem = parseDecimalInput(item.preco || 0);
+      await updateDoc(doc(db, "lubrificantes", item.id), {
+        quantidade: novaQuantidade,
+        total: novaQuantidade * precoItem
+      });
+      restante -= baixado;
+    }
+  };
+
+  const salvarMelosa = async () => {
+    const cidadeBase = String(baseSelecionada?.cidade || "").trim().toUpperCase();
+    const estadoBase = String(baseSelecionada?.estado || "").trim().toUpperCase();
+    const nomeFinal = normalizarTextoMelosa(melosaNome || melosaCodigo);
+    const codigoFinal = normalizarTextoMelosa(melosaCodigo || melosaNome);
+    const placaFinal = normalizarTextoMelosa(melosaPlaca);
+    const capacidadeFinal = parseDecimalInput(melosaCapacidade || 0);
+
+    if (!cidadeBase || !estadoBase) {
+      alert("Selecione a base antes de cadastrar a melosa.");
+      return;
+    }
+    if (!nomeFinal) {
+      alert("Informe o nome ou codigo da melosa.");
+      return;
+    }
+
+    const jaExiste = melosas.find((item) =>
+      item.id !== melosaEditId &&
+      normalizarTextoMelosa(item.nome || item.codigo || "") === nomeFinal
+    );
+    if (jaExiste) {
+      alert("Ja existe uma melosa com esse nome nesta base.");
+      return;
+    }
+
+    const payload = withTenant({
+      nome: nomeFinal,
+      codigo: codigoFinal,
+      placa: placaFinal,
+      capacidadeLitros: capacidadeFinal,
+      baseCidade: cidadeBase,
+      baseEstado: estadoBase,
+      baseChave: chaveBase(cidadeBase, estadoBase),
+      saldos: melosaEditId ? criarSaldosMelosa(melosas.find((item) => item.id === melosaEditId)?.saldos) : criarSaldosMelosa(),
+      ativo: true,
+      atualizadoEm: new Date().toISOString()
+    }, tenantId);
+
+    if (melosaEditId) {
+      await updateDoc(doc(db, "melosas", melosaEditId), payload);
+      await sincronizarNomeMelosaNosFrentistas(melosaEditId, nomeFinal);
+      await registrarHistorico({
+        modulo: "MELOSAS",
+        acao: "EDITOU",
+        entidade: "MELOSA",
+        registroId: melosaEditId,
+        descricao: `Editou a melosa ${nomeFinal} em ${cidadeBase}/${estadoBase}.`
+      });
+    } else {
+      const ref = await addDoc(collection(db, "melosas"), {
+        ...payload,
+        criadoEm: new Date().toISOString()
+      });
+      await registrarHistorico({
+        modulo: "MELOSAS",
+        acao: "CRIOU",
+        entidade: "MELOSA",
+        registroId: ref.id,
+        descricao: `Cadastrou a melosa ${nomeFinal} em ${cidadeBase}/${estadoBase}.`
+      });
+    }
+
+    limparFormularioMelosa();
+    await buscarMelosas();
+  };
+
+  const editarMelosa = (item) => {
+    setMelosaEditId(item.id);
+    setMelosaNome(String(item.nome || ""));
+    setMelosaCodigo(String(item.codigo || ""));
+    setMelosaPlaca(String(item.placa || ""));
+    setMelosaCapacidade(String(item.capacidadeLitros || ""));
+    setSecaoAtiva("MELOSAS");
+  };
+
+  const excluirMelosa = async (id) => {
+    const alvo = melosas.find((item) => item.id === id);
+    if (!alvo) return;
+    if (totalDieselMelosa(alvo) > 0) {
+      alert("Esvazie a melosa antes de excluir. Ela ainda possui diesel em saldo.");
+      return;
+    }
+    const possuiFrentistaVinculado = frentistas.some((item) => String(item.melosaId || "").trim() === id);
+    if (possuiFrentistaVinculado) {
+      alert("Desvincule o frentista desta melosa antes de excluir.");
+      return;
+    }
+    if (!window.confirm(`Excluir a melosa ${alvo.nome || alvo.codigo || ""}?`)) return;
+    await sincronizarNomeMelosaNosFrentistas(id, "");
+    await deleteDoc(doc(db, "melosas", id));
+    await registrarHistorico({
+      modulo: "MELOSAS",
+      acao: "EXCLUIU",
+      entidade: "MELOSA",
+      registroId: id,
+      descricao: `Excluiu a melosa ${alvo.nome || alvo.codigo || "-"}.`
+    });
+    await buscarMelosas();
+  };
+
+  const transferirParaMelosa = async () => {
+    const cidadeBase = String(baseSelecionada?.cidade || "").trim().toUpperCase();
+    const estadoBase = String(baseSelecionada?.estado || "").trim().toUpperCase();
+    const litrosTransferidos = parseDecimalInput(transferQuantidade || 0);
+    const melosaSelecionada = melosas.find((item) => item.id === transferMelosaId) || null;
+
+    if (!cidadeBase || !estadoBase) {
+      alert("Selecione a base antes de transferir diesel.");
+      return;
+    }
+    if (!melosaSelecionada) {
+      alert("Selecione a melosa de destino.");
+      return;
+    }
+    if (litrosTransferidos <= 0) {
+      alert("Informe uma quantidade valida para transferir.");
+      return;
+    }
+
+    try {
+      await baixarDieselDaBase(transferTipoDiesel, litrosTransferidos);
+      const saldosAtuais = criarSaldosMelosa(melosaSelecionada.saldos);
+      const novosSaldos = {
+        ...saldosAtuais,
+        [transferTipoDiesel]: parseDecimalInput(saldosAtuais[transferTipoDiesel] || 0) + litrosTransferidos
+      };
+      await updateDoc(doc(db, "melosas", melosaSelecionada.id), {
+        saldos: novosSaldos,
+        atualizadoEm: new Date().toISOString()
+      });
+      await addDoc(collection(db, "movimentacoes_melosas"), withTenant({
+        tipo: "TRANSFERENCIA_BASE_MELOSA",
+        baseCidade: cidadeBase,
+        baseEstado: estadoBase,
+        baseChave: chaveBase(cidadeBase, estadoBase),
+        melosaId: melosaSelecionada.id,
+        melosaNome: melosaSelecionada.nome || melosaSelecionada.codigo || "",
+        dieselTipo: transferTipoDiesel,
+        litros: litrosTransferidos,
+        observacao: String(transferObservacao || "").trim(),
+        criadoEm: new Date().toISOString()
+      }, tenantId));
+      await registrarHistorico({
+        modulo: "MELOSAS",
+        acao: "TRANSFERIU",
+        entidade: "DIESEL",
+        registroId: melosaSelecionada.id,
+        descricao: `Transferiu ${litrosTransferidos} L de ${transferTipoDiesel} para a melosa ${melosaSelecionada.nome || melosaSelecionada.codigo || "-"}.`
+      });
+      setTransferQuantidade("");
+      setTransferObservacao("");
+      setTransferMelosaId("");
+      await buscar();
+      await buscarMelosas();
+      alert("Transferencia para a melosa registrada com sucesso.");
+    } catch (error) {
+      alert(error?.message || "Nao foi possivel transferir diesel para a melosa.");
+    }
+  };
+
+  const sincronizarNomeMelosaNosFrentistas = async (idMelosa, novoNome) => {
+    const vinculados = frentistas.filter((item) => String(item.melosaId || "").trim() === String(idMelosa || "").trim());
+    await Promise.all(
+      vinculados.map((item) =>
+        updateDoc(doc(db, "frentistas", item.id), {
+          melosaNome: String(novoNome || "").trim()
+        })
+      )
+    );
   };
 
   const salvar = async () => {
@@ -467,6 +723,11 @@ function Lubrificantes({ setTela, embed = false }) {
   const diesel = agrupar(
     lista.filter((item) => ehCombustivel(item))
   );
+  const melosasDaBase = melosas.filter(
+    (item) => normalizarCidade(item.baseCidade) === String(baseSelecionada?.cidade || "").trim().toUpperCase()
+  );
+  const responsavelMelosa = (melosaItem) =>
+    frentistas.find((item) => String(item.melosaId || "").trim() === String(melosaItem?.id || "").trim()) || null;
 
   // divide em linhas (4 por linha)
   const dividir = (arr, tamanho) => {
@@ -848,6 +1109,20 @@ function Lubrificantes({ setTela, embed = false }) {
         >
           Historico de entradas
         </button>
+        <button
+          style={{
+            background: secaoAtiva === "MELOSAS" ? "#0b5ed7" : "#eaf2ff",
+            color: secaoAtiva === "MELOSAS" ? "#fff" : "#17407f",
+            border: secaoAtiva === "MELOSAS" ? "none" : "1px solid #cfe0ff",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontWeight: "bold",
+            cursor: "pointer"
+          }}
+          onClick={() => setSecaoAtiva("MELOSAS")}
+        >
+          Melosas
+        </button>
         <div style={{ color: "#5b6f8a", fontSize: 13 }}>
           Cada visao mostra uma etapa separada para deixar a tela mais leve.
         </div>
@@ -965,6 +1240,298 @@ function Lubrificantes({ setTela, embed = false }) {
           </>
         ))}
       </table>
+      </>
+      )}
+
+      {secaoAtiva === "MELOSAS" && (
+      <>
+      <div style={{
+        background: "#fff",
+        borderRadius: 10,
+        padding: 18,
+        marginBottom: 16,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: 10 }}>Cadastro de melosa</h3>
+        <div style={{ marginBottom: 12, color: "#5b6f8a", fontSize: 13 }}>
+          Cada melosa vira um subestoque de diesel da base. A transferencia sai da base e entra no saldo da melosa.
+        </div>
+        <input
+          style={{
+            width: "100%",
+            padding: "10px",
+            borderRadius: "6px",
+            border: "1px solid #ccc",
+            marginBottom: 10,
+            boxSizing: "border-box"
+          }}
+          placeholder="Nome da melosa"
+          value={melosaNome}
+          onChange={(e) => setMelosaNome(e.target.value)}
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          <input
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              marginBottom: 10,
+              boxSizing: "border-box"
+            }}
+            placeholder="Codigo / identificacao"
+            value={melosaCodigo}
+            onChange={(e) => setMelosaCodigo(e.target.value)}
+          />
+          <input
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              marginBottom: 10,
+              boxSizing: "border-box"
+            }}
+            placeholder="Placa"
+            value={melosaPlaca}
+            onChange={(e) => setMelosaPlaca(e.target.value)}
+          />
+          <input
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              marginBottom: 10,
+              boxSizing: "border-box"
+            }}
+            placeholder="Capacidade (L)"
+            value={melosaCapacidade}
+            onChange={(e) => setMelosaCapacidade(e.target.value)}
+          />
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button style={{
+            background: "#0066cc",
+            color: "#fff",
+            padding: "10px 20px",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: "bold",
+            cursor: "pointer"
+          }} onClick={salvarMelosa}>
+            {melosaEditId ? "ATUALIZAR MELOSA" : "SALVAR MELOSA"}
+          </button>
+          <button style={{
+            background: "#6c757d",
+            color: "#fff",
+            padding: "10px 20px",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: "bold",
+            cursor: "pointer"
+          }} onClick={limparFormularioMelosa}>
+            LIMPAR
+          </button>
+        </div>
+      </div>
+
+      <div style={{
+        background: "#fff",
+        borderRadius: 10,
+        padding: 18,
+        marginBottom: 16,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: 10 }}>Transferir diesel da base para a melosa</h3>
+        <div style={{ marginBottom: 12, color: "#5b6f8a", fontSize: 13 }}>
+          Essa movimentacao nao consome diesel. Ela apenas tira do saldo da base e joga para o saldo da melosa.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          <select
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              marginBottom: 10
+            }}
+            value={transferMelosaId}
+            onChange={(e) => setTransferMelosaId(e.target.value)}
+          >
+            <option value="">Selecione a melosa</option>
+            {melosasDaBase.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.nome || item.codigo} {item.placa ? `| ${item.placa}` : ""}
+              </option>
+            ))}
+          </select>
+          <select
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              marginBottom: 10
+            }}
+            value={transferTipoDiesel}
+            onChange={(e) => setTransferTipoDiesel(e.target.value)}
+          >
+            <option value="S-10">Diesel S-10</option>
+            <option value="S-500">Diesel S-500</option>
+          </select>
+          <input
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              marginBottom: 10,
+              boxSizing: "border-box"
+            }}
+            placeholder="Litros para transferir"
+            value={transferQuantidade}
+            onChange={(e) => setTransferQuantidade(e.target.value)}
+          />
+        </div>
+        <input
+          style={{
+            width: "100%",
+            padding: "10px",
+            borderRadius: "6px",
+            border: "1px solid #ccc",
+            marginBottom: 10,
+            boxSizing: "border-box"
+          }}
+          placeholder="Observacao da transferencia (opcional)"
+          value={transferObservacao}
+          onChange={(e) => setTransferObservacao(e.target.value)}
+        />
+        <button style={{
+          background: "#0b5ed7",
+          color: "#fff",
+          padding: "10px 20px",
+          border: "none",
+          borderRadius: 8,
+          fontWeight: "bold",
+          cursor: "pointer"
+        }} onClick={transferirParaMelosa}>
+          TRANSFERIR PARA MELOSA
+        </button>
+      </div>
+
+      <div style={{
+        background: "#fff",
+        borderRadius: 10,
+        padding: 18,
+        marginBottom: 16,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: 10 }}>Saldos das melosas</h3>
+        {melosasDaBase.length === 0 ? (
+          <div style={{ color: "#8a98ad" }}>Nenhuma melosa cadastrada para esta base.</div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+            {melosasDaBase.map((item) => {
+              const responsavel = responsavelMelosa(item);
+              return (
+                <div key={item.id} style={{ border: "1px solid #d8e2f0", borderRadius: 10, padding: 14, background: "#f8fbff" }}>
+                  <div style={{ fontWeight: "bold", color: "#16345f", marginBottom: 6 }}>
+                    {item.nome || item.codigo}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#4f6482", marginBottom: 8 }}>
+                    {item.placa ? `Placa: ${item.placa}` : "Sem placa cadastrada"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#4f6482", marginBottom: 8 }}>
+                    Responsavel: {responsavel?.nome || "Nao vinculado"}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                    <div style={{ background: "#eaf2ff", borderRadius: 8, padding: 10, fontWeight: "bold", color: "#0b3d91", textAlign: "center" }}>
+                      S-10: {obterSaldoMelosa(item, "S-10")} L
+                    </div>
+                    <div style={{ background: "#fff4e6", borderRadius: 8, padding: 10, fontWeight: "bold", color: "#b05d00", textAlign: "center" }}>
+                      S-500: {obterSaldoMelosa(item, "S-500")} L
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: "bold", marginBottom: 10 }}>
+                    Total: {totalDieselMelosa(item)} L
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button style={{
+                      background: "#f0ad4e",
+                      color: "#000",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "8px 12px",
+                      fontWeight: "bold",
+                      cursor: "pointer"
+                    }} onClick={() => editarMelosa(item)}>
+                      Editar
+                    </button>
+                    <button style={{
+                      background: "#cc0000",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "8px 12px",
+                      fontWeight: "bold",
+                      cursor: "pointer"
+                    }} onClick={() => excluirMelosa(item.id)}>
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        background: "#fff",
+        borderRadius: 10,
+        padding: 18,
+        marginBottom: 16,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: 10 }}>Historico de transferencias para melosa</h3>
+        {movimentacoesMelosa.length === 0 ? (
+          <div style={{ color: "#8a98ad" }}>Nenhuma transferencia registrada nesta base.</div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
+            <thead style={{ background: "#0b3d91", color: "#fff" }}>
+              <tr>
+                <th style={{ border: "1px solid #d6def0", padding: 8 }}>Data</th>
+                <th style={{ border: "1px solid #d6def0", padding: 8 }}>Melosa</th>
+                <th style={{ border: "1px solid #d6def0", padding: 8 }}>Diesel</th>
+                <th style={{ border: "1px solid #d6def0", padding: 8 }}>Litros</th>
+                <th style={{ border: "1px solid #d6def0", padding: 8 }}>Observacao</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movimentacoesMelosa.slice(0, 20).map((item, index) => (
+                <tr key={item.id} style={{ background: index % 2 === 0 ? "#f8fbff" : "#fff" }}>
+                  <td style={{ border: "1px solid #e3e7ef", padding: 8, textAlign: "center" }}>
+                    {String(item.criadoEm || "").slice(0, 10)}
+                  </td>
+                  <td style={{ border: "1px solid #e3e7ef", padding: 8, textAlign: "center" }}>
+                    {item.melosaNome || "-"}
+                  </td>
+                  <td style={{ border: "1px solid #e3e7ef", padding: 8, textAlign: "center" }}>
+                    {item.dieselTipo || "-"}
+                  </td>
+                  <td style={{ border: "1px solid #e3e7ef", padding: 8, textAlign: "center" }}>
+                    {item.litros || 0}
+                  </td>
+                  <td style={{ border: "1px solid #e3e7ef", padding: 8 }}>
+                    {item.observacao || "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
       </>
       )}
 
