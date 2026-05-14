@@ -101,61 +101,11 @@ function Bases({ setTela }) {
   };
 
   const carregar = async () => {
-    const [snapBases, snapObras] = await Promise.all([
-      getDocs(collection(db, "bases_operacionais")),
-      getDocs(collection(db, "obras"))
-    ]);
-
+    const snapBases = await getDocs(collection(db, "bases_operacionais"));
     const basesDocs = snapBases.docs
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((i) => belongsToTenant(i, tenantId));
-
-    const chavesExistentes = new Set(
-      basesDocs.map((item) => chaveBase(item.cidade, item.estado)).filter(Boolean)
-    );
-
-    const basesVindasDasObras = snapObras.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((i) => belongsToTenant(i, tenantId))
-      .map((item) => ({
-        cidade: normalizarCidade(item.cidade),
-        estado: normalizar(item.estado),
-        ativo: true
-      }))
-      .filter((item) => item.cidade && item.estado)
-      .filter((item, idx, arr) =>
-        arr.findIndex((outro) => chaveBase(outro.cidade, outro.estado) === chaveBase(item.cidade, item.estado)) === idx
-      );
-
-    const faltantes = basesVindasDasObras.filter((item) => !chavesExistentes.has(chaveBase(item.cidade, item.estado)));
-
-    let basesCompletas = [...basesDocs];
-    if (faltantes.length) {
-      const refs = await Promise.all(
-        faltantes.map((item) =>
-          addDoc(
-            collection(db, "bases_operacionais"),
-            withTenant(
-              {
-                estado: item.estado,
-                cidade: item.cidade,
-                ativo: true,
-                criadoEm: new Date().toISOString(),
-                origem: "OBRA_AUTO"
-              },
-              tenantId
-            )
-          )
-        )
-      );
-
-      basesCompletas = [
-        ...basesCompletas,
-        ...faltantes.map((item, idx) => ({ id: refs[idx].id, ...item, origem: "OBRA_AUTO" }))
-      ];
-    }
-
-    setBases(mapearBases(basesCompletas));
+    setBases(mapearBases(basesDocs));
   };
 
   useEffect(() => {
