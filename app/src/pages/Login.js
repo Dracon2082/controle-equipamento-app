@@ -7,6 +7,7 @@ import { getContatoComercialConfig } from "../utils/contactConfig";
 import logoSistema from "../assets/logo-sistema.png";
 
 function Login({ setTela, authContext, onLoginSucesso }) {
+  const STORAGE_CREDENCIAIS_OFFLINE = "credenciaisOfflineOperacionais";
   const PERFIL_GESTOR_GERAL = "GESTOR_GERAL";
   const PERFIL_ADMIN_UNIDADE = "ADMIN_UNIDADE";
   const PERMISSAO_TRANSPORTE_LEGADA = "transportes";
@@ -64,6 +65,70 @@ function Login({ setTela, authContext, onLoginSucesso }) {
     if (await validarSenhaViaAuth(emailUsuario, senhaDigitada)) return true;
     if (!cpfLimpo) return false;
     return senhaDigitada === senhaPadrao;
+  };
+
+  const hashSenhaLocal = async (valor) => {
+    const texto = String(valor || "");
+    if (!window?.crypto?.subtle) return btoa(unescape(encodeURIComponent(texto)));
+    const bytes = new TextEncoder().encode(texto);
+    const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  };
+
+  const chaveOffline = (identificacao, tenant) => `${String(identificacao || "").trim().toLowerCase()}::${String(tenant || "").trim().toLowerCase()}`;
+
+  const lerCredenciaisOffline = () => {
+    try {
+      const lista = JSON.parse(localStorage.getItem(STORAGE_CREDENCIAIS_OFFLINE) || "[]");
+      return Array.isArray(lista) ? lista : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const salvarCredencialOffline = async ({ usuario, sessao, senhaDigitada, tenantSessao }) => {
+    const senhaHash = await hashSenhaLocal(senhaDigitada);
+    const cpf = String(usuario?.cpf || "").replace(/\D/g, "");
+    const email = String(usuario?.email || "").trim().toLowerCase();
+    const tenantNorm = String(tenantSessao || "").trim().toLowerCase();
+    if (!senhaHash || (!cpf && !email)) return;
+
+    const registroBase = {
+      tenantNorm,
+      senhaHash,
+      sessao,
+      atualizadoEm: new Date().toISOString()
+    };
+
+    const chaves = [];
+    if (cpf) chaves.push(chaveOffline(cpf, tenantNorm));
+    if (email) chaves.push(chaveOffline(email, tenantNorm));
+    if (!chaves.length) return;
+
+    const atuais = lerCredenciaisOffline().filter((item) => !chaves.includes(String(item?.chave || "")));
+    const novos = chaves.map((chave) => ({ chave, ...registroBase }));
+    localStorage.setItem(STORAGE_CREDENCIAIS_OFFLINE, JSON.stringify([...novos, ...atuais].slice(0, 100)));
+  };
+
+  const tentarLoginOffline = async ({ loginValor, senhaDigitada, tenantPreferido }) => {
+    const credenciais = lerCredenciaisOffline();
+    if (!credenciais.length) return null;
+    const senhaHash = await hashSenhaLocal(senhaDigitada);
+    const tenantNorm = String(tenantPreferido || "").trim().toLowerCase();
+    const loginTexto = String(loginValor || "").trim().toLowerCase();
+    const cpfLimpo = String(loginValor || "").replace(/\D/g, "");
+    const chavesTentadas = [
+      chaveOffline(loginTexto, tenantNorm),
+      cpfLimpo ? chaveOffline(cpfLimpo, tenantNorm) : ""
+    ].filter(Boolean);
+
+    const encontrado = credenciais.find((item) => {
+      const chave = String(item?.chave || "");
+      return chavesTentadas.includes(chave) && String(item?.senhaHash || "") === String(senhaHash || "");
+    });
+    return encontrado?.sessao || null;
   };
 
   const inferirPerfilAcesso = (dadosUsuario, permissoesUsuario) => {
@@ -179,8 +244,36 @@ function Login({ setTela, authContext, onLoginSucesso }) {
     }
 
     const cpfLimpo = String(identificador).replace(/\D/g, "");
-    const usuariosLocalizados = await localizarUsuarios(identificador);
+    let usuariosLocalizados = [];
+    let falhaConsulta = false;
+    try {
+      usuariosLocalizados = await localizarUsuarios(identificador);
+    } catch {
+      falhaConsulta = true;
+    }
+
     if (!usuariosLocalizados.length) {
+      const sessaoOffline = await tentarLoginOffline({
+        loginValor: identificador,
+        senhaDigitada: senha,
+        tenantPreferido: tenantId
+      });
+      if (sessaoOffline) {
+        localStorage.setItem("sessaoOperacional", JSON.stringify({
+          ...sessaoOffline,
+          destino,
+          logadoEm: new Date().toISOString(),
+          loginOffline: true
+        }));
+        localStorage.setItem("usuarioLogado", String(sessaoOffline?.nome || ""));
+        alert("Sem internet. Login offline liberado neste aparelho.");
+        onLoginSucesso(destino || "home");
+        return;
+      }
+      if (!navigator.onLine || falhaConsulta) {
+        alert("Sem conexao. Este usuario precisa entrar ao menos uma vez com internet neste aparelho.");
+        return;
+      }
       alert("Usuario nao encontrado para esta operacao.");
       return;
     }
@@ -226,25 +319,30 @@ function Login({ setTela, authContext, onLoginSucesso }) {
       return;
     }
 
-    localStorage.setItem(
-      "sessaoOperacional",
-      JSON.stringify({
-        nome: usuario.nome,
-        cpf: cpfLimpo,
-        email: usuario.email || "",
-        perfil: usuario.funcao || "USUARIO",
-        perfilAcesso: perfilAcesso || "",
-        usuarioChave,
-        permissoes,
-        basesPermitidas: Array.isArray(usuario?.basesPermitidas) ? usuario.basesPermitidas : [],
-        melosaId: String(usuario?.melosaId || "").trim(),
-        melosaNome: String(usuario?.melosaNome || "").trim(),
-        destino,
-        tenantId: tenantUsuario,
-        logadoEm: new Date().toISOString()
-      })
-    );
+    const sessao = {
+      nome: usuario.nome,
+      cpf: cpfLimpo,
+      email: usuario.email || "",
+      perfil: usuario.funcao || "USUARIO",
+      perfilAcesso: perfilAcesso || "",
+      usuarioChave,
+      permissoes,
+      basesPermitidas: Array.isArray(usuario?.basesPermitidas) ? usuario.basesPermitidas : [],
+      melosaId: String(usuario?.melosaId || "").trim(),
+      melosaNome: String(usuario?.melosaNome || "").trim(),
+      destino,
+      tenantId: tenantUsuario,
+      logadoEm: new Date().toISOString(),
+      loginOffline: false
+    };
+    localStorage.setItem("sessaoOperacional", JSON.stringify(sessao));
     localStorage.setItem("usuarioLogado", usuario.nome || "");
+    await salvarCredencialOffline({
+      usuario,
+      sessao,
+      senhaDigitada: senha,
+      tenantSessao: tenantUsuario
+    });
 
     alert("Login realizado com sucesso.");
     onLoginSucesso(destino || "home");

@@ -79,6 +79,7 @@ function ClientApp() {
   };
 
   const [tela, setTela] = useState(() => (possuiSessaoAtiva() ? "home" : "login"));
+  const [estaOnline, setEstaOnline] = useState(() => navigator.onLine);
   const [authContext, setAuthContext] = useState({ destino: "" });
   const isMobileDevice = useMemo(() => {
     const ua = String(window.navigator?.userAgent || "").toLowerCase();
@@ -369,6 +370,16 @@ function ClientApp() {
   };
 
   useEffect(() => {
+    const atualizarStatus = () => setEstaOnline(navigator.onLine);
+    window.addEventListener("online", atualizarStatus);
+    window.addEventListener("offline", atualizarStatus);
+    return () => {
+      window.removeEventListener("online", atualizarStatus);
+      window.removeEventListener("offline", atualizarStatus);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!possuiSessaoAtiva()) return;
     try {
       const ultimaTela = String(localStorage.getItem(STORAGE_ULTIMA_TELA) || "").trim();
@@ -433,6 +444,24 @@ function ClientApp() {
 
   return (
     <div style={appContainer}>
+      {!estaOnline && (
+        <div
+          style={{
+            width: "100%",
+            maxWidth: maxWidthTopo,
+            margin: "0 auto 10px",
+            background: "#fff3cd",
+            color: "#7a5d00",
+            border: "1px solid #ffe08a",
+            borderRadius: 10,
+            padding: "10px 12px",
+            fontWeight: 700,
+            boxSizing: "border-box"
+          }}
+        >
+          Sem internet: modo offline ativo. Os lancamentos serao sincronizados quando a conexao voltar.
+        </div>
+      )}
       {mostrarVoltarTopo && (
         <div style={topBar}>
           <button style={topBackButton} onClick={() => navegar("home")}>Voltar</button>
