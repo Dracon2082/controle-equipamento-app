@@ -222,6 +222,15 @@ function Manutencao({ setTela, modoRelatorio = false }) {
     return textoLimpo.slice(0, 8);
   };
 
+  const montarRotuloEquipamento = (eq) => {
+    const nome = String(eq?.nome || "").trim();
+    const codigo = String(eq?.codigo || eq?.equipamentoCodigo || eq?.numeroFrota || "").trim().toUpperCase();
+    const placa = String(eq?.placa || "").trim().toUpperCase();
+    const complemento = codigo || placa;
+    if (!nome) return "";
+    return complemento ? `${nome} - ${complemento}` : nome;
+  };
+
   const alertasNaBase = useMemo(() => {
     const base = String(baseChaveAtiva || "").trim().toUpperCase();
     if (!base) return [];
@@ -349,10 +358,9 @@ function Manutencao({ setTela, modoRelatorio = false }) {
     }
   };
 
-  const equipamentoSelecionado = useMemo(
-    () => equipamentos.find((eq) => eq.nome === equipamento),
-    [equipamentos, equipamento]
-  );
+  const equipamentoSelecionado = useMemo(() => {
+    return equipamentos.find((eq) => montarRotuloEquipamento(eq) === equipamento) || null;
+  }, [equipamentos, equipamento]);
 
   useEffect(() => {
     const nomeEquip = String(equipamento || "").trim();
@@ -360,7 +368,12 @@ function Manutencao({ setTela, modoRelatorio = false }) {
       setObra("");
       return;
     }
-    const info = ultimoLancPorEquip?.[nomeEquip];
+    const nomeBase = nomeEquip.split(" - ")[0].trim();
+    const infoDireto = ultimoLancPorEquip?.[nomeEquip] || ultimoLancPorEquip?.[nomeBase];
+    const info = infoDireto || Object.values(ultimoLancPorEquip || {}).find((i) => {
+      const nomeLanc = String(i?.equipamento || "").trim().toUpperCase();
+      return nomeLanc === String(nomeEquip).toUpperCase() || nomeLanc === String(nomeBase).toUpperCase();
+    });
     const obraNome = String(info?.obraNome || info?.obra || "").trim();
     if (obraNome) {
       setObra(obraNome);
@@ -383,10 +396,20 @@ function Manutencao({ setTela, modoRelatorio = false }) {
   const equipamentosNaBase = useMemo(() => {
     const base = String(baseChaveAtiva || "").trim().toUpperCase();
     if (!base) return [];
-    // Se nao tiver info de ultimo lancamento, mostra todos (fallback)
-    const nomes = equipamentos.map((e) => String(e.nome || "").trim()).filter(Boolean);
-    const filtrados = nomes.filter((n) => String(ultimoLancPorEquip?.[n]?.baseChave || "").trim().toUpperCase() === base);
-    return (filtrados.length ? filtrados : nomes).sort((a, b) => a.localeCompare(b));
+    const listaEquip = equipamentos
+      .map((e) => ({
+        nome: String(e.nome || "").trim(),
+        rotulo: montarRotuloEquipamento(e)
+      }))
+      .filter((e) => e.nome && e.rotulo);
+
+    const filtrados = listaEquip.filter((e) => {
+      const info = ultimoLancPorEquip?.[e.rotulo] || ultimoLancPorEquip?.[e.nome];
+      return String(info?.baseChave || "").trim().toUpperCase() === base;
+    });
+
+    const alvo = filtrados.length ? filtrados : listaEquip;
+    return alvo.sort((a, b) => String(a.rotulo || "").localeCompare(String(b.rotulo || ""), "pt-BR"));
   }, [equipamentos, baseChaveAtiva, ultimoLancPorEquip]);
 
   const baseChaveObra = useMemo(() => String(baseChaveAtiva || "").trim().toUpperCase(), [baseChaveAtiva]);
@@ -881,7 +904,13 @@ function Manutencao({ setTela, modoRelatorio = false }) {
 
   const listaFiltrada = useMemo(() => {
     return lista.filter((item) => {
-      if (filtroEquipamento && item.equipamento !== filtroEquipamento) return false;
+      if (filtroEquipamento) {
+        const filtroNorm = String(filtroEquipamento || "").trim().toUpperCase();
+        const itemEquip = String(item.equipamento || "").trim().toUpperCase();
+        const filtroNome = filtroNorm.split(" - ")[0].trim();
+        const itemNome = itemEquip.split(" - ")[0].trim();
+        if (itemEquip !== filtroNorm && itemNome !== filtroNome) return false;
+      }
       if (filtroObra && item.obra !== filtroObra) return false;
       if (filtroTipo && item.tipoManutencao !== filtroTipo) return false;
       if (filtroDataInicio && String(item.dataExecucao || "") < filtroDataInicio) return false;
@@ -1165,8 +1194,11 @@ function Manutencao({ setTela, modoRelatorio = false }) {
             title={!baseChaveAtiva ? "Selecione a cidade/base primeiro" : ""}
           >
             <option value="">Selecione o equipamento</option>
-            {equipamentosNaBase.map((nome) => (
-              <option key={nome} value={nome}>{nome}</option>
+            {equipamento && !equipamentosNaBase.some((item) => item.rotulo === equipamento) && (
+              <option value={equipamento}>{equipamento}</option>
+            )}
+            {equipamentosNaBase.map((item) => (
+              <option key={item.rotulo} value={item.rotulo}>{item.rotulo}</option>
             ))}
           </select>
 
@@ -1385,7 +1417,7 @@ function Manutencao({ setTela, modoRelatorio = false }) {
           <select style={inputBase} value={filtroEquipamento} onChange={(e) => setFiltroEquipamento(e.target.value)}>
             <option value="">Todos os equipamentos</option>
             {equipamentos.map((eq) => (
-              <option key={eq.id || eq.nome} value={eq.nome}>{eq.nome}</option>
+              <option key={eq.id || eq.nome} value={montarRotuloEquipamento(eq)}>{montarRotuloEquipamento(eq)}</option>
             ))}
           </select>
           <select style={inputBase} value={filtroObra} onChange={(e) => setFiltroObra(e.target.value)}>

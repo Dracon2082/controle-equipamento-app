@@ -82,6 +82,15 @@ function Abastecimento({ setTela }) {
   const [placa, setPlaca] = useState("");
 
   const [equipamentos, setEquipamentos] = useState([]);
+  const montarRotuloEquipamento = (eq) => {
+    const nome = String(eq?.nome || "").trim();
+    const codigo = String(eq?.codigo || eq?.equipamentoCodigo || eq?.numeroFrota || "").trim().toUpperCase();
+    const placaEq = String(eq?.placa || "").trim().toUpperCase();
+    const complemento = codigo || placaEq;
+    if (!nome) return "";
+    return complemento ? `${nome} - ${complemento}` : nome;
+  };
+
   const [empresas, setEmpresas] = useState([]);
   const [obras, setObras] = useState([]);
 
@@ -155,7 +164,11 @@ function Abastecimento({ setTela }) {
 
   const buscarTudo = async () => {
     const snapEq = await getDocs(collection(db, "equipamentos"));
-    setEquipamentos(snapEq.docs.map((d) => d.data()).filter((item) => belongsToTenant(item, tenantId)));
+    setEquipamentos(
+      snapEq.docs
+        .map((d) => d.data())
+        .filter((item) => belongsToTenant(item, tenantId))
+    );
 
     const snapEmp = await getDocs(collection(db, "empresas"));
     setEmpresas(
@@ -1530,13 +1543,10 @@ function Abastecimento({ setTela }) {
         value={equipamento}
         onChange={(e) => {
           const nomeSelecionado = e.target.value;
-
           setEquipamento(nomeSelecionado);
 
           // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ ACHA O EQUIPAMENTO COMPLETO
-          const eq = equipamentos.find(
-            (item) => item.nome === nomeSelecionado
-          );
+          const eq = equipamentos.find((item) => montarRotuloEquipamento(item) === nomeSelecionado);
 
           if (eq) {
             setCodigo(eq.codigo || "");
@@ -1545,8 +1555,11 @@ function Abastecimento({ setTela }) {
         }}
       >
         <option value="">Selecione equipamento</option>
+        {equipamento && !equipamentos.some((item) => montarRotuloEquipamento(item) === equipamento) && (
+          <option value={equipamento}>{equipamento}</option>
+        )}
         {equipamentos.map((eq, i) => (
-          <option key={i}>{eq.nome}</option>
+          <option key={i} value={montarRotuloEquipamento(eq)}>{montarRotuloEquipamento(eq)}</option>
         ))}
       </select>
 
