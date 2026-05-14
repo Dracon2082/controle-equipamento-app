@@ -24,6 +24,16 @@ function Bases({ setTela }) {
   const normalizar = (v) => String(v || "").trim().toUpperCase();
   const normalizarCidade = (v) => String(v || "").trim().toUpperCase();
   const chaveBase = (c, e) => `${normalizarCidade(c)}__${normalizar(e)}`;
+  const mapearBases = (lista) =>
+    lista
+      .map((i) => ({
+        ...i,
+        estado: normalizar(i.estado),
+        cidade: normalizarCidade(i.cidade),
+        chave: chaveBase(i.cidade, i.estado),
+        ativo: i.ativo !== false
+      }))
+      .sort((a, b) => `${a.estado}${a.cidade}`.localeCompare(`${b.estado}${b.cidade}`));
 
   const inputStyle = {
     width: "100%",
@@ -91,19 +101,61 @@ function Bases({ setTela }) {
   };
 
   const carregar = async () => {
-    const snap = await getDocs(collection(db, "bases_operacionais"));
-    const lista = snap.docs
+    const [snapBases, snapObras] = await Promise.all([
+      getDocs(collection(db, "bases_operacionais")),
+      getDocs(collection(db, "obras"))
+    ]);
+
+    const basesDocs = snapBases.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((i) => belongsToTenant(i, tenantId));
+
+    const chavesExistentes = new Set(
+      basesDocs.map((item) => chaveBase(item.cidade, item.estado)).filter(Boolean)
+    );
+
+    const basesVindasDasObras = snapObras.docs
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((i) => belongsToTenant(i, tenantId))
-      .map((i) => ({
-        ...i,
-        estado: normalizar(i.estado),
-        cidade: normalizarCidade(i.cidade),
-        chave: chaveBase(i.cidade, i.estado),
-        ativo: i.ativo !== false
+      .map((item) => ({
+        cidade: normalizarCidade(item.cidade),
+        estado: normalizar(item.estado),
+        ativo: true
       }))
-      .sort((a, b) => `${a.estado}${a.cidade}`.localeCompare(`${b.estado}${b.cidade}`));
-    setBases(lista);
+      .filter((item) => item.cidade && item.estado)
+      .filter((item, idx, arr) =>
+        arr.findIndex((outro) => chaveBase(outro.cidade, outro.estado) === chaveBase(item.cidade, item.estado)) === idx
+      );
+
+    const faltantes = basesVindasDasObras.filter((item) => !chavesExistentes.has(chaveBase(item.cidade, item.estado)));
+
+    let basesCompletas = [...basesDocs];
+    if (faltantes.length) {
+      const refs = await Promise.all(
+        faltantes.map((item) =>
+          addDoc(
+            collection(db, "bases_operacionais"),
+            withTenant(
+              {
+                estado: item.estado,
+                cidade: item.cidade,
+                ativo: true,
+                criadoEm: new Date().toISOString(),
+                origem: "OBRA_AUTO"
+              },
+              tenantId
+            )
+          )
+        )
+      );
+
+      basesCompletas = [
+        ...basesCompletas,
+        ...faltantes.map((item, idx) => ({ id: refs[idx].id, ...item, origem: "OBRA_AUTO" }))
+      ];
+    }
+
+    setBases(mapearBases(basesCompletas));
   };
 
   useEffect(() => {
@@ -185,10 +237,26 @@ function Bases({ setTela }) {
         const uf = normalizar(estado);
         const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`);
         const data = await res.json();
-        const lista = (Array.isArray(data) ? data : [])
+        const listaIbge = (Array.isArray(data) ? data : [])
           .map((c) => String(c?.nome || "").trim())
           .filter(Boolean)
           .sort((a, b) => a.localeCompare(b));
+
+        const [snapBases, snapObras] = await Promise.all([
+          getDocs(collection(db, "bases_operacionais")),
+          getDocs(collection(db, "obras"))
+        ]);
+
+        const cidadesLocais = [
+          ...snapBases.docs.map((d) => d.data()),
+          ...snapObras.docs.map((d) => d.data())
+        ]
+          .filter((item) => belongsToTenant(item, tenantId))
+          .filter((item) => normalizar(item.estado) === uf)
+          .map((item) => String(item.cidade || "").trim())
+          .filter(Boolean);
+
+        const lista = Array.from(new Set([...listaIbge, ...cidadesLocais])).sort((a, b) => a.localeCompare(b));
         if (ativo) setCidades(lista);
       } catch {
         if (ativo) setCidades([]);
